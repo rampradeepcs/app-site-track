@@ -66,7 +66,7 @@ export default function AdminOverview() {
                 <Link
                   key={p.id}
                   href={`/manager/project?id=${p.id}`}
-                  className="wf-card flex items-center gap-3.5 p-4 transition hover:border-[var(--wf-line-strong)]"
+                  className="wf-card flex min-w-0 items-center gap-3.5 p-4 transition hover:border-[var(--wf-line-strong)]"
                 >
                   <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[rgba(246,167,35,0.12)] text-[var(--wf-amber)]">
                     <IMapPin size={20} />
