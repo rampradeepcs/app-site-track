@@ -154,7 +154,7 @@ export function RouteReview({
         markers={markers}
         highlight={highlight}
         heightClass={compact ? "h-64" : "h-[340px] md:h-[420px]"}
-        mapStyle={state.settings.mapStyle === "satellite" ? "satellite" : "plan"}
+        mapStyle={state.settings.mapStyle}
       />
 
       {/* playback deck */}

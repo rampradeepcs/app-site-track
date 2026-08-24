@@ -50,7 +50,8 @@ import type {
 } from "./types";
 
 const STORAGE_KEY = "sitetrack.v3";
-const SEED_VERSION = 3;
+// Must match the version stamped by buildSeedState() in seed.ts.
+const SEED_VERSION = 4;
 
 let idCounter = Math.floor(Math.random() * 1e6);
 const rid = (p: string) => `${p}_${Date.now().toString(36)}_${(idCounter++).toString(36)}`;
@@ -95,6 +96,8 @@ interface StoreApi {
   /* mutations */
   submitWorkUpdate: (u: Partial<WorkUpdate> & { description: string }) => void;
   saveEmployee: (u: Partial<User> & { name: string }, id?: string) => User;
+  /** Super-admin: promote/demote a user between employee and manager. */
+  setUserRole: (userId: string, role: Role) => void;
   removeEmployeeFromProject: (userId: string, projectId: string) => void;
   assignEmployee: (userId: string, projectId: string) => void;
   saveProject: (p: Partial<Project> & { name: string }, id?: string) => Project;
@@ -756,6 +759,33 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     [mutate, pushNotification],
   );
 
+  const setUserRole = useCallback(
+    (userId: string, role: Role) => {
+      mutate((s) => {
+        const target = s.users.find((u) => u.id === userId);
+        // The seeded product owner cannot be demoted — someone must hold the keys.
+        if (!target || target.id === "usr_owner") return s;
+        const actor = s.session?.userId ?? "system";
+        return {
+          ...s,
+          users: s.users.map((u) => (u.id === userId ? { ...u, role } : u)),
+          audit: [
+            {
+              id: rid("aud"),
+              at: Date.now(),
+              actorId: actor,
+              action: "role-change",
+              target: userId,
+              detail: `${target.name} → ${role}`,
+            },
+            ...s.audit,
+          ].slice(0, 200),
+        };
+      });
+    },
+    [mutate],
+  );
+
   const saveEmployee = useCallback(
     (patch: Partial<User> & { name: string }, id?: string): User => {
       let saved: User | null = null;
@@ -966,6 +996,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     liveTrail,
     submitWorkUpdate,
     saveEmployee,
+    setUserRole,
     removeEmployeeFromProject,
     assignEmployee,
     saveProject,

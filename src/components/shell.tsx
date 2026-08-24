@@ -19,11 +19,15 @@ import {
   IHistory,
   IHome,
   IMap,
+  IShield,
   IUser,
   IUsers,
 } from "./WfIcons";
 
-/** Redirects to the gate when the required role isn't signed in. */
+/**
+ * Redirects to the gate when the required role isn't signed in.
+ * The super admin (product owner) may also browse manager surfaces.
+ */
 export function RoleGuard({
   role,
   children,
@@ -33,7 +37,9 @@ export function RoleGuard({
 }) {
   const { state } = useWorkforce();
   const router = useRouter();
-  const ok = state.session?.role === role;
+  const sessionRole = state.session?.role;
+  const ok =
+    sessionRole === role || (sessionRole === "admin" && role === "manager");
   useEffect(() => {
     if (!ok) router.replace("/");
   }, [ok, router]);
@@ -65,10 +71,28 @@ const MANAGER_TABS = [
   { href: "/manager/more", label: "More", icon: IMap },
 ];
 
+const ADMIN_TABS = [
+  { href: "/admin", label: "Overview", icon: IGrid },
+  { href: "/manager/projects", label: "Projects", icon: IHardHat },
+  { href: "/admin/team", label: "Team & Roles", icon: IUsers },
+  { href: "/manager/attendance", label: "Attendance", icon: ICalendar },
+  { href: "/admin/governance", label: "Governance", icon: IShield },
+];
+
 export function TabBar({ role }: { role: Role }) {
   const pathname = usePathname();
-  const tabs = role === "employee" ? EMPLOYEE_TABS : MANAGER_TABS;
-  const base = role === "employee" ? "/employee" : "/manager";
+  const { state } = useWorkforce();
+  // A signed-in super admin keeps the admin nav even on manager surfaces,
+  // so browsing projects/attendance never strands them in the manager shell.
+  const effective = state.session?.role === "admin" ? "admin" : role;
+  const tabs =
+    effective === "employee"
+      ? EMPLOYEE_TABS
+      : effective === "admin"
+        ? ADMIN_TABS
+        : MANAGER_TABS;
+  const base =
+    effective === "employee" ? "/employee" : effective === "admin" ? "/admin" : "/manager";
   return (
     <nav
       aria-label="Primary"

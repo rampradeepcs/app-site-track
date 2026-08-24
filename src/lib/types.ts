@@ -8,7 +8,7 @@
  * project's local calendar so a shift never straddles two "days".
  */
 
-export type Role = "employee" | "manager";
+export type Role = "employee" | "manager" | "admin";
 
 export type LatLng = { lat: number; lng: number };
 
@@ -294,7 +294,7 @@ export interface Settings {
   minMoveMeters: number;
   forceOffline: boolean;
   retentionDays: number;
-  mapStyle: "satellite" | "streets" | "plan";
+  mapStyle: "dark" | "light";
   units: "metric" | "imperial";
 }
 

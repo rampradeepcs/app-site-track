@@ -35,7 +35,11 @@ export default function WorkforceGate() {
   useEffect(() => {
     if (state.session) {
       router.replace(
-        state.session.role === "manager" ? "/manager" : "/employee",
+        state.session.role === "admin"
+          ? "/admin"
+          : state.session.role === "manager"
+            ? "/manager"
+            : "/employee",
       );
     }
   }, [state.session, router]);
@@ -55,12 +59,16 @@ export default function WorkforceGate() {
     () => state.users.find((u) => u.role === "manager") ?? null,
     [state.users],
   );
+  const owner = useMemo(
+    () => state.users.find((u) => u.role === "admin") ?? null,
+    [state.users],
+  );
 
   const submitOtp = () => {
     if (otp.some((d) => d === "")) return;
-    const user = role === "manager" ? manager : who;
+    const user = role === "admin" ? owner : role === "manager" ? manager : who;
     login(role, user?.id);
-    router.replace(role === "manager" ? "/manager" : "/employee");
+    router.replace(role === "admin" ? "/admin" : role === "manager" ? "/manager" : "/employee");
   };
 
   return (
@@ -132,6 +140,25 @@ export default function WorkforceGate() {
             </span>
             <IArrowR size={18} className="shrink-0 text-[var(--wf-faint)]" />
           </button>
+          <button
+            className="wf-card flex cursor-pointer items-center gap-4 p-5 text-left transition hover:border-[var(--wf-amber)]"
+            onClick={() => {
+              setRole("admin");
+              setWho(owner);
+              setStep("otp");
+            }}
+          >
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[rgba(167,139,250,0.14)] text-[var(--wf-violet)]">
+              <IShield size={26} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-bold">Product Owner / Super Admin</span>
+              <span className="block text-[0.8rem] text-[var(--wf-muted)]">
+                Org-wide oversight, roles, governance
+              </span>
+            </span>
+            <IArrowR size={18} className="shrink-0 text-[var(--wf-faint)]" />
+          </button>
           <p className="flex items-center justify-center gap-1.5 text-center text-[0.7rem] text-[var(--wf-faint)]">
             <IShield size={13} /> Location is tracked only during an active shift
           </p>
@@ -176,7 +203,7 @@ export default function WorkforceGate() {
         <div className="wf-fade-in flex flex-col gap-6">
           <button
             className="flex w-fit cursor-pointer items-center gap-1 text-sm font-semibold text-[var(--wf-muted)] hover:text-[var(--wf-fg)]"
-            onClick={() => setStep(role === "manager" ? "role" : "who")}
+            onClick={() => setStep(role === "employee" ? "who" : "role")}
           >
             <IChevronL size={16} /> Back
           </button>

@@ -414,13 +414,15 @@ function MoreInner() {
               </Field>
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold">Satellite map style</p>
-                  <p className="text-[0.72rem] text-[var(--wf-muted)]">Applies across all maps</p>
+                  <p className="text-sm font-semibold">Light map tiles</p>
+                  <p className="text-[0.72rem] text-[var(--wf-muted)]">
+                    Standard OpenStreetMap cartography instead of the dark theme
+                  </p>
                 </div>
                 <Toggle
-                  checked={state.settings.mapStyle === "satellite"}
-                  onChange={(v) => updateSettings({ mapStyle: v ? "satellite" : "plan" })}
-                  label="Satellite map style"
+                  checked={state.settings.mapStyle === "light"}
+                  onChange={(v) => updateSettings({ mapStyle: v ? "light" : "dark" })}
+                  label="Light map tiles"
                 />
               </div>
             </div>

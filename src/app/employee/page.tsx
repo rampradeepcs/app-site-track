@@ -203,10 +203,10 @@ export default function EmployeeHome() {
           follow={fix?.coords ?? null}
           accuracy={fix?.accuracy}
           heightClass="h-[300px]"
-          mapStyle={state.settings.mapStyle === "satellite" ? "satellite" : "plan"}
+          mapStyle={state.settings.mapStyle}
           onToggleStyle={() =>
             wf.updateSettings({
-              mapStyle: state.settings.mapStyle === "satellite" ? "plan" : "satellite",
+              mapStyle: state.settings.mapStyle === "dark" ? "light" : "dark",
             })
           }
         />
@@ -342,7 +342,7 @@ export default function EmployeeHome() {
           markers={markers}
           heightClass="h-56 rounded-none border-x-0 border-b-0"
           accuracy={fix?.accuracy}
-          mapStyle={state.settings.mapStyle === "satellite" ? "satellite" : "plan"}
+          mapStyle={state.settings.mapStyle}
         />
         <div className="flex items-center gap-3 border-t border-[var(--wf-line)] p-4">
           <span

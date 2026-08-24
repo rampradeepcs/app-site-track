@@ -96,7 +96,7 @@ export function Chip({
   tone = "neutral",
 }: {
   children: React.ReactNode;
-  tone?: "neutral" | "amber" | "green" | "red" | "blue";
+  tone?: "neutral" | "amber" | "green" | "red" | "blue" | "violet";
 }) {
   const map = {
     neutral: { bg: "rgba(148,163,184,0.13)", fg: "var(--wf-muted)" },
@@ -104,6 +104,7 @@ export function Chip({
     green: { bg: "rgba(47,211,118,0.14)", fg: "var(--wf-green)" },
     red: { bg: "rgba(244,87,77,0.14)", fg: "var(--wf-red)" },
     blue: { bg: "rgba(69,184,245,0.14)", fg: "var(--wf-blue)" },
+    violet: { bg: "rgba(167,139,250,0.15)", fg: "var(--wf-violet)" },
   }[tone];
   return (
     <span className="wf-chip" style={{ background: map.bg, color: map.fg }}>

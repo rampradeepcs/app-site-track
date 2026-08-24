@@ -1,13 +1,16 @@
 "use client";
 
 /**
- * SiteMap — the self-contained map engine behind every SiteTrack surface.
+ * SiteMap — the map engine behind every SiteTrack surface.
  *
- * Renders a pannable/zoomable Web-Mercator canvas in pure SVG: procedural
- * ground (schematic plan or satellite-style), the project geofence
- * (polygon or circle + buffer band), named site zones, movement polylines
- * with playback support, and rich markers. No tile servers → works fully
- * offline and inside the static export.
+ * Renders real OpenStreetMap raster tiles (© OpenStreetMap contributors,
+ * https://www.openstreetmap.org/copyright) on a pannable/zoomable
+ * Web-Mercator canvas in SVG, with the project geofence (polygon or
+ * circle + buffer band), named site zones, movement polylines with
+ * playback support, and rich markers on top. "dark" style runs the tiles
+ * through a CSS invert filter to match the app theme; "light" shows the
+ * standard OSM cartography. A procedural ground layer stays underneath as
+ * an offline fallback while tiles load (or when there is no network).
  */
 
 import {
@@ -56,6 +59,13 @@ interface View {
 
 const MIN_ZOOM = 14;
 const MAX_ZOOM = 20.5;
+/** OSM raster tiles top out at z19; beyond that we upscale the z19 tiles. */
+const MAX_TILE_ZOOM = 19;
+const TILE_URL = (z: number, x: number, y: number) =>
+  `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+/** Approximates a dark basemap from standard OSM tiles. */
+const DARK_TILE_FILTER =
+  "invert(0.93) hue-rotate(185deg) saturate(0.55) brightness(0.92) contrast(0.95)";
 
 function fitView(points: LatLng[], width: number, height: number): View {
   if (!points.length) return { center: { lat: 11.03, lng: 77.0 }, zoom: 16 };
@@ -92,7 +102,7 @@ export function SiteMap({
   onCenterDrag,
   heightClass = "h-72",
   showControls = true,
-  mapStyle = "plan",
+  mapStyle = "dark",
   onToggleStyle,
   interactive = true,
   accuracy,
@@ -112,7 +122,7 @@ export function SiteMap({
   onCenterDrag?: (p: LatLng) => void;
   heightClass?: string;
   showControls?: boolean;
-  mapStyle?: "plan" | "satellite";
+  mapStyle?: "dark" | "light";
   onToggleStyle?: () => void;
   interactive?: boolean;
   accuracy?: number;
@@ -351,6 +361,39 @@ export function SiteMap({
       .join(" ");
   }, [visibleTrail, toScreen, view]);
 
+  /* visible OSM tile set for the current view */
+  const tiles = useMemo(() => {
+    if (!view || dims.w <= 0 || dims.h <= 0) return [];
+    const tz = Math.max(3, Math.min(MAX_TILE_ZOOM, Math.round(view.zoom)));
+    const n = Math.pow(2, tz);
+    const size = world / n; // on-screen px per tile (256 * 2^(zoom - tz))
+    const normAt = (sx: number, sy: number) => ({
+      x: (sx - dims.w / 2 + centerPx.x) / world,
+      y: (sy - dims.h / 2 + centerPx.y) / world,
+    });
+    const a = normAt(0, 0);
+    const b = normAt(dims.w, dims.h);
+    const x0 = Math.floor(a.x * n);
+    const x1 = Math.floor(b.x * n);
+    const y0 = Math.max(0, Math.floor(a.y * n));
+    const y1 = Math.min(n - 1, Math.floor(b.y * n));
+    const out: Array<{ key: string; href: string; x: number; y: number; size: number }> = [];
+    for (let ty = y0; ty <= y1; ty++) {
+      for (let tx = x0; tx <= x1; tx++) {
+        const wx = ((tx % n) + n) % n; // wrap antimeridian
+        out.push({
+          key: `${tz}/${tx}/${ty}`,
+          href: TILE_URL(tz, wx, ty),
+          x: (tx / n) * world - centerPx.x + dims.w / 2,
+          y: (ty / n) * world - centerPx.y + dims.h / 2,
+          // Tiny overlap hides sub-pixel seams between scaled tiles.
+          size: size + 0.75,
+        });
+      }
+    }
+    return out.length > 300 ? [] : out;
+  }, [view, dims.w, dims.h, world, centerPx.x, centerPx.y]);
+
   if (!view) {
     return (
       <div
@@ -360,7 +403,7 @@ export function SiteMap({
     );
   }
 
-  const isSat = mapStyle === "satellite";
+  const isDark = mapStyle !== "light";
   const fencePath =
     activeFence && activeFence.kind === "polygon" && activeFence.polygon.length >= 3
       ? activeFence.polygon
@@ -381,7 +424,7 @@ export function SiteMap({
     <div
       ref={wrapRef}
       className={`relative touch-none select-none overflow-hidden rounded-2xl border border-[var(--wf-line)] ${heightClass}`}
-      style={{ background: isSat ? "#1a2416" : "#0d1420", cursor: interactive ? "grab" : "default" }}
+      style={{ background: isDark ? "#0d1420" : "#dfe6ec", cursor: interactive ? "grab" : "default" }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -397,11 +440,7 @@ export function SiteMap({
             <feColorMatrix
               in="n"
               type="matrix"
-              values={
-                isSat
-                  ? "0 0 0 0 0.16  0 0 0 0.5 0.22  0 0 0 0 0.10  0 0 0 0 1"
-                  : "0 0 0 0 0.07  0 0 0 0.25 0.10  0 0 0 0.6 0.15  0 0 0 0 1"
-              }
+              values="0 0 0 0 0.07  0 0 0 0.25 0.10  0 0 0 0.6 0.15  0 0 0 0 1"
             />
           </filter>
           <pattern id={`grid${uid}`} width={64} height={64} patternUnits="userSpaceOnUse">
@@ -413,25 +452,35 @@ export function SiteMap({
           </radialGradient>
         </defs>
 
-        {/* ground */}
-        <rect width={dims.w} height={dims.h} filter={`url(#terr${uid})`} opacity={isSat ? 0.9 : 0.75} />
-        {!isSat && <rect width={dims.w} height={dims.h} fill={`url(#grid${uid})`} />}
-        {isSat && (
-          <rect width={dims.w} height={dims.h} fill="rgba(8,12,6,0.25)" />
+        {/* offline/loading fallback ground under the tiles */}
+        {isDark && (
+          <>
+            <rect width={dims.w} height={dims.h} filter={`url(#terr${uid})`} opacity={0.75} />
+            <rect width={dims.w} height={dims.h} fill={`url(#grid${uid})`} />
+          </>
         )}
 
-        {/* access road hint from fence gate outward */}
-        {fenceCenter && (
-          <line
-            x1={fenceCenter.x - fenceRadiusPx * 1.8}
-            y1={fenceCenter.y + fenceRadiusPx * 1.7}
-            x2={fenceCenter.x + fenceRadiusPx * 0.4}
-            y2={fenceCenter.y - fenceRadiusPx * 2.2}
-            stroke={isSat ? "rgba(210,200,170,0.16)" : "rgba(148,163,184,0.12)"}
-            strokeWidth={Math.max(8, 12 / Math.max(0.5, mpp))}
-            strokeLinecap="round"
-          />
-        )}
+        {/* real OpenStreetMap tiles */}
+        <g style={isDark ? { filter: DARK_TILE_FILTER } : undefined}>
+          {tiles.map((t) => (
+            <image
+              key={t.key}
+              href={t.href}
+              x={t.x}
+              y={t.y}
+              width={t.size}
+              height={t.size}
+              preserveAspectRatio="none"
+            />
+          ))}
+        </g>
+        {/* keep overlays legible on busy cartography */}
+        <rect
+          width={dims.w}
+          height={dims.h}
+          fill={isDark ? "rgba(7,11,18,0.28)" : "rgba(255,255,255,0.12)"}
+          pointerEvents="none"
+        />
 
         {/* zones */}
         {project?.zones.map((z) => {
@@ -612,9 +661,9 @@ export function SiteMap({
           </MapBtn>
           {onToggleStyle && (
             <MapBtn
-              label={isSat ? "Switch to plan view" : "Switch to satellite view"}
+              label={isDark ? "Switch to light map" : "Switch to dark map"}
               onClick={onToggleStyle}
-              active={isSat}
+              active={!isDark}
             >
               <ILayers size={16} />
             </MapBtn>
@@ -632,6 +681,17 @@ export function SiteMap({
           {mpp < 1 ? `${Math.round(50)} m` : `${Math.round(Math.max(24, Math.min(90, 50 / mpp)) * mpp)} m`}
         </span>
       </div>
+
+      {/* OpenStreetMap attribution — required by the ODbL licence */}
+      <a
+        href="https://www.openstreetmap.org/copyright"
+        target="_blank"
+        rel="noreferrer"
+        className="absolute bottom-1.5 right-2 z-10 rounded bg-black/45 px-1.5 py-0.5 text-[0.56rem] font-medium text-white/85 no-underline backdrop-blur-sm"
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        © OpenStreetMap contributors
+      </a>
 
       {children}
     </div>

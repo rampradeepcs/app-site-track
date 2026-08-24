@@ -149,7 +149,7 @@ function ProjectInner() {
               project={project}
               markers={markers}
               heightClass="h-[320px]"
-              mapStyle={state.settings.mapStyle === "satellite" ? "satellite" : "plan"}
+              mapStyle={state.settings.mapStyle}
             />
             <div className="wf-card grid gap-3 p-4 text-[0.82rem] sm:grid-cols-2">
               <p className="flex items-center gap-2 text-[var(--wf-muted)]">

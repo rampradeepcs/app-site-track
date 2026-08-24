@@ -171,6 +171,22 @@ const EMPLOYEE_SPECS: Array<{
 ];
 
 function buildUsers(): User[] {
+  const owner: User = {
+    id: "usr_owner",
+    name: "Priya Venkatesh",
+    employeeCode: "NT-0001",
+    role: "admin",
+    designation: "Product Owner",
+    department: "Management",
+    phone: "+91 96003 09001",
+    email: "priya@nachitekneka.com",
+    avatarHue: 265,
+    status: "active",
+    projectIds: ["proj_abc", "proj_skyline"],
+    shiftStart: 9 * 60,
+    shiftEnd: 18 * 60,
+    joinedAt: Date.parse("2024-01-15T09:00:00+05:30"),
+  };
   const manager: User = {
     id: "usr_manager",
     name: "Rajesh Narayanan",
@@ -203,7 +219,7 @@ function buildUsers(): User[] {
     joinedAt: Date.parse("2025-11-10T09:00:00+05:30") + i * 86400000,
     supervisorRating: 3.4 + ((i * 37) % 16) / 10,
   }));
-  return [manager, ...employees];
+  return [owner, manager, ...employees];
 }
 
 /* ----------------------------------------------------- movement synthesis */
@@ -354,7 +370,7 @@ function synthTrail(
 export function buildSeedState(now = Date.now()): WorkforceState {
   const rng = mulberry32(0x5eed1e);
   const users = buildUsers();
-  const manager = users[0];
+  const manager = users.find((u) => u.role === "manager")!;
   const projects = buildProjects(manager.id);
   const employees = users.filter((u) => u.role === "employee");
   for (const p of projects) {
@@ -526,7 +542,7 @@ export function buildSeedState(now = Date.now()): WorkforceState {
   notifications.sort((a, b) => b.at - a.at);
 
   return {
-    version: 3,
+    version: 4,
     users,
     projects,
     attendance,
@@ -552,7 +568,7 @@ export function buildSeedState(now = Date.now()): WorkforceState {
       minMoveMeters: 3,
       forceOffline: false,
       retentionDays: 90,
-      mapStyle: "plan",
+      mapStyle: "dark",
       units: "metric",
     },
     session: null,

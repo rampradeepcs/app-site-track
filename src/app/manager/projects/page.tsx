@@ -63,7 +63,7 @@ export default function ManagerProjects() {
                 heightClass="h-36 rounded-none border-0"
                 showControls={false}
                 interactive={false}
-                mapStyle={state.settings.mapStyle === "satellite" ? "satellite" : "plan"}
+                mapStyle={state.settings.mapStyle}
               />
               <div className="p-4">
                 <div className="flex items-start justify-between gap-2">
