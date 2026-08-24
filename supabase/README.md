@@ -25,6 +25,22 @@ Regenerate types after any schema change:
 npx supabase gen types typescript --project-id <ref> > src/lib/supabase/types.ts
 ```
 
+## How the two modes hydrate
+
+Both stores seed locally first, then — only when credentials are present —
+replace the tenant-owned slices with real rows:
+
+- `WorkforceProvider` swaps in users, projects, attendance and work updates.
+  Settings, permissions and the session stay local: those are device
+  preferences, not tenant data.
+- `PlatformProvider` swaps in organisations, plans, subscriptions, invoices
+  and usage. The same query serves both audiences — RLS decides whether the
+  caller sees one organisation or all of them.
+
+A hydration failure is deliberately non-fatal. The app logs and keeps running
+on what it already has, rather than showing a worker an empty screen at the
+site gate.
+
 ## Tenant isolation
 
 Isolation is enforced **in the database**, not in the app. The client store

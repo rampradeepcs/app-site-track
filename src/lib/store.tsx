@@ -33,6 +33,8 @@ import {
 } from "./geo";
 import { todayISO } from "./format";
 import { buildSeedState, makeSelfie } from "./seed";
+import { isLiveBackend } from "./supabase/client";
+import { fetchWorkforce } from "./supabase/repository";
 import type {
   AppNotification,
   Attendance,
@@ -198,6 +200,36 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     // so the initial state has to land in an effect.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setState(next);
+
+    // Live mode: replace the seeded people/projects/attendance with the
+    // signed-in tenant's real rows. Settings, permissions and the session
+    // stay local — they are device preferences, not tenant data. A failure
+    // here is non-fatal: the app keeps running on what it already has rather
+    // than showing a worker an empty screen at the site gate.
+    if (isLiveBackend) {
+      let cancelled = false;
+      fetchWorkforce()
+        .then((live) => {
+          if (cancelled) return;
+          setState((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  users: live.users,
+                  projects: live.projects,
+                  attendance: live.attendance,
+                  updates: live.updates,
+                }
+              : prev,
+          );
+        })
+        .catch((err) => {
+          console.error("[SiteTrack] Supabase hydration failed; staying on local state.", err);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
   }, []);
 
   /* persist (debounced via rAF batching of React updates) */

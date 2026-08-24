@@ -21,6 +21,8 @@ import {
   useState,
 } from "react";
 import { seedPlatform } from "./saas-seed";
+import { isLiveBackend } from "./supabase/client";
+import { fetchPlatform } from "./supabase/repository";
 import type {
   BillingProfile,
   FeatureSet,
@@ -114,6 +116,35 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
       /* corrupt or unavailable storage → fall back to a fresh seed */
     }
     setPlatform(next);
+
+    // Live mode: commercial state comes from Postgres. RLS decides what this
+    // caller may see, so a client admin gets only their own organisation here
+    // while the platform owner gets every tenant — from the same query.
+    if (isLiveBackend) {
+      let cancelled = false;
+      fetchPlatform()
+        .then((live) => {
+          if (cancelled) return;
+          setPlatform((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  organizations: live.organizations,
+                  plans: live.plans,
+                  subscriptions: live.subscriptions,
+                  invoices: live.invoices,
+                  usage: live.usage,
+                }
+              : prev,
+          );
+        })
+        .catch((err) => {
+          console.error("[SiteTrack] Supabase platform hydration failed; staying local.", err);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
   }, []);
 
   /* persist */
