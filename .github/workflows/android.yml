@@ -6,6 +6,9 @@ on:
     paths: ["src/**", "android/**", "capacitor.config.ts", "package.json", ".github/workflows/android.yml"]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -40,11 +43,30 @@ jobs:
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
 
+      # Artifact upload is best-effort: it fails outright when the account's
+      # Actions storage quota is full, and that must not fail a green build.
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: sitetrack-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+      # Primary delivery: a rolling prerelease. Release assets are not subject
+      # to the Actions artifact quota, so the APK stays downloadable even when
+      # artifact storage is exhausted.
+      - name: Publish APK to rolling release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk=$(ls android/app/build/outputs/apk/debug/*.apk | head -1)
+          cp "$apk" "sitetrack-debug-${GITHUB_SHA::7}.apk"
+          gh release delete android-latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create android-latest \
+            --title "SiteTrack Android (latest debug build)" \
+            --notes "Debug APK from \`${GITHUB_SHA::7}\`. Unsigned — enable *Install unknown apps* to sideload." \
+            --prerelease \
+            "sitetrack-debug-${GITHUB_SHA::7}.apk"
 
       # A release build needs a keystore. Add these repository secrets and the
       # step below produces a signed, installable release APK:
@@ -68,6 +90,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         if: env.HAS_KEYSTORE == 'true'
+        continue-on-error: true
         with:
           name: sitetrack-release-apk
           path: android/app/build/outputs/apk/release/*.apk
