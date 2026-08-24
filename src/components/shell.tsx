@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
 import type { Role } from "@/lib/types";
 import { Avatar, BottomSheet, Chip } from "./ui";
@@ -40,8 +41,12 @@ export function RoleGuard({
   const { state } = useWorkforce();
   const router = useRouter();
   const sessionRole = state.session?.role;
+  // A super admin may enter client surfaces (they arrive by impersonation);
+  // a client admin may use the manager surfaces inside their own org.
   const ok =
-    sessionRole === role || (sessionRole === "admin" && role === "manager");
+    sessionRole === role ||
+    (sessionRole === "superadmin" && role !== "employee") ||
+    (sessionRole === "admin" && role === "manager");
   useEffect(() => {
     if (!ok) router.replace("/");
   }, [ok, router]);
@@ -86,7 +91,10 @@ export function TabBar({ role }: { role: Role }) {
   const { state } = useWorkforce();
   // A signed-in super admin keeps the admin nav even on manager surfaces,
   // so browsing projects/attendance never strands them in the manager shell.
-  const effective = state.session?.role === "admin" ? "admin" : role;
+  const effective =
+    state.session?.role === "admin" || state.session?.role === "superadmin"
+      ? "admin"
+      : role;
   const tabs =
     effective === "employee"
       ? EMPLOYEE_TABS
@@ -154,6 +162,32 @@ export function StatusStrip() {
 
 /* ------------------------------------------------------------- header */
 
+/**
+ * Shown at the top of every client surface while a Super Admin is viewing a
+ * tenant's workspace, so it is never ambiguous whose data is on screen.
+ */
+export function ImpersonationBanner() {
+  const { platform, stopImpersonation } = usePlatform();
+  const router = useRouter();
+  const imp = platform.impersonating;
+  if (!imp) return null;
+  const org = platform.organizations.find((o) => o.id === imp.orgId);
+  return (
+    <div className="sticky top-0 z-50 flex flex-wrap items-center justify-center gap-2 bg-[var(--wf-violet)] px-4 py-2 text-center text-[0.76rem] font-bold text-[#1b1030]">
+      Super Admin view — {org?.name ?? "client"} · audited
+      <button
+        className="cursor-pointer rounded-md bg-black/20 px-2 py-0.5 text-[0.7rem] hover:bg-black/30"
+        onClick={() => {
+          stopImpersonation();
+          router.push("/platform/clients");
+        }}
+      >
+        Return to platform
+      </button>
+    </div>
+  );
+}
+
 export function ScreenHeader({
   title,
   sub,
@@ -208,7 +242,13 @@ export function AccountMenu() {
 
   const role = state.session?.role ?? currentUser.role;
   const roleLabel =
-    role === "admin" ? "Product Owner" : role === "manager" ? "Manager" : "Employee";
+    role === "superadmin"
+      ? "Product Owner"
+      : role === "admin"
+        ? "Client Admin"
+        : role === "manager"
+          ? "Manager"
+          : "Employee";
 
   return (
     <>
@@ -231,7 +271,15 @@ export function AccountMenu() {
                 {currentUser.designation} · {currentUser.employeeCode}
               </p>
             </div>
-            <Chip tone={role === "admin" ? "violet" : role === "manager" ? "amber" : "blue"}>
+            <Chip
+              tone={
+                role === "superadmin" || role === "admin"
+                  ? "violet"
+                  : role === "manager"
+                    ? "amber"
+                    : "blue"
+              }
+            >
               {roleLabel}
             </Chip>
           </div>

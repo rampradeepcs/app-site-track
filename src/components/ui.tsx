@@ -301,28 +301,67 @@ export function Toggle({
 
 /* -------------------------------------------------------- bottom sheet */
 
+const FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
 export function BottomSheet({
   open,
   onClose,
   title,
   children,
   tall,
+  wide,
 }: {
   open: boolean;
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
   tall?: boolean;
+  /** Roomier column for the desktop platform console. */
+  wide?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
+    const sheet = ref.current;
+    const restoreTo = document.activeElement as HTMLElement | null;
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      // Trap Tab inside the dialog: without this, focus walks onto the page
+      // behind the scrim, where aria-modal has already hidden it from AT.
+      if (e.key !== "Tab" || !sheet) return;
+      const items = [...sheet.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+        (el) => el.offsetParent !== null || el === document.activeElement,
+      );
+      if (items.length === 0) {
+        e.preventDefault();
+        sheet.focus();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (!e.shiftKey && (active === last || !sheet.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && (active === first || !sheet.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      }
     };
+
     window.addEventListener("keydown", onKey);
-    ref.current?.focus();
-    return () => window.removeEventListener("keydown", onKey);
+    sheet?.focus();
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      // Send focus back where it came from, so closing never dumps the user
+      // at the top of the document.
+      restoreTo?.focus?.();
+    };
   }, [open, onClose]);
 
   if (!open) return null;
@@ -339,9 +378,9 @@ export function BottomSheet({
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className={`wf-sheet-in absolute inset-x-0 bottom-0 mx-auto flex w-full max-w-[430px] flex-col rounded-t-3xl border border-b-0 border-[var(--wf-line)] bg-[var(--wf-surface)] ${
-          tall ? "max-h-[92dvh]" : "max-h-[80dvh]"
-        }`}
+        className={`wf-sheet-in absolute inset-x-0 bottom-0 mx-auto flex w-full flex-col rounded-t-3xl border border-b-0 border-[var(--wf-line)] bg-[var(--wf-surface)] ${
+          wide ? "max-w-[720px]" : "max-w-[430px]"
+        } ${tall ? "max-h-[92dvh]" : "max-h-[80dvh]"}`}
       >
         <div className="flex items-center justify-between gap-3 px-5 pb-2 pt-3">
           <span className="mx-auto -mt-0.5 mb-1 block h-1 w-10 shrink-0 rounded-full bg-[var(--wf-line-strong)]" />

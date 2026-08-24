@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { FeatureGate } from "./FeatureGate";
 import type { MapMarker } from "./SiteMap";
 import { SiteMap } from "./SiteMap";
 import {
@@ -157,7 +158,8 @@ export function RouteReview({
         mapStyle={state.settings.mapStyle}
       />
 
-      {/* playback deck */}
+      {/* playback deck — a paid capability on most plans */}
+      <FeatureGate feature="routePlayback" compact>
       {trail.length > 1 ? (
         <div className="wf-card2 p-3.5">
           <div className="flex items-center gap-3">
@@ -218,6 +220,7 @@ export function RouteReview({
           No movement points recorded for this day.
         </p>
       )}
+      </FeatureGate>
 
       {/* stats strip */}
       <div className="grid grid-cols-3 gap-2.5">

@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
 import { EmployeeEditor } from "@/components/EmployeeEditor";
+import { UpgradeNotice, useLimitGuard } from "@/components/FeatureGate";
 import {
   Avatar,
   Chip,
@@ -30,6 +31,7 @@ export default function WorkforcePage() {
   const [editing, setEditing] = useState<User | null | "new">(null);
 
   const board = useMemo(() => liveBoard(state, undefined, now), [state, now]);
+  const seats = useLimitGuard("employees");
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -49,12 +51,28 @@ export default function WorkforcePage() {
         title="Workforce"
         sub={`${board.length} active employees`}
         action={
-          <button className="wf-btn wf-btn-primary wf-btn-sm" onClick={() => setEditing("new")}>
+          <button
+            className="wf-btn wf-btn-primary wf-btn-sm"
+            disabled={seats.blocked}
+            title={seats.blocked ? seats.message : undefined}
+            onClick={() => setEditing("new")}
+          >
             <IPlus size={15} /> Add
           </button>
         }
       />
       <div className="flex flex-col gap-3.5 px-4">
+        {seats.reached && (
+          <UpgradeNotice
+            title={seats.message}
+            body={
+              seats.blocked
+                ? "New employees can't be added until the limit is raised. Ask your administrator to upgrade the subscription."
+                : "You're over the included allowance — additional seats are billed as overage on the next invoice."
+            }
+            compact
+          />
+        )}
         <div className="relative">
           <ISearch size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]" />
           <input

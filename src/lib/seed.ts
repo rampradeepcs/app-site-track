@@ -13,6 +13,9 @@ import {
   resolvePlace,
 } from "./geo";
 import { isoAddDays, todayISO } from "./format";
+/** Every seeded record belongs to the demo client org. */
+export const DEMO_ORG_ID = "org_abc";
+
 import type {
   AppNotification,
   Attendance,
@@ -70,6 +73,7 @@ function polygonAround(center: LatLng, radii: number[], rot = 0): LatLng[] {
 function buildProjects(managerId: string): Project[] {
   const a: Project = {
     id: "proj_abc",
+    orgId: DEMO_ORG_ID,
     code: "NT-CW-101",
     name: "ABC Construction Site",
     client: "ABC Infra Developers",
@@ -114,6 +118,7 @@ function buildProjects(managerId: string): Project[] {
 
   const b: Project = {
     id: "proj_skyline",
+    orgId: DEMO_ORG_ID,
     code: "NT-CW-104",
     name: "Skyline Tech Park — Phase 2",
     client: "Skyline Estates",
@@ -173,9 +178,11 @@ const EMPLOYEE_SPECS: Array<{
 function buildUsers(): User[] {
   const owner: User = {
     id: "usr_owner",
+    // The platform Super Admin sits above every tenant, so has no orgId.
+    orgId: "",
     name: "Priya Venkatesh",
     employeeCode: "NT-0001",
-    role: "admin",
+    role: "superadmin",
     designation: "Product Owner",
     department: "Management",
     phone: "+91 96003 09001",
@@ -189,6 +196,7 @@ function buildUsers(): User[] {
   };
   const manager: User = {
     id: "usr_manager",
+    orgId: DEMO_ORG_ID,
     name: "Rajesh Narayanan",
     employeeCode: "NT-0101",
     role: "manager",
@@ -205,6 +213,7 @@ function buildUsers(): User[] {
   };
   const employees = EMPLOYEE_SPECS.map((s, i): User => ({
     id: `usr_${s.code.toLowerCase().replace("-", "")}`,
+    orgId: DEMO_ORG_ID,
     name: s.name,
     employeeCode: s.code,
     role: "employee",

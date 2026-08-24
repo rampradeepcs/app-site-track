@@ -56,6 +56,42 @@ const SEED_VERSION = 4;
 let idCounter = Math.floor(Math.random() * 1e6);
 const rid = (p: string) => `${p}_${Date.now().toString(36)}_${(idCounter++).toString(36)}`;
 
+/**
+ * Tenant of the signed-in user. New records inherit it, so a manager can
+ * never create a record that lands in another client's data.
+ */
+function currentOrgId(s: WorkforceState): string {
+  const u = s.users.find((x) => x.id === s.session?.userId);
+  return u?.orgId ?? "";
+}
+
+/**
+ * Narrow the state to a single tenant. Applied to `state` before it reaches
+ * any client surface, so a manager or employee physically cannot read another
+ * client's people, projects, attendance, routes or updates — isolation is a
+ * property of the data they receive, not of each screen remembering to filter.
+ *
+ * The platform Super Admin has no org and is deliberately exempt.
+ */
+function scopeToTenant(s: WorkforceState): WorkforceState {
+  const me = s.users.find((x) => x.id === s.session?.userId);
+  if (!me || me.role === "superadmin" || !me.orgId) return s;
+  const orgId = me.orgId;
+  const projectIds = new Set(
+    s.projects.filter((p) => p.orgId === orgId).map((p) => p.id),
+  );
+  const userIds = new Set(s.users.filter((u) => u.orgId === orgId).map((u) => u.id));
+  return {
+    ...s,
+    users: s.users.filter((u) => u.orgId === orgId),
+    projects: s.projects.filter((p) => p.orgId === orgId),
+    attendance: s.attendance.filter((a) => projectIds.has(a.projectId)),
+    points: s.points.filter((pt) => userIds.has(pt.employeeId)),
+    updates: s.updates.filter((u) => userIds.has(u.employeeId)),
+    notifications: s.notifications.filter((n) => !n.userId || userIds.has(n.userId)),
+  };
+}
+
 /* ----------------------------------------------------------- live fix */
 
 export interface LiveFix {
@@ -800,6 +836,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         }
         const created: User = {
           id: rid("usr"),
+          orgId: patch.orgId ?? currentOrgId(s),
           name: patch.name,
           employeeCode: patch.employeeCode ?? `NT-${String(Math.floor(Math.random() * 900) + 100)}`,
           role: "employee",
@@ -883,6 +920,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         const loc = patch.location ?? { lat: 11.03, lng: 77.0 };
         const created: Project = {
           id: rid("proj"),
+          orgId: patch.orgId ?? currentOrgId(s),
           code: patch.code ?? `NT-CW-${Math.floor(Math.random() * 900) + 100}`,
           name: patch.name,
           client: patch.client ?? "",
@@ -979,7 +1017,8 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     return <WorkforceBoot />;
   }
   const api: StoreApi = {
-    state,
+    // Consumers only ever see their own tenant's slice.
+    state: scopeToTenant(state),
     hydrated: true,
     online,
     login,

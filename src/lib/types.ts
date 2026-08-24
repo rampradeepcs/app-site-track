@@ -8,7 +8,14 @@
  * project's local calendar so a shift never straddles two "days".
  */
 
-export type Role = "employee" | "manager" | "admin";
+/**
+ * Access levels, lowest to highest:
+ *   employee   — own attendance and shift only
+ *   manager    — the projects they run, inside their client org
+ *   admin      — Client Owner/Admin: everything inside their client org
+ *   superadmin — Product Owner: the platform itself, across all clients
+ */
+export type Role = "employee" | "manager" | "admin" | "superadmin";
 
 export type LatLng = { lat: number; lng: number };
 
@@ -18,6 +25,8 @@ export type EmployeeStatus = "active" | "inactive" | "on-leave";
 
 export interface User {
   id: string;
+  /** Owning tenant. Empty for the platform Super Admin, who has no org. */
+  orgId: string;
   name: string;
   employeeCode: string;
   role: Role;
@@ -69,6 +78,8 @@ export interface SiteZone {
 
 export interface Project {
   id: string;
+  /** Owning tenant — every project read is scoped by this. */
+  orgId: string;
   code: string;
   name: string;
   client: string;

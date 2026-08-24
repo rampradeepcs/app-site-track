@@ -55,7 +55,11 @@ static `out/` directory for any static host.
 
 ## Structure
 
-- `src/lib/` — domain layer: types, geospatial math (haversine, ray-cast
+- `src/lib/saas-types.ts`, `saas-seed.ts`, `saas-metrics.ts`, `entitlements.ts`,
+  `platform-store.tsx` — the multi-tenant layer: organisations, plans,
+  subscriptions, invoices, usage, health scoring and the append-only platform
+  audit trail.
+- `src/lib/` — workforce domain layer: types, geospatial math (haversine, ray-cast
   point-in-polygon, Web-Mercator), seeded dataset, client store (persistence,
   tracking engine, geofence watcher, offline outbox), derived analytics and
   CSV/print report builders.

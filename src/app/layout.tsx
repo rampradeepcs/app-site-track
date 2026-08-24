@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
+import { PlatformProvider } from "@/lib/platform-store";
 import { WorkforceProvider } from "@/lib/store";
 
 const display = Space_Grotesk({
@@ -41,7 +42,9 @@ export default function RootLayout({
     <html lang="en" className={`${display.variable} ${sans.variable} antialiased`}>
       <body>
         <div className="wf min-h-dvh">
-          <WorkforceProvider>{children}</WorkforceProvider>
+          <PlatformProvider>
+            <WorkforceProvider>{children}</WorkforceProvider>
+          </PlatformProvider>
         </div>
       </body>
     </html>

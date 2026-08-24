@@ -196,3 +196,11 @@ export const IStop = (p: IconProps) => (
 export const ISatellite = (p: IconProps) => (
   <Icon {...p}><path d="m9 7.5 7.5 7.5M13 3.5 20.5 11l-3.2 3.2-7.5-7.5L13 3.5Z" /><path d="m6.8 9.7-3.3 3.2L11 20.5l3.2-3.3" /><path d="M8.5 19.5c-2.2.6-4-.1-4-.1s-.7-1.8-.1-4" /></Icon>
 );
+
+export const ILock = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="4" y="10.5" width="16" height="10" rx="2.2" />
+    <path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9" />
+    <circle cx="12" cy="15.4" r="1.3" />
+  </Icon>
+);

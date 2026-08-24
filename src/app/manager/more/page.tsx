@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BarTrend, ScoreBars } from "@/components/charts";
+import { FeatureGate, UpgradeNotice, useFeature } from "@/components/FeatureGate";
 import { ScreenHeader } from "@/components/shell";
 import {
   Avatar,
@@ -86,6 +87,8 @@ function MoreInner() {
   const stats = useMemo(() => dashboardStats(state, now), [state, now]);
   const trend = useMemo(() => attendanceTrend(state, 14, undefined, now), [state, now]);
   const alerts = state.notifications.filter((n) => n.audience === "manager");
+  const canExport = useFeature("dataExport");
+  const canAdvancedReports = useFeature("advancedReports");
 
   const setTab = (t: Tab) => {
     router.replace(`/manager/more${t === "reports" ? "" : `?tab=${t}`}`);
@@ -153,6 +156,13 @@ function MoreInner() {
 
         {tab === "reports" && (
           <>
+            {!canExport && (
+              <UpgradeNotice
+                title="Export isn't available on your current plan."
+                body="Reports stay viewable in-app. Ask your administrator to upgrade to download CSV or PDF copies."
+                compact
+              />
+            )}
             <div className="wf-card p-4">
               <SectionTitle>Attendance % — last 14 working days</SectionTitle>
               <BarTrend
@@ -170,6 +180,7 @@ function MoreInner() {
                 <>
                   <button
                     className="wf-btn wf-btn-ghost wf-btn-sm"
+                    disabled={!canExport}
                     onClick={() => downloadCSV(`attendance-${todayISO(now)}.csv`, attendanceCSV(state, todayISO(now)))}
                   >
                     <IDownload size={14} /> CSV
@@ -193,7 +204,7 @@ function MoreInner() {
               title="Project workforce report"
               body="Workforce by project, onsite counts and attendance trends."
               actions={
-                <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={workforcePdf}>
+                <button className="wf-btn wf-btn-ghost wf-btn-sm" disabled={!canExport} onClick={workforcePdf}>
                   <IFile size={14} /> PDF
                 </button>
               }
@@ -202,7 +213,7 @@ function MoreInner() {
               title="Performance report"
               body="Scores across attendance, punctuality, hours, updates and rating."
               actions={
-                <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={performanceCSVExport}>
+                <button className="wf-btn wf-btn-ghost wf-btn-sm" disabled={!canExport || !canAdvancedReports} onClick={performanceCSVExport}>
                   <IDownload size={14} /> CSV
                 </button>
               }
@@ -213,6 +224,7 @@ function MoreInner() {
               actions={
                 <button
                   className="wf-btn wf-btn-ghost wf-btn-sm"
+                  disabled={!canExport}
                   onClick={() => downloadCSV("attendance-all.csv", attendanceCSV(state))}
                 >
                   <IDownload size={14} /> CSV
@@ -223,7 +235,7 @@ function MoreInner() {
         )}
 
         {tab === "performance" && (
-          <>
+          <FeatureGate feature="performance">
             {attention.length > 0 && (
               <div className="wf-card border-[rgba(246,167,35,0.35)] p-4">
                 <SectionTitle>Needs attention</SectionTitle>
@@ -297,7 +309,7 @@ function MoreInner() {
                 an operational presence signal, not a productivity measure.
               </p>
             </div>
-          </>
+          </FeatureGate>
         )}
 
         {tab === "updates" && (

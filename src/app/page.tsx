@@ -35,8 +35,8 @@ export default function WorkforceGate() {
   useEffect(() => {
     if (state.session) {
       router.replace(
-        state.session.role === "admin"
-          ? "/admin"
+        state.session.role === "superadmin"
+          ? "/platform"
           : state.session.role === "manager"
             ? "/manager"
             : "/employee",
@@ -60,15 +60,17 @@ export default function WorkforceGate() {
     [state.users],
   );
   const owner = useMemo(
-    () => state.users.find((u) => u.role === "admin") ?? null,
+    () => state.users.find((u) => u.role === "superadmin") ?? null,
     [state.users],
   );
 
   const submitOtp = () => {
     if (otp.some((d) => d === "")) return;
-    const user = role === "admin" ? owner : role === "manager" ? manager : who;
+    const user = role === "superadmin" ? owner : role === "manager" ? manager : who;
     login(role, user?.id);
-    router.replace(role === "admin" ? "/admin" : role === "manager" ? "/manager" : "/employee");
+    router.replace(
+      role === "superadmin" ? "/platform" : role === "manager" ? "/manager" : "/employee",
+    );
   };
 
   return (
@@ -143,7 +145,7 @@ export default function WorkforceGate() {
           <button
             className="wf-card flex cursor-pointer items-center gap-4 p-5 text-left transition hover:border-[var(--wf-amber)]"
             onClick={() => {
-              setRole("admin");
+              setRole("superadmin");
               setWho(owner);
               setStep("otp");
             }}
@@ -154,7 +156,7 @@ export default function WorkforceGate() {
             <span className="min-w-0 flex-1">
               <span className="block font-bold">Product Owner / Super Admin</span>
               <span className="block text-[0.8rem] text-[var(--wf-muted)]">
-                Org-wide oversight, roles, governance
+                Tenants, subscriptions, billing, platform analytics
               </span>
             </span>
             <IArrowR size={18} className="shrink-0 text-[var(--wf-faint)]" />
