@@ -67,6 +67,33 @@ Negative cases, all confirmed:
 - `delete from platform_audit` as super admin → **DELETE 0** (no delete policy
   exists, so the audit trail is append-only even for the platform owner)
 
+## Auth and identity linking
+
+`20260824000400_auth_link.sql` links a new Supabase auth identity to the
+workforce record that already exists for that person. Employees are enrolled
+by their manager long before they first sign in, so a new identity has to find
+its existing row rather than create a second one. Matching is by phone first
+(site workers are enrolled by number), then email; phone comparison is on
+digits only, because records are typed as `+91 98942 10214` while Supabase
+stores E.164.
+
+This is not optional polish. Without it a worker signs in successfully but
+their record still has `auth_id = null`, so `auth_org_id()` resolves to
+nothing, every policy denies, and a legitimately authenticated person sees
+empty screens.
+
+Verified against PostgreSQL 16:
+
+| Case | Result |
+|---|---|
+| Phone match despite punctuation | linked |
+| Email match, different casing | linked |
+| Identity matching nobody | claims 0 rows, does not hijack a linked record |
+| Linked worker under RLS | resolves to their org; sees 1 project, 0 from the other tenant, 0 invoices |
+
+`link_user_to_auth(user, auth)` lets the platform owner attach an identity by
+hand — for a changed number, or an invite that matched nothing.
+
 ## Retention
 
 `purge_expired_location_points()` deletes location history past each client's
