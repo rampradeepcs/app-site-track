@@ -7,7 +7,15 @@ import type { NextConfig } from "next";
  */
 const nextConfig: NextConfig = {
   turbopack: { root: __dirname },
-  ...(process.env.STATIC_EXPORT === "true" ? { output: "export" as const } : {}),
+  ...(process.env.STATIC_EXPORT === "true"
+    ? {
+        output: "export" as const,
+        // Capacitor serves the export off the device filesystem, so routes
+        // must resolve to <route>/index.html rather than <route>.html.
+        trailingSlash: true,
+        images: { unoptimized: true },
+      }
+    : {}),
 };
 
 export default nextConfig;

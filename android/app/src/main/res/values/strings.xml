@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SiteTrack</string>
+    <string name="title_activity_main">SiteTrack</string>
+    <string name="package_name">app.sitetrack.workforce</string>
+    <string name="custom_url_scheme">app.sitetrack.workforce</string>
+</resources>

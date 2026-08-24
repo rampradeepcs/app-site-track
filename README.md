@@ -77,3 +77,41 @@ light-cartography toggle in settings, and a procedural fallback ground so the
 map stays usable offline while tiles can't load.
 
 Stack: Next.js 16 (App Router) · React 19 · Tailwind CSS v4.
+
+## Android
+
+The employee app ships as a native Android wrapper via Capacitor. The Next.js
+app is exported statically and served from the device, so the shell works with
+no signal — a worker on a site without coverage can still check in, and the
+outbox syncs when connectivity returns.
+
+```bash
+STATIC_EXPORT=true npm run build   # produce out/
+npx cap sync android               # copy into the Android project
+cd android && ./gradlew assembleDebug
+# → android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Needs JDK 21 and the Android SDK (via Android Studio, or
+`sdkmanager "platforms;android-35" "build-tools;35.0.0"`).
+
+**No local Android setup?** Push to `main` and the
+`.github/workflows/android.yml` workflow builds the APK and uploads it as a
+run artifact. Add `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
+`ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD` as repository secrets and it
+also produces a signed release APK.
+
+### Permissions
+
+Declared in `android/app/src/main/AndroidManifest.xml`, each tied to a feature:
+
+| Permission | Why |
+|---|---|
+| `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION` | Geofence validation and route recording. Coarse is declared too because Android 12+ allows approximate-only grants; the app degrades to a distance estimate rather than failing. |
+| `ACCESS_BACKGROUND_LOCATION` | Keeps the route recording while the phone is pocketed. Requested separately, only after check-in, and never held outside an active shift. |
+| `FOREGROUND_SERVICE_LOCATION`, `POST_NOTIFICATIONS` | The persistent "tracking active" notification, which is what makes the tracking visible to the worker. |
+| `CAMERA` | Check-in / checkout selfies and work-update photos. |
+
+`ACCESS_BACKGROUND_LOCATION` requires a Play Store justification: tracking runs
+only between check-in and checkout, is disclosed in-app before it starts, and
+is visible throughout via the foreground-service notification.
