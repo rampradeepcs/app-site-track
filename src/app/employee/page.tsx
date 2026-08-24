@@ -13,7 +13,7 @@ import { useMemo, useState } from "react";
 import { SiteMap, type MapMarker } from "@/components/SiteMap";
 import { SelfieCapture } from "@/components/SelfieCapture";
 import { WorkUpdateForm } from "@/components/WorkUpdateForm";
-import { NotificationBell } from "@/components/shell";
+import { AccountMenu, NotificationBell } from "@/components/shell";
 import {
   Avatar,
   BottomSheet,
@@ -194,6 +194,7 @@ export default function EmployeeHome() {
             </div>
           </div>
           <NotificationBell role="employee" />
+          <AccountMenu />
         </div>
 
         <SiteMap
@@ -301,6 +302,7 @@ export default function EmployeeHome() {
           </h1>
         </div>
         <NotificationBell role="employee" />
+          <AccountMenu />
       </div>
 
       {/* project card */}
@@ -313,8 +315,9 @@ export default function EmployeeHome() {
             <h2 className="wf-display mt-0.5 truncate text-[1.15rem] font-bold">
               {project.name}
             </h2>
-            <p className="mt-0.5 flex items-center gap-1 truncate text-[0.76rem] text-[var(--wf-muted)]">
-              <IMapPin size={12} className="shrink-0" /> {project.address}
+            <p className="mt-0.5 flex min-w-0 items-center gap-1 text-[0.76rem] text-[var(--wf-muted)]">
+              <IMapPin size={12} className="shrink-0" />
+              <span className="truncate">{project.address}</span>
             </p>
           </div>
           {todayRec?.checkOut ? (
