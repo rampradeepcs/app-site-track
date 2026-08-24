@@ -247,7 +247,7 @@ function CreateProjectSheet({ open, onClose }: { open: boolean; onClose: () => v
           <div className="relative">
             <ISearch size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]" />
             <input
-              className="wf-input pl-10"
+              className="wf-input wf-input-search"
               placeholder="Search location…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}

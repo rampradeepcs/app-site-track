@@ -163,6 +163,12 @@
 .wf-input::placeholder {
   color: var(--wf-faint);
 }
+/* Clears a leading search icon. Defined here rather than via a Tailwind
+   `pl-*` utility: workforce.css loads after the utilities layer, so
+   `.wf-input`'s padding shorthand would win on source order. */
+.wf-input-search {
+  padding-left: 2.5rem;
+}
 .wf-input:focus {
   outline: none;
   border-color: var(--wf-amber);
