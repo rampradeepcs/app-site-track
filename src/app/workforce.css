@@ -1,0 +1,374 @@
+/* ============================================================
+   SiteTrack — construction workforce app design system.
+   Scoped under `.wf` so it never leaks into the marketing site.
+   Dark, high-contrast, outdoor-readable; amber = action,
+   green = on-site/success, red = alert.
+   ============================================================ */
+
+.wf {
+  --wf-bg: #0b0f16;
+  --wf-surface: #131926;
+  --wf-surface2: #1b2334;
+  --wf-surface3: #232d42;
+  --wf-line: rgba(148, 163, 184, 0.16);
+  --wf-line-strong: rgba(148, 163, 184, 0.3);
+  --wf-fg: #f2f5fa;
+  --wf-muted: #9aa7ba;
+  --wf-faint: #67748a;
+
+  --wf-amber: #f6a723;
+  --wf-amber-hi: #ffc14d;
+  --wf-orange: #ee6c2b;
+  --wf-green: #2fd376;
+  --wf-green-dim: #159d52;
+  --wf-red: #f4574d;
+  --wf-blue: #45b8f5;
+  --wf-violet: #a78bfa;
+
+  --wf-radius: 16px;
+  --wf-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.55);
+
+  color-scheme: dark;
+  background: var(--wf-bg);
+  color: var(--wf-fg);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wf ::selection {
+  background: var(--wf-amber);
+  color: #131313;
+}
+
+.wf-display {
+  font-family: var(--font-display), "Segoe UI", system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* ---------------------------------------------------------- surfaces */
+
+.wf-card {
+  background: var(--wf-surface);
+  border: 1px solid var(--wf-line);
+  border-radius: var(--wf-radius);
+}
+
+.wf-card2 {
+  background: var(--wf-surface2);
+  border: 1px solid var(--wf-line);
+  border-radius: 12px;
+}
+
+.wf-inset {
+  background: rgba(6, 9, 14, 0.55);
+  border: 1px solid var(--wf-line);
+  border-radius: 12px;
+}
+
+/* ---------------------------------------------------------- buttons */
+
+.wf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding: 0 1.25rem;
+  border-radius: 14px;
+  font-weight: 650;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    transform 0.12s ease,
+    background-color 0.16s ease,
+    opacity 0.16s ease,
+    box-shadow 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.wf-btn:active {
+  transform: scale(0.97);
+}
+.wf-btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.wf-btn-primary {
+  background: linear-gradient(180deg, var(--wf-amber-hi), var(--wf-amber));
+  color: #17130a;
+  box-shadow: 0 10px 26px -10px rgba(246, 167, 35, 0.55);
+}
+.wf-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.wf-btn-success {
+  background: linear-gradient(180deg, #3ee287, var(--wf-green-dim));
+  color: #04150b;
+  box-shadow: 0 10px 26px -10px rgba(47, 211, 118, 0.45);
+}
+
+.wf-btn-danger {
+  background: linear-gradient(180deg, #ff6f66, #d9382e);
+  color: #fff;
+}
+
+.wf-btn-ghost {
+  background: var(--wf-surface2);
+  border: 1px solid var(--wf-line);
+  color: var(--wf-fg);
+}
+.wf-btn-ghost:hover:not(:disabled) {
+  background: var(--wf-surface3);
+}
+
+.wf-btn-quiet {
+  background: transparent;
+  color: var(--wf-muted);
+}
+.wf-btn-quiet:hover:not(:disabled) {
+  color: var(--wf-fg);
+  background: var(--wf-surface2);
+}
+
+.wf-btn-sm {
+  min-height: 38px;
+  padding: 0 0.85rem;
+  font-size: 0.83rem;
+  border-radius: 11px;
+}
+
+.wf-btn-lg {
+  min-height: 58px;
+  font-size: 1.05rem;
+  border-radius: 18px;
+}
+
+/* ------------------------------------------------------------ inputs */
+
+.wf-input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  background: var(--wf-surface2);
+  border: 1px solid var(--wf-line);
+  color: var(--wf-fg);
+  font-size: 0.95rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.wf-input::placeholder {
+  color: var(--wf-faint);
+}
+.wf-input:focus {
+  outline: none;
+  border-color: var(--wf-amber);
+  box-shadow: 0 0 0 3px rgba(246, 167, 35, 0.22);
+}
+textarea.wf-input {
+  min-height: 84px;
+  resize: vertical;
+}
+select.wf-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239aa7ba' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+  padding-right: 2.4rem;
+}
+
+.wf-label {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--wf-muted);
+  margin-bottom: 0.4rem;
+}
+
+/* ------------------------------------------------------------- chips */
+
+.wf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+/* ------------------------------------------------------- status pulse */
+
+@keyframes wf-pulse {
+  0% { transform: scale(0.75); opacity: 0.85; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+.wf-pulse-dot {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+.wf-pulse-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: inherit;
+  animation: wf-pulse 1.6s ease-out infinite;
+}
+
+@keyframes wf-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.wf-blink { animation: wf-blink 1.4s ease-in-out infinite; }
+
+@keyframes wf-slide-up {
+  from { transform: translateY(26px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.wf-sheet-in { animation: wf-slide-up 0.32s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) both; }
+
+@keyframes wf-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.wf-fade-in { animation: wf-fade 0.25s ease both; }
+
+@keyframes wf-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  70% { transform: scale(1.08); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.wf-pop-in { animation: wf-pop 0.5s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wf-sheet-in, .wf-fade-in, .wf-pop-in { animation-duration: 0.001ms; }
+  .wf-pulse-dot::after, .wf-blink { animation: none; }
+}
+
+/* -------------------------------------------------------- scrollbars */
+
+.wf ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.wf ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.wf ::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  border: none;
+}
+
+.wf-scroll-x {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+/* --------------------------------------------------------- phone frame */
+
+/* Employee surface renders inside a phone-width column on desktop so the
+   mobile-first experience is honest at any viewport. */
+.wf-phone {
+  width: 100%;
+  max-width: 430px;
+  margin-inline: auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: var(--wf-bg);
+}
+@media (min-width: 500px) {
+  .wf-phone {
+    border-inline: 1px solid var(--wf-line);
+  }
+}
+
+.wf-safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.75rem);
+}
+
+/* Bottom navigation */
+.wf-tabbar {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  border-top: 1px solid var(--wf-line);
+  background: rgba(11, 15, 22, 0.92);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.wf-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 0.55rem 0 0.45rem;
+  min-height: 56px;
+  font-size: 0.64rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: var(--wf-faint);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.wf-tab[data-active="true"] {
+  color: var(--wf-amber);
+}
+.wf-tab:hover {
+  color: var(--wf-fg);
+}
+.wf-tab[data-active="true"]:hover {
+  color: var(--wf-amber-hi);
+}
+
+.wf :focus-visible {
+  outline: 2px solid var(--wf-amber);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ------------------------------------------------------------- table */
+
+.wf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.wf-table th {
+  text-align: left;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--wf-muted);
+  font-weight: 650;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--wf-line-strong);
+  white-space: nowrap;
+}
+.wf-table td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--wf-line);
+  vertical-align: middle;
+}
+.wf-table tbody tr {
+  transition: background-color 0.12s ease;
+}
+.wf-table tbody tr:hover {
+  background: rgba(148, 163, 184, 0.06);
+}
+.wf-table tbody tr[data-clickable="true"] {
+  cursor: pointer;
+}
