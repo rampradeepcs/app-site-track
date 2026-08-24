@@ -9,6 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # `secrets` is not available to step-level `if`, so surface presence here.
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -47,7 +50,7 @@ jobs:
       #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
       #   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
       - name: Assemble signed release APK
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: env.HAS_KEYSTORE == 'true'
         working-directory: android
         env:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -63,7 +66,7 @@ jobs:
           rm -f release.keystore
 
       - uses: actions/upload-artifact@v4
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: env.HAS_KEYSTORE == 'true'
         with:
           name: sitetrack-release-apk
           path: android/app/build/outputs/apk/release/*.apk
