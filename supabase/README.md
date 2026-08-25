@@ -113,6 +113,44 @@ Verified against PostgreSQL 16:
 `link_user_to_auth(user, auth)` lets the platform owner attach an identity by
 hand — for a changed number, or an invite that matched nothing.
 
+## RLS performance and privilege hardening
+
+`20260824000500_rls_hardening.sql` applies Supabase's Postgres best-practice
+guidance (`npx skills add supabase/agent-skills`) and fixes three real problems
+in the original policies:
+
+1. **Helpers were called per row.** `using (is_superadmin() or org_id = auth_org_id())`
+   re-evaluates those functions for every candidate row. Wrapping each in a
+   scalar subquery — `(select private.is_superadmin())` — turns it into an
+   InitPlan evaluated once per statement.
+2. **Helpers lived in `public`**, so PostgREST exposed SECURITY DEFINER
+   functions as RPC endpoints. They now live in `private`, which PostgREST does
+   not expose, with `search_path` pinned to `''`.
+3. **Policies had no role target**, so they were evaluated for `anon` too.
+   Every policy is now `to authenticated`.
+
+Measured on PostgreSQL 16 over 300,002 location points, same query, same data:
+
+| | Execution time | Plan |
+|---|---|---|
+| Before | **4,775 ms** | `Filter: (is_superadmin() OR ((org_id = auth_org_id()) AND …))` — per-row calls |
+| After | **44.5 ms** | `InitPlan 1–4`, `Filter: ($0 OR ((org_id = $1) AND ($2 OR (employee_id = $3))))` |
+
+**107× faster**, and the full isolation matrix still passes: manager sees only
+their tenant (0 rows for another org even by explicit id), employee sees own
+records and zero invoices, super admin sees both tenants, cross-tenant insert
+is rejected, `delete from platform_audit` removes 0 rows, and an unrecognised
+identity sees nothing.
+
+### One correction to the upstream guidance
+
+The skill suggests revoking `EXECUTE` from `authenticated` on helper functions.
+Doing that breaks every policy with `permission denied for function` — RLS
+expressions are evaluated with the **invoker's** privileges, not the policy
+owner's. `authenticated` must keep `EXECUTE`. The real protection is the
+schema: PostgREST only exposes schemas it is configured for, so functions in
+`private` are unreachable over the API regardless of grants.
+
 ## Retention
 
 `purge_expired_location_points()` deletes location history past each client's
