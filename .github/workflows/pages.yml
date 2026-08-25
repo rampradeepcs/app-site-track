@@ -5,6 +5,11 @@ on:
     branches: [main]
     paths: ["src/**", "public/**", "next.config.ts", "package.json", ".github/workflows/pages.yml"]
   workflow_dispatch:
+    inputs:
+      allow_demo:
+        description: "Deploy without Supabase credentials (demo data, no backend)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -37,12 +42,30 @@ jobs:
       # A static export has no server, so credentials are inlined at build
       # time or not at all. Missing ones would produce a perfectly healthy
       # site quietly serving seed data — indistinguishable from the real
-      # thing until someone tries to save a shift. Fail instead.
+      # thing until someone tries to save a shift. Fail instead, unless a
+      # demo deploy was explicitly asked for: the objection is to shipping
+      # demo mode by accident, not to shipping it on purpose.
       - name: Require Supabase credentials
+        env:
+          ALLOW_DEMO: ${{ inputs.allow_demo }}
         run: |
           missing=""
           [ -n "$NEXT_PUBLIC_SUPABASE_URL" ] || missing="$missing SUPABASE_URL"
           [ -n "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] || missing="$missing SUPABASE_ANON_KEY"
+          if [ -n "$missing" ] && [ "$ALLOW_DEMO" = "true" ]; then
+            {
+              echo "### Deployed in demo mode"
+              echo
+              echo "No Supabase credentials, and \`allow_demo\` was set, so this"
+              echo "build ships the seeded sample data and talks to no backend."
+              echo "The account sheet on every screen says so."
+              echo
+              echo "Missing:$missing"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::Building in demo mode — no backend. Missing:$missing"
+            echo "DEMO_BUILD=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
           if [ -n "$missing" ]; then
             {
               echo "### Deploy stopped: missing repository secrets"
@@ -73,6 +96,7 @@ jobs:
       # Prove the credentials actually reached the bundle. A typo'd secret
       # name is silent otherwise: the build succeeds and demo mode ships.
       - name: Verify the bundle is in live mode
+        if: env.DEMO_BUILD != 'true'
         run: |
           if ! grep -rqF "$NEXT_PUBLIC_SUPABASE_URL" out/_next/static; then
             echo "::error::Built bundle contains no Supabase URL — it would run in demo mode."

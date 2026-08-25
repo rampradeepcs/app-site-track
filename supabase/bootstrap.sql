@@ -2,7 +2,9 @@
 -- First-run bootstrap.
 --
 -- Run this ONCE in the Supabase SQL editor after `db push`, with the two
--- values below changed to yours.
+-- values in the insert below changed to yours — the phone and email you will
+-- actually sign in with. They are how the first sign-in finds this row: the
+-- link trigger matches a new auth identity by phone digits first, then email.
 --
 -- Why it exists: RLS resolves everything through auth.uid() -> users.auth_id.
 -- On a freshly migrated database there are no users, so the first person to
@@ -11,15 +13,19 @@
 -- sign-in lands somewhere, plus a demo tenant so the screens have content.
 -- ============================================================================
 
-\set owner_phone '''+919600309001'''
-\set owner_email '''priya@example.com'''
-
 -- ---------------------------------------------------------------- owner ----
 -- No org_id: the platform Super Admin sits above every tenant.
+--
+-- The two values on the CHANGE ME line are the whole point of this file.
+-- Plain literals rather than psql variables: the Supabase SQL editor is not
+-- psql and silently fails on `\set`, which is exactly where the header tells
+-- you to run this.
 insert into users (org_id, name, employee_code, role, designation, department,
                    phone, email, avatar_hue, status, shift_start, shift_end)
 values (null, 'Platform Owner', 'NT-0001', 'superadmin', 'Product Owner',
-        'Management', :owner_phone, :owner_email, 265, 'active', 540, 1080)
+        'Management',
+        '+919600309001', 'owner@example.com',  -- CHANGE ME: your phone, your email
+        265, 'active', 540, 1080)
 on conflict do nothing;
 
 -- ----------------------------------------------------------- demo tenant ---
