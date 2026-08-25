@@ -1,0 +1,57 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["src/**", "public/**", "next.config.ts", "package.json", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two Pages deploys race; the newest push wins.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # enablement:true turns Pages on for the repo if it is not already,
+      # so this needs no manual toggle in Settings.
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Build static export
+        run: npm run build
+        env:
+          GITHUB_PAGES: "true"
+
+      # Pages serves the artifact as-is; .nojekyll stops it stripping the
+      # _next/ directory, which would break every asset.
+      - run: touch out/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
