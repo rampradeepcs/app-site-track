@@ -10,13 +10,22 @@ Three migrations, applied in order:
 
 ## Apply
 
-The project ref is already set in `supabase/config.toml`
-(`fdxwxcwnzzcsnsxdhzjj`), so linking is not needed:
+Push straight to the database with `--db-url`. This bypasses the Supabase
+management API, so it needs **no `supabase login` and no `supabase link`** —
+one command, and the only credential is the database password you already have:
 
 ```bash
-npx supabase login
-npx supabase db push          # applies all four migrations
+# Project Settings → Database → Connection string → URI
+# (percent-encode the password if it contains special characters)
+npx supabase db push --db-url "postgresql://postgres:<password>@db.fdxwxcwnzzcsnsxdhzjj.supabase.co:5432/postgres"
 ```
+
+Add `--dry-run` first to list what would be applied without touching anything.
+
+> `project_id` in `config.toml` names the project for local tooling; it does
+> **not** establish the remote link. Without `--db-url`, `db push` reports
+> "Cannot find project ref" until you run `supabase link`, which itself needs
+> `supabase login`. The `--db-url` route skips both.
 
 Then run `supabase/bootstrap.sql` **once** in the SQL editor, after changing
 `owner_phone` / `owner_email` at the top to yours. This is not optional

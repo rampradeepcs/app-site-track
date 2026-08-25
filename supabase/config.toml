@@ -1,3 +1,5 @@
-# Supabase project link.
-# `supabase db push` targets this ref, so no `supabase link` step is needed.
+# Names the project for local tooling. This does NOT establish the remote
+# link — `db push` still needs either `supabase link` (which needs
+# `supabase login`) or, more simply, `--db-url` with the connection string.
+# See supabase/README.md.
 project_id = "fdxwxcwnzzcsnsxdhzjj"
