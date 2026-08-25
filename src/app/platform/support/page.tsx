@@ -97,7 +97,10 @@ export default function SupportPage() {
                       <button
                         key={s}
                         onClick={() => setTicketStatus(t.id, s)}
-                        className={`cursor-pointer rounded-lg border px-2.5 py-1 text-[0.7rem] font-semibold capitalize transition ${
+                        aria-pressed={t.status === s}
+                        // These set a ticket's state, so they are real actions,
+                        // not labels — min-h keeps them hittable at 27px text.
+                        className={`inline-flex min-h-9 cursor-pointer items-center rounded-lg border px-3 text-[0.7rem] font-semibold capitalize transition ${
                           t.status === s
                             ? "border-[var(--wf-violet)] bg-[rgba(167,139,250,0.12)] text-[var(--wf-violet)]"
                             : "border-[var(--wf-line)] text-[var(--wf-muted)] hover:text-[var(--wf-fg)]"

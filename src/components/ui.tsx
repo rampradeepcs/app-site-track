@@ -257,8 +257,12 @@ export function Segmented<T extends string>({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(o.value)}
-            className={`shrink-0 cursor-pointer whitespace-nowrap rounded-lg font-semibold transition ${
-              size === "sm" ? "px-2.5 py-1.5 text-[0.72rem]" : "px-3.5 py-2 text-[0.8rem]"
+            // min-h keeps a tab hittable: the label alone left these at 29px,
+            // which is a poor target on a phone held in one hand at a gate.
+            className={`inline-flex shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-lg font-semibold transition ${
+              size === "sm"
+                ? "min-h-9 px-3 text-[0.72rem]"
+                : "min-h-10 px-3.5 text-[0.8rem]"
             } ${
               active
                 ? "bg-[var(--wf-surface3)] text-[var(--wf-amber)] shadow-sm"
@@ -283,18 +287,25 @@ export function Toggle({
   label: string;
 }) {
   return (
+    // The track stays 28px because that is what reads as a switch; the button
+    // around it is 44 so a gloved thumb on a site can actually hit it. Growing
+    // the track instead would make every settings row look like a toy.
     <button
       role="switch"
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
-      className="relative h-7 w-12 shrink-0 cursor-pointer rounded-full transition-colors"
-      style={{ background: checked ? "var(--wf-green-dim)" : "var(--wf-surface3)" }}
+      className="grid h-11 w-12 shrink-0 cursor-pointer place-items-center bg-transparent"
     >
       <span
-        className="absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all"
-        style={{ left: checked ? "calc(100% - 26px)" : "2px" }}
-      />
+        className="relative block h-7 w-12 rounded-full transition-colors"
+        style={{ background: checked ? "var(--wf-green-dim)" : "var(--wf-surface3)" }}
+      >
+        <span
+          className="absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all"
+          style={{ left: checked ? "calc(100% - 26px)" : "2px" }}
+        />
+      </span>
     </button>
   );
 }

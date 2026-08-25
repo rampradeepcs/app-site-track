@@ -70,7 +70,8 @@ export default function AuditPage() {
             <ISearch size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]" />
             <input
               className="wf-input wf-input-search"
-              placeholder="Filter by action, client, value or actor…"
+              aria-label="Filter the platform audit trail"
+            placeholder="Filter by action, client, value or actor…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
@@ -107,7 +108,10 @@ export default function AuditPage() {
                       <td className="whitespace-nowrap text-[0.78rem] font-semibold">{a.actorName}</td>
                       <td className="whitespace-nowrap text-[0.78rem]">
                         {org ? (
-                          <Link href={`/platform/client?id=${org.id}`} className="text-[var(--wf-muted)] hover:text-[var(--wf-violet)]">
+                          <Link
+                            href={`/platform/client?id=${org.id}`}
+                            className="inline-block py-1.5 text-[var(--wf-muted)] hover:text-[var(--wf-violet)]"
+                          >
                             {org.name}
                           </Link>
                         ) : (

@@ -146,7 +146,7 @@ function AttendanceInner() {
           <div className="flex items-center gap-1">
             <button
               aria-label="Previous day"
-              className="grid h-11 w-10 cursor-pointer place-items-center rounded-xl border border-[var(--wf-line)] bg-[var(--wf-surface)] text-[var(--wf-muted)] hover:text-[var(--wf-fg)]"
+              className="grid h-11 w-10 shrink-0 cursor-pointer place-items-center rounded-xl border border-[var(--wf-line)] bg-[var(--wf-surface)] text-[var(--wf-muted)] hover:text-[var(--wf-fg)]"
               onClick={() => setDate((d) => isoAddDays(d, -1))}
             >
               <IChevronL size={16} />
@@ -161,7 +161,7 @@ function AttendanceInner() {
             />
             <button
               aria-label="Next day"
-              className="grid h-11 w-10 cursor-pointer place-items-center rounded-xl border border-[var(--wf-line)] bg-[var(--wf-surface)] text-[var(--wf-muted)] hover:text-[var(--wf-fg)] disabled:opacity-40"
+              className="grid h-11 w-10 shrink-0 cursor-pointer place-items-center rounded-xl border border-[var(--wf-line)] bg-[var(--wf-surface)] text-[var(--wf-muted)] hover:text-[var(--wf-fg)] disabled:opacity-40"
               onClick={() => setDate((d) => isoAddDays(d, 1))}
               disabled={date >= todayISO()}
             >

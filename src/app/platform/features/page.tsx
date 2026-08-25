@@ -127,7 +127,12 @@ export default function FeaturesPage() {
                             );
                           })}
                           <td>
-                            <Link href={`/platform/client?id=${o.id}&tab=subscription`} className="wf-btn wf-btn-quiet wf-btn-sm">
+                            <Link
+                              href={`/platform/client?id=${o.id}&tab=subscription`}
+                              aria-label={`Open subscription for ${o.name}`}
+                              title={`Subscription — ${o.name}`}
+                              className="wf-btn wf-btn-quiet wf-btn-sm"
+                            >
                               <IArrowR size={13} />
                             </Link>
                           </td>

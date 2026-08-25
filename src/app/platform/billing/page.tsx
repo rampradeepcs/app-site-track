@@ -86,6 +86,7 @@ export default function BillingPage() {
           <ISearch size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]" />
           <input
             className="wf-input wf-input-search"
+            aria-label="Search invoices"
             placeholder="Search invoice number, client or period…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -130,7 +131,10 @@ export default function BillingPage() {
                       <span className="block text-[0.64rem] text-[var(--wf-faint)]">{inv.periodLabel}</span>
                     </td>
                     <td>
-                      <Link href={`/platform/client?id=${inv.orgId}&tab=billing`} className="text-[var(--wf-muted)] hover:text-[var(--wf-violet)]">
+                      <Link
+                        href={`/platform/client?id=${inv.orgId}&tab=billing`}
+                        className="inline-block py-1.5 text-[var(--wf-muted)] hover:text-[var(--wf-violet)]"
+                      >
                         {org?.name ?? inv.orgId}
                       </Link>
                     </td>

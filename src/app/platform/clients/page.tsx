@@ -97,6 +97,7 @@ export default function ClientsPage() {
           <ISearch size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]" />
           <input
             className="wf-input wf-input-search"
+            aria-label="Search client organisations"
             placeholder="Search company, client ID, admin email, phone or subscription…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -147,7 +148,7 @@ export default function ClientsPage() {
                     <td>
                       <Link
                         href={`/platform/client?id=${org.id}`}
-                        className="font-semibold hover:text-[var(--wf-violet)]"
+                        className="inline-block py-1.5 font-semibold hover:text-[var(--wf-violet)]"
                       >
                         {org.name}
                       </Link>

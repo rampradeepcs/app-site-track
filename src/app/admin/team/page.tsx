@@ -14,6 +14,7 @@ import { ScreenHeader } from "@/components/shell";
 import {
   Avatar,
   Chip,
+  EmptyState,
   Segmented,
   StatusChip,
   useNowTick,
@@ -22,7 +23,7 @@ import { fmtClock, pct } from "@/lib/format";
 import { liveBoard, performanceFor } from "@/lib/metrics";
 import { useWorkforce } from "@/lib/store";
 import type { Role, User } from "@/lib/types";
-import { IArrowR, IPlus, ISearch, IShield } from "@/components/WfIcons";
+import { IArrowR, IPlus, ISearch, IShield, IUsers } from "@/components/WfIcons";
 
 export default function AdminTeam() {
   const { state, saveEmployee, setUserRole } = useWorkforce();
@@ -67,6 +68,7 @@ export default function AdminTeam() {
           <ISearch size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]" />
           <input
             className="wf-input wf-input-search"
+            aria-label="Search team by name, employee code or trade"
             placeholder="Search name, code, trade…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -86,6 +88,19 @@ export default function AdminTeam() {
         />
 
         <div className="flex flex-col gap-2">
+          {/* A filter that matches nothing left a blank screen — which reads
+              as a broken page rather than as "no matches". */}
+          {rows.length === 0 && (
+            <EmptyState
+              icon={<IUsers size={26} />}
+              title="Nobody matches that"
+              body={
+                query.trim()
+                  ? `No one in the team matches "${query.trim()}"${roleFilter === "all" ? "" : ` in ${roleFilter}s`}. Try a shorter search, or clear the filter.`
+                  : "No one holds that role yet."
+              }
+            />
+          )}
           {rows.map((u) => {
             const live = board.find((b) => b.user.id === u.id);
             const perf =

@@ -123,25 +123,43 @@ export default function EmployeeHome() {
   const canCheckOut = !offsiteOnly || !!atPremise;
   const recording = !offsiteOnly || (!!fence && !fence.inside);
 
+  /*
+   * Both flows pause on a "validating" sheet before advancing. The timer that
+   * advances it has to check that the worker is still there: dismissing the
+   * sheet used to be silently overruled a moment later by a selfie step
+   * opening on its own, which is the app arguing with someone who already
+   * said no. The functional update is what makes that check race-free — it
+   * sees the state at the moment it lands, not at the moment it was queued.
+   */
   const startCheckIn = () => {
     setFlow({ step: "validating", dir: "in" });
     window.setTimeout(() => {
-      const f = wf.fence;
-      if (!f?.inside) {
-        setFlow({
-          step: "blocked",
-          reason:
-            "You're outside the project site. Please move inside the site boundary to check in.",
-        });
-      } else {
-        setFlow({ step: "selfie", dir: "in" });
-      }
+      const inside = wf.fence?.inside;
+      setFlow((cur) =>
+        cur?.step !== "validating" || cur.dir !== "in"
+          ? cur
+          : inside
+            ? { step: "selfie", dir: "in" }
+            : {
+                step: "blocked",
+                reason:
+                  "You're outside the project site. Please move inside the site boundary to check in.",
+              },
+      );
     }, 900);
   };
 
   const startCheckOut = () => {
     setFlow({ step: "validating", dir: "out" });
-    window.setTimeout(() => setFlow({ step: "selfie", dir: "out" }), 700);
+    window.setTimeout(
+      () =>
+        setFlow((cur) =>
+          cur?.step !== "validating" || cur.dir !== "out"
+            ? cur
+            : { step: "selfie", dir: "out" },
+        ),
+      700,
+    );
   };
 
   const completeSelfie = (dir: "in" | "out", dataUrl: string) => {

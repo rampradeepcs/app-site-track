@@ -77,6 +77,7 @@ export default function WorkforcePage() {
           <ISearch size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]" />
           <input
             className="wf-input wf-input-search"
+            aria-label="Search workforce by name, employee code or trade"
             placeholder="Search name, code, trade…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}

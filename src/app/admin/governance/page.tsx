@@ -184,6 +184,7 @@ export default function AdminGovernance() {
           <SectionTitle>Audit trail</SectionTitle>
           <input
             className="wf-input mb-3"
+            aria-label="Filter the audit trail"
             placeholder="Filter by action, person or detail…"
             value={auditFilter}
             onChange={(e) => setAuditFilter(e.target.value)}

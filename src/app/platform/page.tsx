@@ -268,7 +268,10 @@ export default function PlatformDashboard() {
                   return (
                     <tr key={o.id}>
                       <td>
-                        <Link href={`/platform/client?id=${o.id}`} className="font-semibold hover:text-[var(--wf-violet)]">
+                        <Link
+                          href={`/platform/client?id=${o.id}`}
+                          className="inline-block py-1.5 font-semibold hover:text-[var(--wf-violet)]"
+                        >
                           {o.name}
                         </Link>
                         <span className="block text-[0.66rem] text-[var(--wf-faint)]">{o.code}</span>

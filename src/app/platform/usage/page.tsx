@@ -151,7 +151,14 @@ export default function UsagePage() {
                       <td className="text-right tabular-nums">{row?.workUpdates ?? 0}</td>
                       <td><HealthPill score={h.score} /></td>
                       <td>
-                        <Link href={`/platform/client?id=${o.id}&tab=usage`} className="wf-btn wf-btn-quiet wf-btn-sm">
+                        {/* Icon-only, so it carries its own name — one arrow
+                            per row is indistinguishable to a screen reader. */}
+                        <Link
+                          href={`/platform/client?id=${o.id}&tab=usage`}
+                          aria-label={`Open usage detail for ${o.name}`}
+                          title={`Usage detail — ${o.name}`}
+                          className="wf-btn wf-btn-quiet wf-btn-sm"
+                        >
                           <IArrowR size={13} />
                         </Link>
                       </td>
