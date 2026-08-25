@@ -23,7 +23,7 @@ import {
   IUsers,
 } from "@/components/WfIcons";
 import type { Role, User } from "@/lib/types";
-import { homeFor } from "@/lib/routes";
+import { landingFor } from "@/lib/routes";
 import { isLiveBackend } from "@/lib/supabase/client";
 import LiveGate from "@/components/LiveGate";
 
@@ -46,9 +46,22 @@ function DemoGate() {
   const [otp, setOtp] = useState(["", "", "", ""]);
   const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
 
-  /* Already signed in → straight to the app. */
+  /*
+   * The one place this screen navigates away, whether the session was already
+   * there on arrival or was just created by signing in.
+   *
+   * Two owners would fight: signing in sets the session, which re-runs this
+   * effect, so a `router.replace` in the submit handler and this one would
+   * each pick a destination and the later one would win. The parked
+   * destination is also single-use, so whoever lost the race would find
+   * nothing and fall back to the role home — which is exactly the bug this
+   * whole change is about. Hence the latch: navigate once, decide once.
+   */
+  const landedRef = useRef(false);
   useEffect(() => {
-    if (state.session) router.replace(homeFor(state.session.role));
+    if (!state.session || landedRef.current) return;
+    landedRef.current = true;
+    router.replace(landingFor(state.session.role));
   }, [state.session, router]);
 
   /* Splash advances on its own. */
@@ -74,8 +87,9 @@ function DemoGate() {
   const submitOtp = () => {
     if (otp.some((d) => d === "")) return;
     const user = role === "superadmin" ? owner : role === "manager" ? manager : who;
+    // Setting the session is the whole job; the effect above does the
+    // navigating, so the destination is chosen in exactly one place.
     login(role, user?.id);
-    router.replace(homeFor(role));
   };
 
   return (

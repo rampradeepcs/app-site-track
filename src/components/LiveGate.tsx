@@ -16,7 +16,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkforce } from "@/lib/store";
 import { currentAppUser, sendOtp, signOut, verifyOtp } from "@/lib/supabase/auth";
-import { homeFor } from "@/lib/routes";
+import { landingFor } from "@/lib/routes";
 import { Field } from "@/components/ui";
 import { IAlert, IArrowR, IChevronL, ILock, IMapPin, IShield } from "@/components/WfIcons";
 
@@ -36,22 +36,35 @@ export default function LiveGate() {
   const [notice, setNotice] = useState<string | null>(null);
   const codeRef = useRef<HTMLInputElement | null>(null);
 
-  /** Resolve the auth identity to a product user, then route by their role. */
+  /**
+   * Resolve the auth identity to a product user. Signing them in is the whole
+   * job — the effect below owns the navigation, so the destination is chosen
+   * in exactly one place. Returns false for an identity that authenticated
+   * but matches no worker record.
+   */
   const enter = useCallback(async (): Promise<boolean> => {
     const user = await currentAppUser();
     if (!user) return false;
     loginAs(user);
-    router.replace(homeFor(user.role));
     return true;
-  }, [loginAs, router]);
+  }, [loginAs]);
+
+  /*
+   * The one place this screen navigates away. Latched because the parked
+   * destination is single-use: a second run would find nothing and fall back
+   * to the role home, undoing the deep link it just honoured.
+   */
+  const landedRef = useRef(false);
+  useEffect(() => {
+    if (!state.session || landedRef.current) return;
+    landedRef.current = true;
+    router.replace(landingFor(state.session.role));
+  }, [state.session, router]);
 
   /* An unexpired token means this device is already signed in. */
   useEffect(() => {
     let cancelled = false;
-    if (state.session) {
-      router.replace(homeFor(state.session.role));
-      return;
-    }
+    if (state.session) return; // the effect above is already taking them in
     enter()
       .then((ok) => {
         if (!cancelled && !ok) setStep("identity");

@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
 import type { Role } from "@/lib/types";
+import { canEnter, rememberDestination } from "@/lib/routes";
 import { isLiveBackend } from "@/lib/supabase/client";
 import { Avatar, BottomSheet, Chip } from "./ui";
 import {
@@ -41,16 +42,15 @@ export function RoleGuard({
 }) {
   const { state } = useWorkforce();
   const router = useRouter();
-  const sessionRole = state.session?.role;
-  // A super admin may enter client surfaces (they arrive by impersonation);
-  // a client admin may use the manager surfaces inside their own org.
-  const ok =
-    sessionRole === role ||
-    (sessionRole === "superadmin" && role !== "employee") ||
-    (sessionRole === "admin" && role === "manager");
+  const pathname = usePathname();
+  const ok = canEnter(state.session?.role, role);
   useEffect(() => {
-    if (!ok) router.replace("/");
-  }, [ok, router]);
+    if (ok) return;
+    // Park where they were going before sending them to sign in, so the gate
+    // can finish the journey instead of dropping them on a dashboard.
+    rememberDestination(pathname);
+    router.replace("/");
+  }, [ok, pathname, router]);
   if (!ok) {
     return (
       <div className="grid min-h-dvh place-items-center">
