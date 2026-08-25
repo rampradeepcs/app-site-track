@@ -10,13 +10,23 @@ Three migrations, applied in order:
 
 ## Apply
 
+The project ref is already set in `supabase/config.toml`
+(`fdxwxcwnzzcsnsxdhzjj`), so linking is not needed:
+
 ```bash
-npx supabase link --project-ref <ref>
-npx supabase db push
+npx supabase login
+npx supabase db push          # applies all four migrations
 ```
 
-Then copy `.env.example` to `.env.local` and fill in the project URL and anon
-key. With those unset the app runs in **demo mode** against the seeded
+Then run `supabase/bootstrap.sql` **once** in the SQL editor, after changing
+`owner_phone` / `owner_email` at the top to yours. This is not optional
+housekeeping: RLS resolves every request through `auth.uid() -> users.auth_id`,
+and a freshly migrated database has no users — so the first person to sign in
+matches nothing, resolves to no organisation, and gets an empty app that looks
+broken. The bootstrap creates the platform owner (and a demo tenant, which you
+can delete for a genuinely empty production start).
+
+Finally copy `.env.example` to `.env.local` and paste the anon key. With those unset the app runs in **demo mode** against the seeded
 localStorage store, so the product stays fully explorable without a backend.
 
 Regenerate types after any schema change:

@@ -1,0 +1,3 @@
+# Supabase project link.
+# `supabase db push` targets this ref, so no `supabase link` step is needed.
+project_id = "fdxwxcwnzzcsnsxdhzjj"
