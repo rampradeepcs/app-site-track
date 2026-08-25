@@ -107,9 +107,30 @@ same reason: a static export has no server, so a missing or misnamed secret
 produces a perfectly healthy-looking site quietly serving seed data — which
 nobody notices until someone tries to save a shift.
 
+## Demo accounts
+
+One identity per role, named for the role so the sign-in list is unambiguous.
+In demo mode any 4-digit code works; against a real backend these are the
+phone numbers and emails a Supabase sign-in is matched to.
+
+| Role          | Name          | Phone           | Email                   |
+| ------------- | ------------- | --------------- | ----------------------- |
+| Product Owner | Demo Owner    | +91 90000 00001 | owner@sitetrack.demo    |
+| Client Admin  | Demo Admin    | +91 90000 00002 | admin@sitetrack.demo    |
+| Manager       | Demo Manager  | +91 90000 00003 | manager@sitetrack.demo  |
+| Employee      | Demo Employee | +91 90000 00004 | employee@sitetrack.demo |
+
+The app starts from one organisation, two premises (a site and an office) and
+those four people. There is **no invented history** — no attendance nobody
+worked, no routes nobody walked, no invoices nobody was sent. Everything past
+that is recorded by using the product.
+
+`src/lib/seed.ts` and `supabase/bootstrap.sql` create the same state, so the
+app looks identical on either backend. Change one and change the other.
+
 ## Demo walkthrough
 
-1. Open the app → pick **Employee** → choose a worker → enter any 4-digit OTP.
+1. Open the app → pick **Employee** → Demo Employee → any 4-digit OTP.
 2. Use the **Demo GPS** switcher on Home ("Walk to gate" / "Jump on site") to
    move inside the geofence — the Check In button unlocks only inside the
    boundary.

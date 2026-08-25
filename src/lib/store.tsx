@@ -33,7 +33,7 @@ import {
 } from "./geo";
 import { fmtDistance, todayISO } from "./format";
 import { assignedPremises, nearestPremise, premiseAt } from "./premises";
-import { buildSeedState, makeSelfie } from "./seed";
+import { SEED_VERSION, buildSeedState, makeSelfie } from "./seed";
 import { isLiveBackend } from "./supabase/client";
 import { onAuthChange, signOut as authSignOut } from "./supabase/auth";
 import { fetchWorkforce } from "./supabase/repository";
@@ -55,7 +55,7 @@ import type {
 
 const STORAGE_KEY = "sitetrack.v3";
 // Must match the version stamped by buildSeedState() in seed.ts.
-const SEED_VERSION = 4;
+
 
 let idCounter = Math.floor(Math.random() * 1e6);
 const rid = (p: string) => `${p}_${Date.now().toString(36)}_${(idCounter++).toString(36)}`;

@@ -18,6 +18,7 @@ import {
   IArrowR,
   IChevronL,
   IHardHat,
+  IBuilding,
   IMapPin,
   IShield,
   IUsers,
@@ -75,6 +76,10 @@ function DemoGate() {
     () => state.users.filter((u) => u.role === "employee" && u.status === "active"),
     [state.users],
   );
+  const admin = useMemo(
+    () => state.users.find((u) => u.role === "admin") ?? null,
+    [state.users],
+  );
   const manager = useMemo(
     () => state.users.find((u) => u.role === "manager") ?? null,
     [state.users],
@@ -86,7 +91,14 @@ function DemoGate() {
 
   const submitOtp = () => {
     if (otp.some((d) => d === "")) return;
-    const user = role === "superadmin" ? owner : role === "manager" ? manager : who;
+    const user =
+      role === "superadmin"
+        ? owner
+        : role === "admin"
+          ? admin
+          : role === "manager"
+            ? manager
+            : who;
     // Setting the session is the whole job; the effect above does the
     // navigating, so the destination is chosen in exactly one place.
     login(role, user?.id);
@@ -157,6 +169,25 @@ function DemoGate() {
               <span className="block font-bold">Manager / Project Manager</span>
               <span className="block text-[0.8rem] text-[var(--wf-muted)]">
                 Live workforce map, attendance, reports
+              </span>
+            </span>
+            <IArrowR size={18} className="shrink-0 text-[var(--wf-faint)]" />
+          </button>
+          <button
+            className="wf-card flex cursor-pointer items-center gap-4 p-5 text-left transition hover:border-[var(--wf-amber)]"
+            onClick={() => {
+              setRole("admin");
+              setWho(admin);
+              setStep("otp");
+            }}
+          >
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[rgba(47,211,118,0.14)] text-[var(--wf-green)]">
+              <IBuilding size={26} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-bold">Client Admin</span>
+              <span className="block text-[0.8rem] text-[var(--wf-muted)]">
+                Your organisation: team, roles and governance
               </span>
             </span>
             <IArrowR size={18} className="shrink-0 text-[var(--wf-faint)]" />
