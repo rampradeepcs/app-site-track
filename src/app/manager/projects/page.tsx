@@ -8,13 +8,14 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
 import { SiteMap } from "@/components/SiteMap";
-import { BottomSheet, Chip, Field, StatusChip } from "@/components/ui";
+import { BottomSheet, Chip, Field, StatusChip, Toggle } from "@/components/ui";
 import { offsetMeters } from "@/lib/geo";
 import { todayISO } from "@/lib/format";
 import { liveBoard } from "@/lib/metrics";
 import { useWorkforce } from "@/lib/store";
-import type { LatLng, Project } from "@/lib/types";
+import type { LatLng, PremiseKind, Project } from "@/lib/types";
 import {
+  IAlert,
   IArrowR,
   IHardHat,
   IMapPin,
@@ -118,6 +119,10 @@ function CreateProjectSheet({ open, onClose }: { open: boolean; onClose: () => v
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState<LatLng>(PLACES[0].at);
   const [radius, setRadius] = useState(160);
+  const [kind, setKind] = useState<PremiseKind>("site");
+  // Defaults on: recording the whole shift is what people expect, and the
+  // narrower policy should be something a manager opts into knowingly.
+  const [trackInside, setTrackInside] = useState(true);
   const [error, setError] = useState("");
 
   const matches = query.trim()
@@ -134,12 +139,16 @@ function CreateProjectSheet({ open, onClose }: { open: boolean; onClose: () => v
     setContactPhone("");
     setDescription("");
     setQuery("");
+    setKind("site");
+    setTrackInside(true);
     setError("");
   };
 
   const create = () => {
     saveProject({
       name: name.trim(),
+      kind,
+      trackingMode: trackInside ? "full-shift" : "outside-only",
       code: code.trim() || undefined,
       client: client.trim(),
       address: address.trim(),
@@ -192,6 +201,18 @@ function CreateProjectSheet({ open, onClose }: { open: boolean; onClose: () => v
             <Field label="Project ID">
               <input className="wf-input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="auto" />
             </Field>
+            <Field label="Premise type" hint="Both can start and end a shift.">
+              <select
+                className="wf-input"
+                value={kind}
+                onChange={(e) => setKind(e.target.value as PremiseKind)}
+              >
+                <option value="site">Construction site</option>
+                <option value="office">Office</option>
+              </select>
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <Field label="Status">
               <select className="wf-input" value={status} onChange={(e) => setStatus(e.target.value as Project["status"])}>
                 <option value="planning">Planning</option>
@@ -288,6 +309,37 @@ function CreateProjectSheet({ open, onClose }: { open: boolean; onClose: () => v
             <input type="range" min={60} max={500} step={10} value={radius} onChange={(e) => setRadius(Number(e.target.value))} className="flex-1 accent-[var(--wf-amber)]" />
             <span className="w-14 text-right text-sm font-bold tabular-nums">{radius}m</span>
           </label>
+          {/* The policy sits on this step deliberately: it is a rule about the
+              boundary drawn just above it, and reads as abstract anywhere else. */}
+          <div className="wf-card2 flex flex-col gap-3 px-4 py-3.5">
+            <div className="flex items-start gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[0.86rem] font-bold">
+                  Track employees inside the boundary
+                </p>
+                <p className="mt-0.5 text-[0.74rem] leading-snug text-[var(--wf-muted)]">
+                  {trackInside
+                    ? "The full shift is recorded, from check-in to checkout."
+                    : "Nothing is recorded on site. Recording starts when someone leaves the boundary and runs until checkout."}
+                </p>
+              </div>
+              <Toggle
+                checked={trackInside}
+                onChange={setTrackInside}
+                label="Track employees inside the project boundary"
+              />
+            </div>
+            {!trackInside && (
+              <p className="flex items-start gap-2 border-t border-[var(--wf-line)] pt-3 text-[0.72rem] leading-snug text-[var(--wf-amber-hi)]">
+                <IAlert size={14} className="mt-0.5 shrink-0" />
+                <span>
+                  Checkout will only be accepted at one of the employee&apos;s
+                  assigned premises — this site, another site, or the office.
+                  Without that the trail could end anywhere.
+                </span>
+              </p>
+            )}
+          </div>
           <div className="flex gap-2.5">
             <button className="wf-btn wf-btn-ghost flex-1" onClick={() => setStep(0)}>
               Back

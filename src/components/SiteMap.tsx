@@ -50,6 +50,12 @@ export interface TrailPoint {
   lat: number;
   lng: number;
   at: number;
+  /**
+   * Opens a new stretch of recording. Trails from `outside-only` projects are
+   * a series of separate trips, and joining them would draw a route the
+   * worker never took — straight through the site nobody was watching.
+   */
+  segmentStart?: boolean;
 }
 
 interface View {
@@ -356,7 +362,10 @@ export function SiteMap({
     return visibleTrail
       .map((p, i) => {
         const s = toScreen(p);
-        return `${i === 0 ? "M" : "L"}${s.x.toFixed(1)},${s.y.toFixed(1)}`;
+        // A segment start lifts the pen: the stretch before it and the stretch
+        // after it are separate journeys, not two ends of one line.
+        const cmd = i === 0 || p.segmentStart ? "M" : "L";
+        return `${cmd}${s.x.toFixed(1)},${s.y.toFixed(1)}`;
       })
       .join(" ");
   }, [visibleTrail, toScreen, view]);

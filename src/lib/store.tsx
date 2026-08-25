@@ -31,7 +31,8 @@ import {
   resolvePlace,
   type FenceCheck,
 } from "./geo";
-import { todayISO } from "./format";
+import { fmtDistance, todayISO } from "./format";
+import { assignedPremises, nearestPremise, premiseAt } from "./premises";
 import { buildSeedState, makeSelfie } from "./seed";
 import { isLiveBackend } from "./supabase/client";
 import { onAuthChange, signOut as authSignOut } from "./supabase/auth";
@@ -183,6 +184,11 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
   );
   const online = navOnline && !(state?.settings.forceOffline ?? false);
   const lastRecordedRef = useRef<number>(0);
+  /**
+   * Whether the trail is currently being written. Only meaningful under
+   * `outside-only`, where recording stops and starts within a single shift.
+   */
+  const recordingRef = useRef<boolean>(false);
   const gpsDropRef = useRef<{ until: number } | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
@@ -428,17 +434,36 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       );
       if (!shift) return;
 
+      const project = s.projects.find((p) => p.id === shift.projectId);
+
+      // Under `outside-only` the boundary is a privacy line, not a warning
+      // line: while the worker is inside it, nothing is written at all.
+      const offsiteOnly = project?.trackingMode === "outside-only";
+      const inside = project
+        ? checkGeofence(f.coords, project.geofence).inside
+        : false;
+      if (offsiteOnly && inside) {
+        // Remember that the next fix outside opens a fresh stretch of trail.
+        recordingRef.current = false;
+        return;
+      }
+
       const sampleMs = (s.settings.samplingSeconds || 15) * 1000;
       if (f.at - lastRecordedRef.current < sampleMs) return;
       if (f.accuracy > s.settings.accuracyFloor) return; // reject junk fixes
 
+      // A gap in recording means the previous point is not the previous
+      // position — the worker moved while the app was not watching. Neither
+      // the dedupe nor the odometer may reason across it.
+      const segmentStart = offsiteOnly && !recordingRef.current;
       const trail = s.points.filter((p) => p.attendanceId === shift.id);
-      const last = trail[trail.length - 1];
+      const last = segmentStart ? undefined : trail[trail.length - 1];
       if (last) {
         const moved = distanceMeters({ lat: last.lat, lng: last.lng }, f.coords);
         if (moved < s.settings.minMoveMeters) return; // dedupe stationary noise
       }
       lastRecordedRef.current = f.at;
+      recordingRef.current = true;
 
       const isOffline = !(navigator.onLine && !s.settings.forceOffline);
       const point: LocationPoint = {
@@ -453,6 +478,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         heading: f.heading,
         at: f.at,
         queued: isOffline || undefined,
+        segmentStart: segmentStart || undefined,
       };
       const added = last
         ? distanceMeters({ lat: last.lat, lng: last.lng }, f.coords)
@@ -519,23 +545,40 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           a.id === shift.id ? { ...a, events: [...a.events, ev] } : a,
         ),
       }));
+      // Under `outside-only` the boundary crossing *is* the tracking event —
+      // leaving starts the recording rather than merely being noted — so the
+      // wording has to say what actually just happened.
+      const offsiteOnly = project.trackingMode === "outside-only";
       pushNotification({
         audience: "manager",
         kind: "geofence-exit",
         title: inside
           ? `${user.name} returned to site`
           : `${user.name} left the site boundary`,
-        body: `${project.name} — shift stays open per project rules`,
+        body: offsiteOnly
+          ? inside
+            ? `${project.name} — off-site tracking stopped`
+            : `${project.name} — off-site tracking started`
+          : `${project.name} — shift stays open per project rules`,
         severity: inside ? "info" : "warning",
       });
-      if (!inside) {
+      // Returning is only worth telling the worker about under `outside-only`,
+      // where it means recording has stopped. On a full-shift project nothing
+      // changed when they walked back in, so nothing is said.
+      if (!inside || offsiteOnly) {
         pushNotification({
           audience: "employee",
           userId: user.id,
           kind: "geofence-exit",
-          title: "You've left the site boundary",
-          body: "Your shift is still running. Tracking continues per project policy.",
-          severity: "warning",
+          title: inside
+            ? "Back inside the site — recording stopped"
+            : "You've left the site boundary",
+          body: offsiteOnly
+            ? inside
+              ? "Location recording has stopped. It resumes if you leave the site again."
+              : "Your route is now being recorded until you check out at a site or office."
+            : "Your shift is still running. Tracking continues per project policy.",
+          severity: inside ? "info" : "warning",
         });
       }
     },
@@ -636,6 +679,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       });
       fenceStateRef.current = null;
       lastRecordedRef.current = 0;
+      recordingRef.current = false;
       setFix(null);
     },
     [mutate],
@@ -659,6 +703,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       }));
       fenceStateRef.current = null;
       lastRecordedRef.current = 0;
+      recordingRef.current = false;
       setFix(null);
     },
     [mutate],
@@ -728,6 +773,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         events: [],
       };
       lastRecordedRef.current = 0;
+      recordingRef.current = false;
       fenceStateRef.current = true;
 
       mutate((prev) => ({
@@ -776,6 +822,30 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       const project = s.projects.find((p) => p.id === shift.projectId);
       if (!project) return { ok: false, reason: "Project not found." };
 
+      // Under `outside-only` the trail only exists while the worker is away
+      // from a boundary, so a checkout anywhere else would end the record
+      // mid-trip with no way to tell a finished day from an abandoned one.
+      // Any premise they are assigned to will do — the site they started at
+      // is not the only honest place to sign off.
+      let closingAt = project;
+      if (project.trackingMode === "outside-only") {
+        const premises = assignedPremises(s.projects, user);
+        const here = premiseAt(f.coords, premises);
+        if (!here) {
+          const near = nearestPremise(f.coords, premises);
+          return {
+            ok: false,
+            reason: near
+              ? `Checkout has to happen at a site or office. The nearest is ${near.premise.name}, ${fmtDistance(near.distance)} away.`
+              : "Checkout has to happen at a site or office, and you aren't assigned to one yet. Ask your manager.",
+          };
+        }
+        // Signing off at the office is allowed, so the place has to be named
+        // against the premise they are actually standing in — resolving it
+        // against the job's zones would label the office "Main Gate".
+        closingAt = here;
+      }
+
       const isOffline = !(navigator.onLine && !s.settings.forceOffline);
       const at = Date.now();
       const mark: AttendanceMark = {
@@ -783,7 +853,10 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         coords: f.coords,
         accuracy: f.accuracy,
         selfie: selfie ?? makeSelfie(user.name, user.avatarHue, "Checkout"),
-        place: resolvePlace(f.coords, project.zones, project.location),
+        place:
+          closingAt.id === project.id
+            ? resolvePlace(f.coords, project.zones, project.location)
+            : `${closingAt.name} · ${resolvePlace(f.coords, closingAt.zones, closingAt.location)}`,
         insideGeofence: checkGeofence(f.coords, project.geofence).inside,
         syncedAt: isOffline ? undefined : at,
       };
@@ -1008,6 +1081,11 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         const created: Project = {
           id: rid("proj"),
           orgId: patch.orgId ?? currentOrgId(s),
+          kind: patch.kind ?? "site",
+          // Defaults to recording the whole shift: the stricter policy is the
+          // safer thing to arrive at by accident, and turning it off is a
+          // deliberate choice the manager makes at creation.
+          trackingMode: patch.trackingMode ?? "full-shift",
           code: patch.code ?? `NT-CW-${Math.floor(Math.random() * 900) + 100}`,
           name: patch.name,
           client: patch.client ?? "",

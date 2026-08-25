@@ -71,6 +71,8 @@ export function toProject(r: ProjectRow): Project {
   return {
     id: r.id,
     orgId: r.org_id,
+    kind: r.kind,
+    trackingMode: r.tracking_mode,
     code: r.code,
     name: r.name,
     client: r.client,
@@ -120,6 +122,7 @@ export function toPoint(r: LocationPointRow): LocationPoint {
     heading: r.heading,
     at: ms(r.at),
     queued: r.offline,
+    segmentStart: r.segment_start || undefined,
   };
 }
 
@@ -380,6 +383,7 @@ export async function insertPoints(points: LocationPoint[], orgId: string) {
       heading: p.heading,
       at: iso(p.at),
       offline: p.queued ?? false,
+      segment_start: p.segmentStart ?? false,
     })),
   );
   if (error) throw error;

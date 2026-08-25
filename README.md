@@ -21,6 +21,33 @@ roles:
   super admin can also open any manager surface while keeping the admin
   navigation.
 
+### Tracking policy
+
+A project chooses, at creation or any time after, whether on-site movement is
+recorded:
+
+|                            | Track inside the boundary **on**      | **off**                                                                   |
+| -------------------------- | ------------------------------------- | ------------------------------------------------------------------------- |
+| What is recorded           | the whole shift, check-in to checkout | only trips outside the boundary                                           |
+| On-site movement           | part of the record                    | never recorded                                                            |
+| Where checkout is accepted | anywhere                              | only inside a premise the worker is assigned to — any site, or the office |
+
+The second mode is for crews whose on-site movement is nobody's business but
+whose trips away from it are: material runs, client visits, site-to-site
+transfers. Its checkout rule is not an extra restriction bolted on — it is what
+makes the mode coherent. If the shift could be closed anywhere, a worker could
+leave and end the trail mid-trip, and there would be no way to tell a finished
+day from an abandoned one.
+
+Because such a trail is a series of separate excursions rather than one
+journey, each one opens with a segment marker: the map draws them as separate
+trips instead of a line through the site nobody was watching, and the odometer
+does not count distance across the gap.
+
+Premises are marked as a **site** or an **office**; both can start and end a
+shift, which is what lets a crew sign off at the office after a delivery
+instead of driving back.
+
 Everything runs client-side — a localStorage-persisted store with a
 deterministic 14-day seeded demo dataset and a simulated **or** real
 (`navigator.geolocation`) GPS engine — so every flow is demoable immediately

@@ -63,6 +63,8 @@ export function makeSelfie(name: string, hue: number, label: string): string {
 const SITE_A: LatLng = { lat: 11.0273, lng: 77.0037 };
 // Saravanampatti tech corridor.
 const SITE_B: LatLng = { lat: 11.0794, lng: 76.9997 };
+// Head office — near site A but a separate premise with its own boundary.
+const OFFICE: LatLng = { lat: 11.0219, lng: 76.9938 };
 
 function polygonAround(center: LatLng, radii: number[], rot = 0): LatLng[] {
   return radii.map((r, i) =>
@@ -74,6 +76,8 @@ function buildProjects(managerId: string): Project[] {
   const a: Project = {
     id: "proj_abc",
     orgId: DEMO_ORG_ID,
+    kind: "site",
+    trackingMode: "full-shift",
     code: "NT-CW-101",
     name: "ABC Construction Site",
     client: "ABC Infra Developers",
@@ -116,9 +120,13 @@ function buildProjects(managerId: string): Project[] {
     createdAt: Date.parse("2026-02-01T09:00:00+05:30"),
   };
 
+  // Deliberately the other policy, so both modes are visible in the demo:
+  // this crew's on-site movement is not recorded, only their trips away.
   const b: Project = {
     id: "proj_skyline",
     orgId: DEMO_ORG_ID,
+    kind: "site",
+    trackingMode: "outside-only",
     code: "NT-CW-104",
     name: "Skyline Tech Park — Phase 2",
     client: "Skyline Estates",
@@ -157,7 +165,52 @@ function buildProjects(managerId: string): Project[] {
     },
     createdAt: Date.parse("2026-04-10T09:00:00+05:30"),
   };
-  return [a, b];
+
+  // The office is a premise, not a job. It carries no shift history of its
+  // own; it exists so a crew on an `outside-only` project has somewhere to
+  // close the day other than driving back to the site.
+  const office: Project = {
+    id: "proj_office",
+    orgId: DEMO_ORG_ID,
+    kind: "office",
+    trackingMode: "full-shift",
+    code: "NT-HO-001",
+    name: "Nachi Tekneka — Head Office",
+    client: "Internal",
+    address: "Peelamedu, Coimbatore 641004",
+    siteContact: "Front Desk",
+    siteContactPhone: "+91 96003 09000",
+    managerId,
+    startDate: "2024-01-01",
+    endDate: "",
+    status: "active",
+    description:
+      "Head office. Used as a check-in and checkout premise for crews working away from a site.",
+    location: OFFICE,
+    geofence: {
+      kind: "circle",
+      polygon: [],
+      center: OFFICE,
+      radius: 70,
+      bufferMeters: 25,
+    },
+    zones: [
+      { id: "zo_recep", name: "Reception", center: OFFICE, radius: 22, kind: "access" },
+      { id: "zo_desk", name: "Project Desk", center: offsetMeters(OFFICE, 34, 70), radius: 20, kind: "work" },
+      { id: "zo_can", name: "Canteen", center: offsetMeters(OFFICE, 40, 240), radius: 18, kind: "welfare" },
+    ],
+    employeeIds: [],
+    rules: {
+      shiftStart: 9 * 60,
+      shiftEnd: 18 * 60,
+      lateGraceMinutes: 15,
+      minShiftMinutes: 7 * 60,
+      exitAlertMinutes: 15,
+      autoCheckoutHours: 14,
+    },
+    createdAt: Date.parse("2024-01-01T09:00:00+05:30"),
+  };
+  return [a, b, office];
 }
 
 /* ---------------------------------------------------------------- users */
@@ -189,7 +242,7 @@ function buildUsers(): User[] {
     email: "priya@nachitekneka.com",
     avatarHue: 265,
     status: "active",
-    projectIds: ["proj_abc", "proj_skyline"],
+    projectIds: ["proj_abc", "proj_skyline", "proj_office"],
     shiftStart: 9 * 60,
     shiftEnd: 18 * 60,
     joinedAt: Date.parse("2024-01-15T09:00:00+05:30"),
@@ -206,7 +259,7 @@ function buildUsers(): User[] {
     email: "rajesh@nachitekneka.com",
     avatarHue: 8,
     status: "active",
-    projectIds: ["proj_abc", "proj_skyline"],
+    projectIds: ["proj_abc", "proj_skyline", "proj_office"],
     shiftStart: 8 * 60,
     shiftEnd: 18 * 60,
     joinedAt: Date.parse("2024-06-01T09:00:00+05:30"),
@@ -222,7 +275,9 @@ function buildUsers(): User[] {
     phone: s.phone,
     avatarHue: s.hue,
     status: "active",
-    projectIds: i < 5 ? ["proj_abc"] : ["proj_skyline"],
+    // The Skyline crew work an `outside-only` project, so they also hold the
+    // office: under that policy a shift can only be closed at a premise.
+    projectIds: i < 5 ? ["proj_abc"] : ["proj_skyline", "proj_office"],
     shiftStart: i < 5 ? 8 * 60 + 30 : 9 * 60,
     shiftEnd: i < 5 ? 17 * 60 + 30 : 18 * 60,
     joinedAt: Date.parse("2025-11-10T09:00:00+05:30") + i * 86400000,
@@ -374,6 +429,107 @@ function synthTrail(
   return { points, distance };
 }
 
+/**
+ * A shift's trail under `outside-only` tracking.
+ *
+ * Nothing like the on-site walk: the record is a handful of trips away from
+ * the boundary — a material run, a client visit — with the hours in between
+ * simply absent. Each trip opens with a `segmentStart` point, which is what
+ * stops the map drawing a line through the gap and stops the odometer
+ * counting travel it never saw.
+ */
+function synthOffsiteTrail(
+  rng: () => number,
+  project: Project,
+  attendanceId: string,
+  employeeId: string,
+  start: number,
+  end: number,
+  openShift = false,
+): { points: LocationPoint[]; distance: number } {
+  const gate =
+    project.zones.find((z) => z.kind === "access")?.center ?? project.location;
+  const points: LocationPoint[] = [];
+  let distance = 0;
+  const stepMs = 120000; // 2 min cadence — vehicle speeds, coarser fixes
+
+  const emit = (at: number, pt: LatLng, speed: number, segmentStart?: boolean) => {
+    points.push({
+      id: nextId("pt"),
+      attendanceId,
+      employeeId,
+      projectId: project.id,
+      lat: pt.lat,
+      lng: pt.lng,
+      accuracy: 6 + rng() * 16,
+      speed,
+      heading: rng() * 360,
+      at,
+      ...(segmentStart ? { segmentStart: true } : {}),
+    });
+  };
+
+  const shiftLen = end - start;
+  const trips = 1 + Math.floor(rng() * 3);
+  for (let i = 0; i < trips; i++) {
+    // Space the trips across the shift, leaving on-site time between them.
+    const window = shiftLen / trips;
+    const departAt = start + window * i + window * 0.15;
+    const outboundMs = (6 + rng() * 10) * 60000;
+    const dwellMs = (10 + rng() * 25) * 60000;
+    const returnAt = departAt + outboundMs * 2 + dwellMs;
+    // An open shift means the worker may still be out on this trip.
+    if (departAt > end) break;
+
+    const bearing = rng() * 360;
+    const destination = offsetMeters(gate, 900 + rng() * 3400, bearing);
+    const legs = Math.max(2, Math.round(outboundMs / stepMs));
+
+    let clock = departAt;
+    let prev: LatLng = gate;
+    for (let leg = 1; leg <= legs && clock < end; leg++) {
+      clock = departAt + stepMs * leg;
+      const f = leg / legs;
+      const at: LatLng = {
+        lat: gate.lat + (destination.lat - gate.lat) * f,
+        lng: gate.lng + (destination.lng - gate.lng) * f,
+      };
+      // The first fix of the trip is where recording resumes, so the distance
+      // from the gate is not counted — the app was not watching.
+      if (leg > 1) distance += distanceMeters(prev, at);
+      emit(clock, at, 6 + rng() * 8, leg === 1);
+      prev = at;
+    }
+
+    // Parked at the destination.
+    const dwellEnd = Math.min(end, clock + dwellMs);
+    while (clock + stepMs * 2 < dwellEnd) {
+      clock += stepMs * 2;
+      const drift = offsetMeters(destination, rng() * 12, rng() * 360);
+      distance += distanceMeters(prev, drift);
+      emit(clock, drift, rng() * 0.4);
+      prev = drift;
+    }
+
+    // Drive back — unless the shift is still open and this is the last trip,
+    // in which case the worker is still out there.
+    const stillOut = openShift && i === trips - 1 && returnAt > end;
+    if (stillOut) break;
+    for (let leg = 1; leg <= legs && clock < end; leg++) {
+      clock += stepMs;
+      const f = leg / legs;
+      const at: LatLng = {
+        lat: destination.lat + (gate.lat - destination.lat) * f,
+        lng: destination.lng + (gate.lng - destination.lng) * f,
+      };
+      distance += distanceMeters(prev, at);
+      emit(clock, at, 6 + rng() * 8);
+      prev = at;
+    }
+  }
+  return { points, distance };
+}
+
 /* ------------------------------------------------------------- assembler */
 
 export function buildSeedState(now = Date.now()): WorkforceState {
@@ -405,7 +561,10 @@ export function buildSeedState(now = Date.now()): WorkforceState {
       // Keep the demo employee's day open so the full check-in flow can be
       // walked live (Arun Kumar has no record yet today).
       if (isToday && emp.id === "usr_nt0214") continue;
-      const project = projects.find((p) => emp.projectIds.includes(p.id))!;
+      // The office is a premise, not a job — nobody is rostered to it.
+      const project = projects.find(
+        (p) => emp.projectIds.includes(p.id) && p.kind !== "office",
+      )!;
       const plan = planDay(rng, isToday);
       if (!plan) {
         attendance.push({
@@ -444,7 +603,9 @@ export function buildSeedState(now = Date.now()): WorkforceState {
         insideGeofence: true,
       };
 
-      const trail = synthTrail(rng, project, att.id, emp.id, inAt, outAt, stillWorking);
+      const synth =
+        project.trackingMode === "outside-only" ? synthOffsiteTrail : synthTrail;
+      const trail = synth(rng, project, att.id, emp.id, inAt, outAt, stillWorking);
       points.push(...trail.points);
       att.distanceMeters = Math.round(trail.distance);
 

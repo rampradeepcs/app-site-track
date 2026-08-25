@@ -20,6 +20,7 @@ import {
   SectionTitle,
   Segmented,
   StatusChip,
+  Toggle,
   useNowTick,
 } from "@/components/ui";
 import {
@@ -54,7 +55,8 @@ export default function ProjectPage() {
 }
 
 function ProjectInner() {
-  const { state, updateGeofence, assignEmployee, removeEmployeeFromProject } = useWorkforce();
+  const { state, updateGeofence, saveProject, assignEmployee, removeEmployeeFromProject } =
+    useWorkforce();
   const params = useSearchParams();
   const id = params.get("id");
   const project = state.projects.find((p) => p.id === id) ?? null;
@@ -192,6 +194,35 @@ function ProjectInner() {
                 window.setTimeout(() => setSavedFlash(false), 4000);
               }}
             />
+            {/* Editable here rather than only at creation: the reason to
+                narrow tracking usually surfaces once a crew is working. */}
+            <div className="wf-card flex flex-col gap-3 p-4">
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[0.88rem] font-bold">
+                    Track employees inside the boundary
+                  </p>
+                  <p className="mt-0.5 text-[0.76rem] leading-snug text-[var(--wf-muted)]">
+                    {project.trackingMode === "full-shift"
+                      ? "The full shift is recorded, from check-in to checkout."
+                      : "Nothing is recorded on site. Recording starts when someone leaves the boundary and runs until checkout — and checkout is only accepted at one of their assigned premises."}
+                  </p>
+                </div>
+                <Toggle
+                  checked={project.trackingMode === "full-shift"}
+                  onChange={(on) =>
+                    saveProject(
+                      {
+                        name: project.name,
+                        trackingMode: on ? "full-shift" : "outside-only",
+                      },
+                      project.id,
+                    )
+                  }
+                  label="Track employees inside the project boundary"
+                />
+              </div>
+            </div>
             <div className="wf-card p-4 text-[0.78rem] leading-relaxed text-[var(--wf-muted)]">
               <p className="mb-1 font-bold text-[var(--wf-fg)]">How the fence is enforced</p>
               Inside the boundary → check-in allowed. Outside → check-in blocked

@@ -76,10 +76,39 @@ export interface SiteZone {
   kind: "work" | "material" | "welfare" | "access" | "hazard";
 }
 
+/**
+ * What a premise is. Both are geofenced places a worker can be assigned to;
+ * the distinction exists because a shift under `outside-only` tracking has to
+ * be closed at one of them, and "go back to the office" is a different
+ * instruction from "go back to the site".
+ */
+export type PremiseKind = "site" | "office";
+
+/**
+ * When a shift's location trail is recorded.
+ *
+ * - `full-shift` — continuously from check-in to checkout. The worker's
+ *   movement around the site is part of the record.
+ * - `outside-only` — nothing is recorded while the worker is inside the
+ *   boundary; recording starts when they leave and runs until checkout. For
+ *   crews whose on-site movement is nobody's business but whose trips away
+ *   from it are: material runs, client visits, site-to-site transfers.
+ *
+ * The second mode is what makes the checkout rule necessary. If the shift
+ * could be closed anywhere, a worker could leave and end the trail in the
+ * middle of the trip — so under `outside-only` checkout is only accepted
+ * inside one of their assigned premises.
+ */
+export type TrackingMode = "full-shift" | "outside-only";
+
 export interface Project {
   id: string;
   /** Owning tenant — every project read is scoped by this. */
   orgId: string;
+  /** Site or office. Both are valid places to start and end a shift. */
+  kind: PremiseKind;
+  /** Whether on-site movement is recorded. See {@link TrackingMode}. */
+  trackingMode: TrackingMode;
   code: string;
   name: string;
   client: string;
@@ -183,6 +212,14 @@ export interface LocationPoint {
   at: number;
   /** True while the point sat in the offline outbox. */
   queued?: boolean;
+  /**
+   * First fix of a new stretch of recording. Only `outside-only` projects
+   * produce these: the trail is a series of excursions with the on-site time
+   * between them missing entirely, so the distance from the previous point is
+   * not travel that was measured and the polyline must not be drawn through
+   * the gap.
+   */
+  segmentStart?: boolean;
 }
 
 /** A place the worker stayed put — derived from the trail, not stored raw. */

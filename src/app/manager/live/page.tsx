@@ -48,7 +48,7 @@ function LiveInner() {
   const trail = useMemo(
     () =>
       tracking && selected?.attendance
-        ? trailFor(state, selected.attendance.id).map((p) => ({ lat: p.lat, lng: p.lng, at: p.at }))
+        ? trailFor(state, selected.attendance.id).map((p) => ({ lat: p.lat, lng: p.lng, at: p.at, segmentStart: p.segmentStart }))
         : [],
     [tracking, selected, state],
   );

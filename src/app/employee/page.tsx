@@ -32,6 +32,13 @@ import {
   todayISO,
 } from "@/lib/format";
 import { resolvePlace } from "@/lib/geo";
+import {
+  assignedPremises,
+  nearestPremise,
+  premiseAt,
+  type PremiseFix,
+} from "@/lib/premises";
+import type { Project } from "@/lib/types";
 import { useWorkforce, type SimScenario } from "@/lib/store";
 import {
   ICamera,
@@ -42,6 +49,7 @@ import {
   INav,
   IRoute,
   IAlert,
+  IShield,
 } from "@/components/WfIcons";
 
 type Flow =
@@ -103,6 +111,17 @@ export default function EmployeeHome() {
 
   const distance = fence ? Math.max(0, Math.round(fence.distance)) : null;
   const canCheckIn = !!fence?.inside && !!fix && !fix.degraded;
+
+  /* ------------------------------------------- off-site tracking policy */
+
+  // On this project the boundary is a privacy line: nothing is recorded while
+  // the worker is inside it, and the shift can only be closed at a premise.
+  const offsiteOnly = project.trackingMode === "outside-only";
+  const premises = assignedPremises(state.projects, currentUser);
+  const atPremise = fix ? premiseAt(fix.coords, premises) : null;
+  const nearest = fix ? nearestPremise(fix.coords, premises) : null;
+  const canCheckOut = !offsiteOnly || !!atPremise;
+  const recording = !offsiteOnly || (!!fence && !fence.inside);
 
   const startCheckIn = () => {
     setFlow({ step: "validating", dir: "in" });
@@ -199,7 +218,7 @@ export default function EmployeeHome() {
 
         <SiteMap
           project={project}
-          trail={liveTrail.map((p) => ({ lat: p.lat, lng: p.lng, at: p.at }))}
+          trail={liveTrail.map((p) => ({ lat: p.lat, lng: p.lng, at: p.at, segmentStart: p.segmentStart }))}
           markers={markers}
           follow={fix?.coords ?? null}
           accuracy={fix?.accuracy}
@@ -218,7 +237,11 @@ export default function EmployeeHome() {
             value={<LiveDuration since={openShift.checkIn.at} />}
             tone="var(--wf-green)"
           />
-          <ShiftStat label="Distance" value={fmtDistance(openShift.distanceMeters)} tone="var(--wf-blue)" />
+          <ShiftStat
+            label={offsiteOnly ? "Off-site" : "Distance"}
+            value={fmtDistance(openShift.distanceMeters)}
+            tone="var(--wf-blue)"
+          />
           <ShiftStat
             label="Checked in"
             value={fmtTime(openShift.checkIn.at)}
@@ -236,6 +259,12 @@ export default function EmployeeHome() {
           </div>
           {fix?.degraded ? (
             <Chip tone="amber">GPS weak</Chip>
+          ) : offsiteOnly ? (
+            // What matters here is not where they are but whether the app is
+            // writing a trail — that is the whole promise of this policy.
+            <Chip tone={recording ? "amber" : "green"}>
+              {recording ? "Recording" : "Not recording"}
+            </Chip>
           ) : fence && !fence.inside ? (
             <Chip tone="red">Off site</Chip>
           ) : (
@@ -243,13 +272,19 @@ export default function EmployeeHome() {
           )}
         </div>
 
-        {fence && !fence.inside && (
+        {offsiteOnly ? (
+          <OffsitePolicyNote
+            recording={recording}
+            atPremise={atPremise}
+            nearest={nearest}
+          />
+        ) : fence && !fence.inside ? (
           <div className="wf-inset flex items-start gap-2.5 border-[rgba(246,167,35,0.4)] px-3.5 py-3 text-[0.8rem] leading-snug text-[var(--wf-amber-hi)]">
             <IAlert size={16} className="mt-0.5 shrink-0" />
             You&apos;ve left the site boundary. Your shift stays open and the exit has
             been recorded — return to the site or check out when done.
           </div>
-        )}
+        ) : null}
 
         <DemoLocationControls value={simScenario} onChange={setSimScenario} onShift />
 
@@ -265,6 +300,12 @@ export default function EmployeeHome() {
           </button>
           <button
             className="wf-btn wf-btn-danger flex-col gap-1 py-3 text-[0.72rem]"
+            disabled={!canCheckOut}
+            title={
+              canCheckOut
+                ? undefined
+                : "Checkout is only accepted at one of your sites or the office"
+            }
             onClick={startCheckOut}
           >
             <ICamera size={19} /> Check out
@@ -319,6 +360,12 @@ export default function EmployeeHome() {
               <IMapPin size={12} className="shrink-0" />
               <span className="truncate">{project.address}</span>
             </p>
+            {offsiteOnly && (
+              <p className="mt-1.5 flex min-w-0 items-center gap-1 text-[0.72rem] font-semibold text-[var(--wf-green)]">
+                <IShield size={12} className="shrink-0" />
+                <span className="truncate">On-site movement isn&apos;t tracked</span>
+              </p>
+            )}
           </div>
           {todayRec?.checkOut ? (
             <StatusChip status="present" label="Done today" />
@@ -433,6 +480,57 @@ export default function EmployeeHome() {
 }
 
 /* ------------------------------------------------------------- pieces */
+
+/**
+ * The whole `outside-only` policy, said plainly to the person it applies to.
+ *
+ * Two facts matter to a worker on this policy and neither is obvious from a
+ * map: whether their location is being written down right now, and where they
+ * are allowed to end the day. Leaving either to be inferred is how a worker
+ * ends up stranded at 6pm unable to close a shift.
+ */
+function OffsitePolicyNote({
+  recording,
+  atPremise,
+  nearest,
+}: {
+  recording: boolean;
+  atPremise: Project | null;
+  nearest: PremiseFix | null;
+}) {
+  if (!recording) {
+    return (
+      <div className="wf-inset flex items-start gap-2.5 border-[rgba(47,211,118,0.35)] px-3.5 py-3 text-[0.8rem] leading-snug">
+        <IShield size={16} className="mt-0.5 shrink-0 text-[var(--wf-green)]" />
+        <span className="min-w-0">
+          <span className="font-semibold text-[var(--wf-green)]">
+            Your location isn&apos;t being recorded.
+          </span>{" "}
+          <span className="text-[var(--wf-muted)]">
+            On this project only trips away from the boundary are tracked.
+            Recording starts if you leave{atPremise ? ` ${atPremise.name}` : ""}.
+          </span>
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="wf-inset flex items-start gap-2.5 border-[rgba(246,167,35,0.4)] px-3.5 py-3 text-[0.8rem] leading-snug">
+      <IRoute size={16} className="mt-0.5 shrink-0 text-[var(--wf-amber)]" />
+      <span className="min-w-0">
+        <span className="font-semibold text-[var(--wf-amber-hi)]">
+          You&apos;re off site — your route is being recorded.
+        </span>{" "}
+        <span className="text-[var(--wf-muted)]">
+          {nearest
+            ? `Recording stops when you get back. Check out at a site or the office — nearest is ${nearest.premise.name}, ${fmtDistance(nearest.distance)} away.`
+            : "Recording stops when you get back. Check out at a site or the office."}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 
 function ShiftStat({
   label,

@@ -90,6 +90,8 @@ export type UserRow = {
 export type ProjectRow = {
   id: string;
   org_id: string;
+  kind: "site" | "office";
+  tracking_mode: "full-shift" | "outside-only";
   code: string;
   name: string;
   client: string;
@@ -140,6 +142,8 @@ export type LocationPointRow = {
   heading: number;
   at: string;
   offline: boolean;
+  /** Opens a new stretch of recording — see LocationPoint.segmentStart. */
+  segment_start: boolean;
 }
 
 export type WorkUpdateRow = {

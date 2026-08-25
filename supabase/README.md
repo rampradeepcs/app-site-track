@@ -1,12 +1,15 @@
 # SiteTrack — Supabase backend
 
-Three migrations, applied in order:
+Six migrations, applied in order:
 
-| File                        | Purpose                                                                                                                                                                                                   |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `20260824000100_schema.sql` | 16 tables: platform (orgs, plans, subscriptions, invoices, usage, tickets, audit, settings) and workforce (users, projects, members, attendance, location points, work updates, notifications, org audit) |
-| `20260824000200_rls.sql`    | 38 row-level-security policies, the auth helper functions, and the retention purge                                                                                                                        |
-| `20260824000300_seed.sql`   | The three baseline plans and platform settings                                                                                                                                                            |
+| File                                 | Purpose                                                                                                                                                                                                   |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `20260824000100_schema.sql`          | 16 tables: platform (orgs, plans, subscriptions, invoices, usage, tickets, audit, settings) and workforce (users, projects, members, attendance, location points, work updates, notifications, org audit) |
+| `20260824000200_rls.sql`             | 38 row-level-security policies, the auth helper functions, and the retention purge                                                                                                                        |
+| `20260824000300_seed.sql`            | The three baseline plans and platform settings                                                                                                                                                            |
+| `20260824000400_auth_link.sql`       | Links a new auth identity to the worker record that already exists for that person                                                                                                                        |
+| `20260824000500_rls_hardening.sql`   | Policy helpers moved to `private`, wrapped in InitPlan subqueries, targeted at `authenticated`                                                                                                            |
+| `20260825000600_tracking_policy.sql` | `projects.kind`, `projects.tracking_mode`, `location_points.segment_start`                                                                                                                                |
 
 ## Apply
 
@@ -149,6 +152,29 @@ Verified against PostgreSQL 16:
 
 `link_user_to_auth(user, auth)` lets the platform owner attach an identity by
 hand — for a changed number, or an invite that matched nothing.
+
+## Per-project tracking policy
+
+`20260825000600_tracking_policy.sql` lets a project say that on-site movement
+is not recorded at all — `tracking_mode = 'outside-only'`. The trail then
+begins when a worker crosses the boundary and ends at checkout.
+
+Both columns are `not null` with defaults that reproduce the previous
+behaviour, so every existing row keeps recording the full shift and nothing
+changes for a project nobody has reconfigured. Verified on PostgreSQL 16: a
+row inserted without either column comes back `site` / `full-shift`, and the
+enums reject anything else.
+
+Two consequences are carried in the schema rather than left to the client:
+
+- **`projects.kind`** marks a premise as a site or an office. Under
+  `outside-only` a shift may only be closed inside a premise the worker is
+  assigned to, and "check out at the office" is not expressible without it.
+- **`location_points.segment_start`** marks the first fix of each excursion.
+  Such a trail is a series of separate trips with unobserved time between
+  them, so a consumer must break the polyline there and must not accumulate
+  distance across the gap. Leaving that to be inferred from timestamps would
+  make every reader guess at the same threshold.
 
 ## RLS performance and privilege hardening
 
