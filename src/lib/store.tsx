@@ -34,6 +34,7 @@ import {
 import { todayISO } from "./format";
 import { buildSeedState, makeSelfie } from "./seed";
 import { isLiveBackend } from "./supabase/client";
+import { onAuthChange, signOut as authSignOut } from "./supabase/auth";
 import { fetchWorkforce } from "./supabase/repository";
 import type {
   AppNotification,
@@ -115,6 +116,8 @@ interface StoreApi {
 
   /* session */
   login: (role: Role, userId?: string) => void;
+  /** Sign in as a record that came from the backend rather than the seed. */
+  loginAs: (user: User) => void;
   logout: () => void;
   currentUser: User | null;
   setActiveProject: (projectId: string) => void;
@@ -206,28 +209,54 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     // stay local — they are device preferences, not tenant data. A failure
     // here is non-fatal: the app keeps running on what it already has rather
     // than showing a worker an empty screen at the site gate.
+    //
+    // Two rules make this safe to run against a real database:
+    //
+    //  1. It re-runs on sign-in. Every RLS policy resolves through
+    //     `auth.uid()`, so a read issued before authentication is correctly
+    //     answered with nothing. Hydrating once on mount would therefore
+    //     always miss.
+    //  2. An empty result never overwrites. Zero users means "this caller is
+    //     not authorised" far more often than it means "this tenant is
+    //     empty" — the signed-in person is themselves a row. Blanking the
+    //     app on that reading is the worst possible failure, so it is
+    //     treated as no answer at all.
     if (isLiveBackend) {
       let cancelled = false;
-      fetchWorkforce()
-        .then((live) => {
-          if (cancelled) return;
-          setState((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  users: live.users,
-                  projects: live.projects,
-                  attendance: live.attendance,
-                  updates: live.updates,
-                }
-              : prev,
-          );
-        })
-        .catch((err) => {
-          console.error("[SiteTrack] Supabase hydration failed; staying on local state.", err);
-        });
+      const hydrate = () => {
+        fetchWorkforce()
+          .then((live) => {
+            if (cancelled) return;
+            if (live.users.length === 0) {
+              console.warn(
+                "[SiteTrack] Supabase returned no visible rows — not signed in, " +
+                  "or this identity is not linked to an organisation. Keeping local state.",
+              );
+              return;
+            }
+            setState((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    users: live.users,
+                    projects: live.projects,
+                    attendance: live.attendance,
+                    updates: live.updates,
+                  }
+                : prev,
+            );
+          })
+          .catch((err) => {
+            console.error("[SiteTrack] Supabase hydration failed; staying on local state.", err);
+          });
+      };
+      hydrate(); // a persisted session may already be valid
+      const off = onAuthChange((signedIn) => {
+        if (signedIn) hydrate();
+      });
       return () => {
         cancelled = true;
+        off();
       };
     }
   }, []);
@@ -612,9 +641,35 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     [mutate],
   );
 
+  /**
+   * Sign in as a backend record. Distinct from `login` because that one can
+   * only pick from state it already holds, and a live sign-in resolves the
+   * person before their tenant has been fetched. The record is merged in so
+   * the very first render has an identity to draw.
+   */
+  const loginAs = useCallback(
+    (user: User) => {
+      mutate((s) => ({
+        ...s,
+        users: s.users.some((u) => u.id === user.id)
+          ? s.users.map((u) => (u.id === user.id ? user : u))
+          : [...s.users, user],
+        session: { userId: user.id, role: user.role, at: Date.now() },
+        activeProjectId: user.projectIds[0] ?? null,
+      }));
+      fenceStateRef.current = null;
+      lastRecordedRef.current = 0;
+      setFix(null);
+    },
+    [mutate],
+  );
+
   const logout = useCallback(() => {
     mutate((s) => ({ ...s, session: null }));
     setFix(null);
+    // Clearing the local session while the Supabase token lived on would
+    // silently sign the next person in as the last one.
+    if (isLiveBackend) void authSignOut();
   }, [mutate]);
 
   const setActiveProject = useCallback(
@@ -1054,6 +1109,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     hydrated: true,
     online,
     login,
+    loginAs,
     logout,
     currentUser,
     setActiveProject,

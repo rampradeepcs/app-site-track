@@ -7,9 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 # Never let two Pages deploys race; the newest push wins.
 concurrency:
@@ -17,8 +15,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
+    env:
+      # The anon key is a public credential by design — it identifies the
+      # project, it does not authorise anything. Row-level security is what
+      # protects the data, and it is enforced in Postgres regardless of who
+      # holds this key. It is a repository secret only so it is easy to
+      # rotate, not because exposure would matter: every browser that loads
+      # the site receives it anyway.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,31 +34,71 @@ jobs:
           cache: npm
       - run: npm ci
 
-      # Pages must already be enabled with Source = "GitHub Actions"
-      # (Settings -> Pages). `enablement: true` cannot do it: the workflow
-      # token may deploy to Pages but not create the site, and asking it to
-      # fails with "Resource not accessible by integration".
-      - uses: actions/configure-pages@v5
+      # A static export has no server, so credentials are inlined at build
+      # time or not at all. Missing ones would produce a perfectly healthy
+      # site quietly serving seed data — indistinguishable from the real
+      # thing until someone tries to save a shift. Fail instead.
+      - name: Require Supabase credentials
+        run: |
+          missing=""
+          [ -n "$NEXT_PUBLIC_SUPABASE_URL" ] || missing="$missing SUPABASE_URL"
+          [ -n "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] || missing="$missing SUPABASE_ANON_KEY"
+          if [ -n "$missing" ]; then
+            {
+              echo "### Deploy stopped: missing repository secrets"
+              echo
+              echo "Missing:$missing"
+              echo
+              echo "Add them under **Settings → Secrets and variables → Actions**:"
+              echo
+              echo "| Secret | Value |"
+              echo "| --- | --- |"
+              echo "| \`SUPABASE_URL\` | your project URL, e.g. \`https://xxxx.supabase.co\` |"
+              echo "| \`SUPABASE_ANON_KEY\` | Project Settings → API → anon public key |"
+              echo
+              echo "Then re-run this workflow. The build was stopped rather than"
+              echo "shipped in demo mode, which would look identical but talk to"
+              echo "no backend."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Missing repository secrets:$missing — see the run summary."
+            exit 1
+          fi
+          echo "Building against $NEXT_PUBLIC_SUPABASE_URL"
 
       - name: Build static export
         run: npm run build
         env:
           GITHUB_PAGES: "true"
 
+      # Prove the credentials actually reached the bundle. A typo'd secret
+      # name is silent otherwise: the build succeeds and demo mode ships.
+      - name: Verify the bundle is in live mode
+        run: |
+          if ! grep -rqF "$NEXT_PUBLIC_SUPABASE_URL" out/_next/static; then
+            echo "::error::Built bundle contains no Supabase URL — it would run in demo mode."
+            exit 1
+          fi
+          echo "Supabase URL found in the bundle; deploying in live mode."
+
       # Pages serves the artifact as-is; .nojekyll stops it stripping the
       # _next/ directory, which would break every asset.
       - run: touch out/.nojekyll
 
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: out
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      # Published by pushing the branch rather than through
+      # actions/deploy-pages, because this site's Pages source is
+      # "Deploy from a branch: gh-pages". The Actions path needs the source
+      # switched to "GitHub Actions" in Settings → Pages, and deploying to a
+      # source that is not selected fails rather than falling back.
+      - name: Publish to gh-pages
+        run: |
+          cd out
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Deploy ${GITHUB_SHA::7}"
+          git push -q --force \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" \
+            HEAD:gh-pages
+          echo "Deployed to https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/" \
+            >> "$GITHUB_STEP_SUMMARY"

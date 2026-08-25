@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
 import type { Role } from "@/lib/types";
+import { isLiveBackend } from "@/lib/supabase/client";
 import { Avatar, BottomSheet, Chip } from "./ui";
 import {
   IBell,
@@ -297,9 +298,32 @@ export function AccountMenu() {
             Signing out stops any location tracking and returns to the sign-in
             screen. Your records stay on this device.
           </p>
+          <BackendModeNote />
         </div>
       </BottomSheet>
     </>
+  );
+}
+
+/**
+ * Which backend this build is talking to.
+ *
+ * Worth showing rather than inferring: the demo and live builds are visually
+ * identical, so without this the only way to tell a deployment that reached
+ * Postgres from one quietly serving seed data is to open the console.
+ */
+function BackendModeNote() {
+  return (
+    <p className="flex items-center justify-center gap-1.5 border-t border-[var(--wf-line)] pt-3 text-[0.68rem] text-[var(--wf-faint)]">
+      <span
+        aria-hidden="true"
+        className="h-1.5 w-1.5 rounded-full"
+        style={{
+          background: isLiveBackend ? "var(--wf-green)" : "var(--wf-faint)",
+        }}
+      />
+      {isLiveBackend ? "Connected to Supabase" : "Demo mode — seeded sample data"}
+    </p>
   );
 }
 

@@ -2,11 +2,11 @@
 
 Three migrations, applied in order:
 
-| File | Purpose |
-|---|---|
+| File                        | Purpose                                                                                                                                                                                                   |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `20260824000100_schema.sql` | 16 tables: platform (orgs, plans, subscriptions, invoices, usage, tickets, audit, settings) and workforce (users, projects, members, attendance, location points, work updates, notifications, org audit) |
-| `20260824000200_rls.sql` | 38 row-level-security policies, the auth helper functions, and the retention purge |
-| `20260824000300_seed.sql` | The three baseline plans and platform settings |
+| `20260824000200_rls.sql`    | 38 row-level-security policies, the auth helper functions, and the retention purge                                                                                                                        |
+| `20260824000300_seed.sql`   | The three baseline plans and platform settings                                                                                                                                                            |
 
 ## Apply
 
@@ -56,9 +56,46 @@ replace the tenant-owned slices with real rows:
   and usage. The same query serves both audiences — RLS decides whether the
   caller sees one organisation or all of them.
 
-A hydration failure is deliberately non-fatal. The app logs and keeps running
-on what it already has, rather than showing a worker an empty screen at the
-site gate.
+Two rules make that safe to point at a real database:
+
+1. **Hydration re-runs on sign-in.** Every policy resolves through
+   `auth.uid()`, so a read issued before authentication is correctly answered
+   with nothing. Hydrating once on mount would therefore always miss; both
+   stores subscribe to `onAuthChange` and re-read.
+2. **An empty result never overwrites.** Zero visible users means "this caller
+   is not authorised" far more often than it means "this tenant is empty" —
+   the signed-in person is themselves a row. Treating that as data would blank
+   the app, so it is treated as no answer at all.
+
+A hydration failure is likewise non-fatal. The app logs and keeps running on
+what it already has, rather than showing a worker an empty screen at the site
+gate.
+
+## Signing in
+
+The gate has two implementations and picks one at build time from
+`isLiveBackend`:
+
+|          | Demo (no credentials) | Live (credentials set)               |
+| -------- | --------------------- | ------------------------------------ |
+| Identity | pick a seeded person  | phone or email, real OTP             |
+| Code     | any 4 digits          | the 6-digit code Supabase sends      |
+| Role     | chosen at the door    | read from the user's database record |
+
+The live gate (`src/components/LiveGate.tsx`) is not a reskin of the demo one.
+Choosing your own role is meaningless once RLS is enforcing it, and there is no
+list of people to pick from before you have authenticated — so the flow is
+identifier → code → `currentAppUser()` → the home screen for whatever role came
+back.
+
+It also names the state in between: an identity that verifies but matches no
+`users` row is **authenticated but unlinked**. That person is told so
+explicitly, because the alternative — dropping them into an app with nothing in
+it — looks like an outage. See the identity-linking section above for why a row
+can fail to match.
+
+Signing out clears the Supabase session as well as the local one; leaving the
+token behind would sign the next person in as the last one.
 
 ## Tenant isolation
 
@@ -73,11 +110,11 @@ subject to the policies it feeds.
 Verified against PostgreSQL 16 with two tenants, a manager in each, an employee
 and a super admin:
 
-| Actor | Sees |
-|---|---|
-| Manager @ Client A | only A's users, projects, attendance, GPS points, invoices |
-| Employee @ Client A | own attendance and GPS only; **zero** invoices |
-| Super Admin | both tenants, all tables |
+| Actor               | Sees                                                       |
+| ------------------- | ---------------------------------------------------------- |
+| Manager @ Client A  | only A's users, projects, attendance, GPS points, invoices |
+| Employee @ Client A | own attendance and GPS only; **zero** invoices             |
+| Super Admin         | both tenants, all tables                                   |
 
 Negative cases, all confirmed:
 
@@ -103,12 +140,12 @@ empty screens.
 
 Verified against PostgreSQL 16:
 
-| Case | Result |
-|---|---|
-| Phone match despite punctuation | linked |
-| Email match, different casing | linked |
-| Identity matching nobody | claims 0 rows, does not hijack a linked record |
-| Linked worker under RLS | resolves to their org; sees 1 project, 0 from the other tenant, 0 invoices |
+| Case                            | Result                                                                     |
+| ------------------------------- | -------------------------------------------------------------------------- |
+| Phone match despite punctuation | linked                                                                     |
+| Email match, different casing   | linked                                                                     |
+| Identity matching nobody        | claims 0 rows, does not hijack a linked record                             |
+| Linked worker under RLS         | resolves to their org; sees 1 project, 0 from the other tenant, 0 invoices |
 
 `link_user_to_auth(user, auth)` lets the platform owner attach an identity by
 hand — for a changed number, or an invite that matched nothing.
@@ -131,10 +168,10 @@ in the original policies:
 
 Measured on PostgreSQL 16 over 300,002 location points, same query, same data:
 
-| | Execution time | Plan |
-|---|---|---|
-| Before | **4,775 ms** | `Filter: (is_superadmin() OR ((org_id = auth_org_id()) AND …))` — per-row calls |
-| After | **44.5 ms** | `InitPlan 1–4`, `Filter: ($0 OR ((org_id = $1) AND ($2 OR (employee_id = $3))))` |
+|        | Execution time | Plan                                                                             |
+| ------ | -------------- | -------------------------------------------------------------------------------- |
+| Before | **4,775 ms**   | `Filter: (is_superadmin() OR ((org_id = auth_org_id()) AND …))` — per-row calls  |
+| After  | **44.5 ms**    | `InitPlan 1–4`, `Filter: ($0 OR ((org_id = $1) AND ($2 OR (employee_id = $3))))` |
 
 **107× faster**, and the full isolation matrix still passes: manager sees only
 their tenant (0 rows for another org even by explicit id), employee sees own

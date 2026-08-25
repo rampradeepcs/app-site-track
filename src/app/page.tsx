@@ -1,9 +1,13 @@
 "use client";
 
 /**
- * SiteTrack gate — splash, role selection and the mock OTP sign-in.
- * A real deployment would swap the OTP stub for the auth provider; the
- * screen flow (phone → OTP → role home) is production shape.
+ * SiteTrack gate.
+ *
+ * Two gates, one door. With Supabase credentials configured the real one
+ * takes over: identity is established with the auth provider and the role
+ * comes from the database. Without them this demo gate runs, where you pick
+ * a seeded person and any code works — that is what keeps the product
+ * explorable with no backend attached.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -19,10 +23,21 @@ import {
   IUsers,
 } from "@/components/WfIcons";
 import type { Role, User } from "@/lib/types";
+import { homeFor } from "@/lib/routes";
+import { isLiveBackend } from "@/lib/supabase/client";
+import LiveGate from "@/components/LiveGate";
 
 type Step = "splash" | "role" | "who" | "otp";
 
 export default function WorkforceGate() {
+  // Fixed for the lifetime of a build: NEXT_PUBLIC_* is inlined at compile
+  // time, so this never flips at runtime. Both gates are still bundled —
+  // the flag is a computed boolean, not a literal the minifier can fold —
+  // which costs a few KB and keeps one build able to serve either mode.
+  return isLiveBackend ? <LiveGate /> : <DemoGate />;
+}
+
+function DemoGate() {
   const { state, login } = useWorkforce();
   const router = useRouter();
   const [step, setStep] = useState<Step>("splash");
@@ -33,15 +48,7 @@ export default function WorkforceGate() {
 
   /* Already signed in → straight to the app. */
   useEffect(() => {
-    if (state.session) {
-      router.replace(
-        state.session.role === "superadmin"
-          ? "/platform"
-          : state.session.role === "manager"
-            ? "/manager"
-            : "/employee",
-      );
-    }
+    if (state.session) router.replace(homeFor(state.session.role));
   }, [state.session, router]);
 
   /* Splash advances on its own. */
@@ -68,9 +75,7 @@ export default function WorkforceGate() {
     if (otp.some((d) => d === "")) return;
     const user = role === "superadmin" ? owner : role === "manager" ? manager : who;
     login(role, user?.id);
-    router.replace(
-      role === "superadmin" ? "/platform" : role === "manager" ? "/manager" : "/employee",
-    );
+    router.replace(homeFor(role));
   };
 
   return (

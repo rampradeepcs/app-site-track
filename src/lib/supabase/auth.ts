@@ -28,26 +28,34 @@ export interface AuthResult {
  * more likely to have a number than a work email — with email as fallback.
  */
 export async function sendOtp(identifier: string): Promise<AuthResult> {
-  const sb = requireSupabase();
   const isEmail = identifier.includes("@");
-  const { error } = isEmail
-    ? await sb.auth.signInWithOtp({ email: identifier })
-    : await sb.auth.signInWithOtp({ phone: normalisePhone(identifier) });
-  return error ? { ok: false, error: error.message } : { ok: true };
+  try {
+    const sb = requireSupabase();
+    const { error } = isEmail
+      ? await sb.auth.signInWithOtp({ email: identifier })
+      : await sb.auth.signInWithOtp({ phone: normalisePhone(identifier) });
+    return error ? { ok: false, error: describe(error) } : { ok: true };
+  } catch (e) {
+    return { ok: false, error: describe(e) };
+  }
 }
 
 export async function verifyOtp(
   identifier: string,
   token: string,
 ): Promise<AuthResult> {
-  const sb = requireSupabase();
   const isEmail = identifier.includes("@");
-  const { error } = await sb.auth.verifyOtp(
-    isEmail
-      ? { email: identifier, token, type: "email" }
-      : { phone: normalisePhone(identifier), token, type: "sms" },
-  );
-  return error ? { ok: false, error: error.message } : { ok: true };
+  try {
+    const sb = requireSupabase();
+    const { error } = await sb.auth.verifyOtp(
+      isEmail
+        ? { email: identifier, token, type: "email" }
+        : { phone: normalisePhone(identifier), token, type: "sms" },
+    );
+    return error ? { ok: false, error: describe(error) } : { ok: true };
+  } catch (e) {
+    return { ok: false, error: describe(e) };
+  }
 }
 
 export async function signOut(): Promise<void> {
@@ -84,6 +92,24 @@ export function onAuthChange(cb: (signedIn: boolean) => void): () => void {
     cb(event === "SIGNED_IN" || event === "TOKEN_REFRESHED");
   });
   return () => data.subscription.unsubscribe();
+}
+
+/**
+ * Turn a thrown failure into something a person on a site can act on.
+ *
+ * A network-layer failure surfaces as a bare "Failed to fetch" — no signal,
+ * blocked host, misconfigured project URL all look identical — which reads to
+ * a user as though the app is broken. Naming the likely cause is the
+ * difference between "try again on better signal" and a support call. Note
+ * this handles both shapes: Supabase returns such failures as an `error`
+ * value, and only a missing client actually throws.
+ */
+function describe(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+    return "Couldn't reach the server. Check your connection and try again.";
+  }
+  return msg;
 }
 
 /** Defaults to India's country code, matching the seeded workforce. */

@@ -38,6 +38,48 @@ npm start       # serve the production build
 All routes prerender statically; `STATIC_EXPORT=true npm run build` emits a
 static `out/` directory for any static host.
 
+## Backend
+
+The app runs in one of two modes, decided at build time by whether
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set:
+
+- **Demo** — the seeded localStorage store. Every flow is explorable with no
+  backend at all, which is what makes the product demoable from a cold clone.
+- **Live** — Postgres via Supabase, with real OTP sign-in and row-level
+  security enforcing tenant isolation.
+
+The account sheet on every screen says which mode the running build is in; the
+two are otherwise indistinguishable by eye.
+
+To go live, copy `.env.example` to `.env.local`, fill in the anon key, and
+apply the migrations — see [`supabase/README.md`](supabase/README.md) for the
+schema, the RLS model and the one-time bootstrap that creates the platform
+owner.
+
+## Deployment
+
+`.github/workflows/pages.yml` builds the static export and publishes it to the
+`gh-pages` branch on every push to `main`.
+
+It needs two repository secrets (**Settings → Secrets and variables →
+Actions**):
+
+| Secret              | Value                                            |
+| ------------------- | ------------------------------------------------ |
+| `SUPABASE_URL`      | the project URL, e.g. `https://xxxx.supabase.co` |
+| `SUPABASE_ANON_KEY` | Project Settings → API → anon public key         |
+
+The anon key is a public credential by design — it identifies the project, it
+does not authorise anything, and every browser that loads the site receives it.
+RLS is what protects the data. It lives in a secret so it is easy to rotate,
+not because exposure would matter.
+
+The workflow **fails** rather than building without them, and then greps the
+built bundle to confirm the URL was actually inlined. Both guards exist for the
+same reason: a static export has no server, so a missing or misnamed secret
+produces a perfectly healthy-looking site quietly serving seed data — which
+nobody notices until someone tries to save a shift.
+
 ## Demo walkthrough
 
 1. Open the app → pick **Employee** → choose a worker → enter any 4-digit OTP.
@@ -105,12 +147,12 @@ also produces a signed release APK.
 
 Declared in `android/app/src/main/AndroidManifest.xml`, each tied to a feature:
 
-| Permission | Why |
-|---|---|
-| `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION` | Geofence validation and route recording. Coarse is declared too because Android 12+ allows approximate-only grants; the app degrades to a distance estimate rather than failing. |
-| `ACCESS_BACKGROUND_LOCATION` | Keeps the route recording while the phone is pocketed. Requested separately, only after check-in, and never held outside an active shift. |
-| `FOREGROUND_SERVICE_LOCATION`, `POST_NOTIFICATIONS` | The persistent "tracking active" notification, which is what makes the tracking visible to the worker. |
-| `CAMERA` | Check-in / checkout selfies and work-update photos. |
+| Permission                                          | Why                                                                                                                                                                              |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION`   | Geofence validation and route recording. Coarse is declared too because Android 12+ allows approximate-only grants; the app degrades to a distance estimate rather than failing. |
+| `ACCESS_BACKGROUND_LOCATION`                        | Keeps the route recording while the phone is pocketed. Requested separately, only after check-in, and never held outside an active shift.                                        |
+| `FOREGROUND_SERVICE_LOCATION`, `POST_NOTIFICATIONS` | The persistent "tracking active" notification, which is what makes the tracking visible to the worker.                                                                           |
+| `CAMERA`                                            | Check-in / checkout selfies and work-update photos.                                                                                                                              |
 
 `ACCESS_BACKGROUND_LOCATION` requires a Play Store justification: tracking runs
 only between check-in and checkout, is disclosed in-app before it starts, and
