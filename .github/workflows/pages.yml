@@ -27,11 +27,11 @@ jobs:
           cache: npm
       - run: npm ci
 
-      # enablement:true turns Pages on for the repo if it is not already,
-      # so this needs no manual toggle in Settings.
+      # Pages must already be enabled with Source = "GitHub Actions"
+      # (Settings -> Pages). `enablement: true` cannot do it: the workflow
+      # token may deploy to Pages but not create the site, and asking it to
+      # fails with "Resource not accessible by integration".
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Build static export
         run: npm run build
