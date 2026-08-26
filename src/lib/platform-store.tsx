@@ -40,7 +40,11 @@ import type {
   TicketStatus,
 } from "./saas-types";
 
-const KEY = "sitetrack.platform.v1";
+import { SEED_VERSION } from "./seed";
+
+// Tied to the same shape version as the workforce store: the two are seeded
+// together and a stale half is worse than no cache at all.
+const KEY = `workfence.platform.v${SEED_VERSION}`;
 let n = 0;
 const pid = (p: string) => `${p}_${Date.now().toString(36)}_${(n++).toString(36)}`;
 
@@ -134,7 +138,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
             if (cancelled) return;
             if (live.organizations.length === 0) {
               console.warn(
-                "[SiteTrack] Supabase returned no visible organisations — not signed in, " +
+                "[Workfence] Supabase returned no visible organisations — not signed in, " +
                   "or this identity has no tenant. Keeping local state.",
               );
               return;
@@ -153,7 +157,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
             );
           })
           .catch((err) => {
-            console.error("[SiteTrack] Supabase platform hydration failed; staying local.", err);
+            console.error("[Workfence] Supabase platform hydration failed; staying local.", err);
           });
       };
       hydrate();

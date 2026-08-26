@@ -19,8 +19,8 @@ const sans = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "SiteTrack — Workforce Attendance & Live Site Tracking",
-    template: "%s · SiteTrack",
+    default: "Workfence — Workforce Attendance & Live Site Tracking",
+    template: "%s · Workfence",
   },
   description:
     "Geofenced attendance, selfie check-in, live GPS movement tracking and daily work updates for construction sites.",

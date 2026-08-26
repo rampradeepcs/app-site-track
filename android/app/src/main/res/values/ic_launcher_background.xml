@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#FFFFFF</color>
+    <!-- Workfence surface. The adaptive foreground is transparent, so this is
+         what shows behind the mark once the launcher applies its mask. -->
+    <color name="ic_launcher_background">#0B0F16</color>
 </resources>

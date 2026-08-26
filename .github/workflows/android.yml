@@ -48,7 +48,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
-          name: sitetrack-debug-apk
+          name: workfence-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
@@ -60,13 +60,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           apk=$(ls android/app/build/outputs/apk/debug/*.apk | head -1)
-          cp "$apk" "sitetrack-debug-${GITHUB_SHA::7}.apk"
+          cp "$apk" "workfence-debug-${GITHUB_SHA::7}.apk"
           gh release delete android-latest --yes --cleanup-tag 2>/dev/null || true
           gh release create android-latest \
-            --title "SiteTrack Android (latest debug build)" \
+            --title "Workfence Android (latest debug build)" \
             --notes "Debug APK from \`${GITHUB_SHA::7}\`. Unsigned — enable *Install unknown apps* to sideload." \
             --prerelease \
-            "sitetrack-debug-${GITHUB_SHA::7}.apk"
+            "workfence-debug-${GITHUB_SHA::7}.apk"
 
       # A release build needs a keystore. Add these repository secrets and the
       # step below produces a signed, installable release APK:
@@ -92,5 +92,5 @@ jobs:
         if: env.HAS_KEYSTORE == 'true'
         continue-on-error: true
         with:
-          name: sitetrack-release-apk
+          name: workfence-release-apk
           path: android/app/build/outputs/apk/release/*.apk

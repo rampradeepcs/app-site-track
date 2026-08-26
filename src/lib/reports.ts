@@ -84,7 +84,7 @@ export function printReport(title: string, bodyHtml: string) {
     @media print{body{margin:12mm;}}
   </style></head><body>
     <h1>${title}</h1>
-    <div class="sub">SiteTrack · Nachi Tekneka · Generated ${fmtDateLong(Date.now())} ${fmtTime(Date.now())}</div>
+    <div class="sub">Workfence · Nachi Tekneka · Generated ${fmtDateLong(Date.now())} ${fmtTime(Date.now())}</div>
     ${bodyHtml}
   </body></html>`);
   w.document.close();

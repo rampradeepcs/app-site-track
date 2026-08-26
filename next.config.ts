@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 /**
- * SiteTrack is fully client-side (localStorage store, no backend), so the
+ * Workfence is fully client-side (localStorage store, no backend), so the
  * whole app also exports statically.
  *
  *   STATIC_EXPORT=true   → emit `out/` for Capacitor or any static host

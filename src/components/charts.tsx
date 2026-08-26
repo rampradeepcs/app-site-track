@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Lightweight SVG charts for SiteTrack dashboards — no chart library, so the
+ * Lightweight SVG charts for Workfence dashboards — no chart library, so the
  * bundle stays lean and the styling matches the design tokens exactly.
  */
 

@@ -58,7 +58,7 @@ export function OnboardWizard({
   const [limits, setLimits] = useState<Partial<PlanLimits>>({});
 
   /* step 4 */
-  const [appName, setAppName] = useState("SiteTrack");
+  const [appName, setAppName] = useState("Workfence");
   const [accent, setAccent] = useState("#f6a723");
   const [customDomain, setCustomDomain] = useState("");
   const [features, setFeatures] = useState<Partial<FeatureSet>>({});
@@ -123,7 +123,7 @@ export function OnboardWizard({
           paymentMethod: "Not set",
         },
         branding: {
-          appName: appName.trim() || "SiteTrack",
+          appName: appName.trim() || "Workfence",
           accent,
           logoText: name.trim().split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase(),
           customDomain: customDomain.trim() || undefined,
@@ -159,7 +159,7 @@ export function OnboardWizard({
               ["Admin account", `${adminName} · ${adminEmail}`],
               ["Subscription", `${plan?.name} (${cycle})`],
               ["Billing status", trialDays > 0 ? "Trial — no invoice yet" : "Invoice on first cycle"],
-              ["Login URL", `sitetrack.app/${created.code.toLowerCase()}`],
+              ["Login URL", `workfence.app/${created.code.toLowerCase()}`],
             ].map(([k, v]) => (
               <div key={k} className="flex items-baseline justify-between gap-3 px-3.5 py-2.5">
                 <dt className="text-[var(--wf-muted)]">{k}</dt>

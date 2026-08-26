@@ -3,7 +3,7 @@
 /**
  * Supabase client + backend-mode switch.
  *
- * SiteTrack runs in one of two modes:
+ * Workfence runs in one of two modes:
  *   • demo   — no credentials configured; the seeded localStorage store drives
  *              everything, so the product is fully explorable with no backend.
  *   • live   — NEXT_PUBLIC_SUPABASE_URL/ANON_KEY are set; reads and writes go

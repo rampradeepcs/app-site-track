@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * SiteTrack client store.
+ * Workfence client store.
  *
  * A single React context that owns the whole workforce dataset:
  *  - hydrates from localStorage (falling back to the generated seed),
@@ -53,7 +53,9 @@ import type {
   WorkforceState,
 } from "./types";
 
-const STORAGE_KEY = "sitetrack.v3";
+// Derived, not written by hand: the key said v3 while the shape was at v5,
+// which is the same drift that silently discarded sessions once already.
+const STORAGE_KEY = `workfence.v${SEED_VERSION}`;
 // Must match the version stamped by buildSeedState() in seed.ts.
 
 
@@ -235,7 +237,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
             if (cancelled) return;
             if (live.users.length === 0) {
               console.warn(
-                "[SiteTrack] Supabase returned no visible rows — not signed in, " +
+                "[Workfence] Supabase returned no visible rows — not signed in, " +
                   "or this identity is not linked to an organisation. Keeping local state.",
               );
               return;
@@ -253,7 +255,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
             );
           })
           .catch((err) => {
-            console.error("[SiteTrack] Supabase hydration failed; staying on local state.", err);
+            console.error("[Workfence] Supabase hydration failed; staying on local state.", err);
           });
       };
       hydrate(); // a persisted session may already be valid
@@ -1230,7 +1232,7 @@ function WorkforceBoot() {
       <div className="flex flex-col items-center gap-4">
         <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-amber-400" />
         <p className="text-sm font-medium tracking-wide text-white/60">
-          Loading SiteTrack…
+          Loading Workfence…
         </p>
       </div>
     </div>

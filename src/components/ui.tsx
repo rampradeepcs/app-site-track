@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Shared SiteTrack UI primitives — cards, chips, sheets, form fields.
+ * Shared Workfence UI primitives — cards, chips, sheets, form fields.
  * Everything assumes the `.wf` token scope from workforce.css.
  */
 

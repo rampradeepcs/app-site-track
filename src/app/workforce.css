@@ -1,5 +1,5 @@
 /* ============================================================
-   SiteTrack — construction workforce app design system.
+   Workfence — construction workforce app design system.
    Scoped under `.wf` so it never leaks into the marketing site.
    Dark, high-contrast, outdoor-readable; amber = action,
    green = on-site/success, red = alert.
@@ -377,4 +377,93 @@ select.wf-input {
 }
 .wf-table tbody tr[data-clickable="true"] {
   cursor: pointer;
+}
+
+/* ---------------------------------------------------------------- splash */
+/*
+ * The mark assembling itself: boundary, then presence, then one pulse out
+ * through the gate. Timings are deliberately short — this screen is in the
+ * way of someone trying to start a shift, so it earns about two seconds.
+ *
+ * Every rule here is inside the motion guard below; with reduced motion the
+ * component renders the finished state and skips all of it.
+ */
+.wf-splash {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.4rem;
+}
+
+@keyframes wf-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes wf-pop {
+  0% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.14);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes wf-pulse-out {
+  0% {
+    r: 6;
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.55;
+  }
+  100% {
+    r: 21;
+    opacity: 0;
+  }
+}
+@keyframes wf-word-in {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+    letter-spacing: 0.14em;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    letter-spacing: normal;
+  }
+}
+
+.wf-splash-perimeter {
+  animation: wf-draw 900ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+.wf-splash-dot {
+  transform-origin: 24px 24px;
+  opacity: 0;
+  animation: wf-pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1) 820ms forwards;
+}
+.wf-splash-pulse {
+  opacity: 0;
+  animation: wf-pulse-out 1100ms ease-out 1180ms forwards;
+}
+.wf-splash-word {
+  opacity: 0;
+  animation: wf-word-in 620ms cubic-bezier(0.22, 1, 0.36, 1) 1020ms forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wf-splash-perimeter,
+  .wf-splash-dot,
+  .wf-splash-pulse,
+  .wf-splash-word {
+    animation: none;
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
 }

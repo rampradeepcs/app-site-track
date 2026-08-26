@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * SiteTrack gate.
+ * Workfence gate.
  *
  * Two gates, one door. With Supabase credentials configured the real one
  * takes over: identity is established with the auth provider and the role
@@ -19,7 +19,6 @@ import {
   IChevronL,
   IHardHat,
   IBuilding,
-  IMapPin,
   IShield,
   IUsers,
 } from "@/components/WfIcons";
@@ -27,6 +26,7 @@ import type { Role, User } from "@/lib/types";
 import { landingFor } from "@/lib/routes";
 import { isLiveBackend } from "@/lib/supabase/client";
 import LiveGate from "@/components/LiveGate";
+import { WorkfenceMark, WorkfenceSplash } from "@/components/Brand";
 
 type Step = "splash" | "role" | "who" | "otp";
 
@@ -41,7 +41,12 @@ export default function WorkforceGate() {
 function DemoGate() {
   const { state, login } = useWorkforce();
   const router = useRouter();
-  const [step, setStep] = useState<Step>("splash");
+  // Someone already signed in is on their way to a shift, not arriving at the
+  // product — the splash would be two seconds standing between them and the
+  // check-in button. They skip straight to the redirect.
+  const [step, setStep] = useState<Step>(() =>
+    state.session ? "role" : "splash",
+  );
   const [role, setRole] = useState<Role>("employee");
   const [who, setWho] = useState<User | null>(null);
   const [otp, setOtp] = useState(["", "", "", ""]);
@@ -64,13 +69,6 @@ function DemoGate() {
     landedRef.current = true;
     router.replace(landingFor(state.session.role));
   }, [state.session, router]);
-
-  /* Splash advances on its own. */
-  useEffect(() => {
-    if (step !== "splash") return;
-    const t = window.setTimeout(() => setStep("role"), 1400);
-    return () => window.clearTimeout(t);
-  }, [step]);
 
   const employees = useMemo(
     () => state.users.filter((u) => u.role === "employee" && u.status === "active"),
@@ -107,30 +105,18 @@ function DemoGate() {
   return (
     <main className="wf-phone justify-center px-6 py-10">
       {step === "splash" ? (
-        <div className="wf-pop-in flex flex-col items-center gap-5 text-center">
-          <BrandMark size={92} />
-          <div>
-            <h1 className="wf-display text-3xl font-bold tracking-tight">
-              Site<span className="text-[var(--wf-amber)]">Track</span>
-            </h1>
-            <p className="mt-1 text-sm text-[var(--wf-muted)]">
-              Workforce attendance & live site tracking
-            </p>
-          </div>
-          <div className="mt-4 h-1 w-28 overflow-hidden rounded-full bg-[var(--wf-surface3)]">
-            <div className="h-full w-1/2 animate-[wf-loadbar_1.3s_ease-in-out_infinite] rounded-full bg-[var(--wf-amber)]" />
-          </div>
-          <style>{`@keyframes wf-loadbar{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}`}</style>
+        <div className="flex flex-col items-center gap-6 text-center">
+          <WorkfenceSplash onDone={() => setStep("role")} />
           <p className="text-[0.68rem] text-[var(--wf-faint)]">
-            A Nachi Tekneka product demo
+            A Nachi Tekneka product
           </p>
         </div>
       ) : step === "role" ? (
         <div className="wf-fade-in flex flex-col gap-6">
           <div className="flex flex-col items-center gap-3 text-center">
-            <BrandMark size={62} />
+            <WorkfenceMark size={62} />
             <div>
-              <h1 className="wf-display text-2xl font-bold">Welcome to SiteTrack</h1>
+              <h1 className="wf-display text-2xl font-bold">Welcome to Workfence</h1>
               <p className="mt-1 text-sm text-[var(--wf-muted)]">
                 Choose how you want to sign in
               </p>
@@ -312,19 +298,3 @@ function DemoGate() {
   );
 }
 
-function BrandMark({ size }: { size: number }) {
-  return (
-    <span
-      className="grid place-items-center rounded-[26%] shadow-2xl"
-      style={{
-        width: size,
-        height: size,
-        background: "linear-gradient(145deg, #f6a723, #ee6c2b)",
-        color: "#17130a",
-      }}
-      aria-hidden="true"
-    >
-      <IMapPin size={size * 0.52} strokeWidth={2.1} />
-    </span>
-  );
-}

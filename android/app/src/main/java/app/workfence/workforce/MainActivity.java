@@ -1,4 +1,4 @@
-package app.sitetrack.workforce;
+package app.workfence.workforce;
 
 import com.getcapacitor.BridgeActivity;
 

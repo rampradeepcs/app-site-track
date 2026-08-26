@@ -1,5 +1,5 @@
 /**
- * The state SiteTrack starts from.
+ * The state Workfence starts from.
  *
  * This is a first run, not a demonstration: one organisation, the two
  * premises a crew actually needs, and one signed-in identity per role. There
@@ -170,7 +170,7 @@ function buildUsers(): User[] {
       designation: "Product Owner",
       department: "Platform",
       phone: "+91 90000 00001",
-      email: "owner@sitetrack.demo",
+      email: "owner@workfence.demo",
       avatarHue: 265,
       status: "active",
       projectIds: BOTH_PREMISES,
@@ -187,7 +187,7 @@ function buildUsers(): User[] {
       designation: "Client Administrator",
       department: "Management",
       phone: "+91 90000 00002",
-      email: "admin@sitetrack.demo",
+      email: "admin@workfence.demo",
       avatarHue: 200,
       status: "active",
       projectIds: BOTH_PREMISES,
@@ -204,7 +204,7 @@ function buildUsers(): User[] {
       designation: "Project Manager",
       department: "Operations",
       phone: "+91 90000 00003",
-      email: "manager@sitetrack.demo",
+      email: "manager@workfence.demo",
       avatarHue: 35,
       status: "active",
       projectIds: BOTH_PREMISES,
@@ -221,7 +221,7 @@ function buildUsers(): User[] {
       designation: "Site Supervisor",
       department: "Civil",
       phone: "+91 90000 00004",
-      email: "employee@sitetrack.demo",
+      email: "employee@workfence.demo",
       avatarHue: 16,
       status: "active",
       projectIds: BOTH_PREMISES,

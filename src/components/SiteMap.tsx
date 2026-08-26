@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * SiteMap — the map engine behind every SiteTrack surface.
+ * SiteMap — the map engine behind every Workfence surface.
  *
  * Renders real OpenStreetMap raster tiles (© OpenStreetMap contributors,
  * https://www.openstreetmap.org/copyright) on a pannable/zoomable

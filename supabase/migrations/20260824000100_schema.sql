@@ -1,5 +1,5 @@
 -- ============================================================================
--- SiteTrack — multi-tenant schema
+-- Workfence — multi-tenant schema
 --
 -- Hierarchy: platform → organization (tenant) → projects → users → shifts.
 -- Every tenant-owned table carries org_id and is protected by RLS so one

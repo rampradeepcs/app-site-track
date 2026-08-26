@@ -18,7 +18,8 @@ import { useWorkforce } from "@/lib/store";
 import { currentAppUser, sendOtp, signOut, verifyOtp } from "@/lib/supabase/auth";
 import { landingFor } from "@/lib/routes";
 import { Field } from "@/components/ui";
-import { IAlert, IArrowR, IChevronL, ILock, IMapPin, IShield } from "@/components/WfIcons";
+import { WorkfenceMark } from "@/components/Brand";
+import { IAlert, IArrowR, IChevronL, ILock, IShield } from "@/components/WfIcons";
 
 const CODE_LENGTH = 6;
 
@@ -121,7 +122,7 @@ export default function LiveGate() {
     <main className="wf-phone justify-center px-6 py-10">
       {step === "restoring" ? (
         <div className="flex flex-col items-center gap-4 text-center">
-          <BrandMark size={72} />
+          <WorkfenceMark size={72} />
           <p className="text-sm text-[var(--wf-muted)]">Checking your session…</p>
         </div>
       ) : step === "unlinked" ? (
@@ -154,9 +155,9 @@ export default function LiveGate() {
       ) : step === "identity" ? (
         <div className="wf-fade-in flex flex-col gap-6">
           <div className="flex flex-col items-center gap-3 text-center">
-            <BrandMark size={62} />
+            <WorkfenceMark size={62} />
             <div>
-              <h1 className="wf-display text-2xl font-bold">Sign in to SiteTrack</h1>
+              <h1 className="wf-display text-2xl font-bold">Sign in to Workfence</h1>
               <p className="mt-1 text-sm text-[var(--wf-muted)]">
                 We&apos;ll send a one-time code. No password to remember on site.
               </p>
@@ -265,19 +266,3 @@ function ErrorNote({ children }: { children: React.ReactNode }) {
   );
 }
 
-function BrandMark({ size }: { size: number }) {
-  return (
-    <span
-      className="grid place-items-center rounded-[26%] shadow-2xl"
-      style={{
-        width: size,
-        height: size,
-        background: "linear-gradient(145deg, #f6a723, #ee6c2b)",
-        color: "#17130a",
-      }}
-      aria-hidden="true"
-    >
-      <IMapPin size={size * 0.52} strokeWidth={2.1} />
-    </span>
-  );
-}

@@ -1,5 +1,5 @@
 /**
- * SiteTrack icon set — single stroke family (24 grid, 1.9 stroke), so every
+ * Workfence icon set — single stroke family (24 grid, 1.9 stroke), so every
  * surface shares one visual language. Decorative by default; pass a `label`
  * when an icon stands alone and must be announced.
  */

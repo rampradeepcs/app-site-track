@@ -21,5 +21,5 @@ insert into platform_settings (id, settings) values (1, '{
   "defaultPlanId":"plan_growth","defaultTrialDays":14,"defaultSamplingSeconds":15,
   "defaultRetentionDays":180,"defaultLateGraceMinutes":10,"defaultExitAlertMinutes":10,
   "maintenanceMode":false,"signupsEnabled":true,"globalFeatureFlags":{},
-  "supportEmail":"support@sitetrack.app"
+  "supportEmail":"support@workfence.app"
 }'::jsonb) on conflict (id) do nothing;

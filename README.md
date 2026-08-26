@@ -1,4 +1,4 @@
-# SiteTrack — Construction Workforce Attendance & Live Site Tracking
+# Workfence — Construction Workforce Attendance & Live Site Tracking
 
 A production-shaped workforce management app for construction sites, with three
 roles:
@@ -115,10 +115,10 @@ phone numbers and emails a Supabase sign-in is matched to.
 
 | Role          | Name          | Phone           | Email                   |
 | ------------- | ------------- | --------------- | ----------------------- |
-| Product Owner | Demo Owner    | +91 90000 00001 | owner@sitetrack.demo    |
-| Client Admin  | Demo Admin    | +91 90000 00002 | admin@sitetrack.demo    |
-| Manager       | Demo Manager  | +91 90000 00003 | manager@sitetrack.demo  |
-| Employee      | Demo Employee | +91 90000 00004 | employee@sitetrack.demo |
+| Product Owner | Demo Owner    | +91 90000 00001 | owner@workfence.demo    |
+| Client Admin  | Demo Admin    | +91 90000 00002 | admin@workfence.demo    |
+| Manager       | Demo Manager  | +91 90000 00003 | manager@workfence.demo  |
+| Employee      | Demo Employee | +91 90000 00004 | employee@workfence.demo |
 
 The app starts from one organisation, two premises (a site and an office) and
 those four people. There is **no invented history** — no attendance nobody

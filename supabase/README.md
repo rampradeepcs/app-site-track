@@ -1,4 +1,4 @@
-# SiteTrack — Supabase backend
+# Workfence — Supabase backend
 
 Six migrations, applied in order:
 

@@ -48,7 +48,7 @@ export function canEnter(session: Role | undefined, section: Role): boolean {
 
 /* ------------------------------------------------ interrupted navigation */
 
-const PENDING_KEY = "sitetrack.pendingPath";
+const PENDING_KEY = "workfence.pendingPath";
 
 /**
  * Park where someone was heading when they were sent to sign in.

@@ -27,14 +27,14 @@ insert into organizations (id, name, code, industry, contact_name, contact_email
                            contact_phone, country, timezone, status, billing, branding)
 values (
   '00000000-0000-4000-8000-000000000001', 'Nachi Tekneka', 'CL-1001', 'Construction',
-  'Demo Admin', 'admin@sitetrack.demo', '+91 90000 00002', 'India', 'Asia/Kolkata', 'trial',
+  'Demo Admin', 'admin@workfence.demo', '+91 90000 00002', 'India', 'Asia/Kolkata', 'trial',
   jsonb_build_object(
     'legalName','Nachi Tekneka','contactName','Demo Admin',
-    'email','admin@sitetrack.demo','phone','+91 90000 00002',
+    'email','admin@workfence.demo','phone','+91 90000 00002',
     'addressLine','Peelamedu','city','Coimbatore','state','Tamil Nadu',
     'postcode','641004','country','India','taxIdLabel','GSTIN','taxId','',
     'taxPercent',18,'currency','INR','paymentMethod',''),
-  jsonb_build_object('appName','SiteTrack','accent','#f6a723','logoText','NT')
+  jsonb_build_object('appName','Workfence','accent','#f6a723','logoText','NT')
 )
 on conflict (id) do nothing;
 
@@ -51,20 +51,20 @@ insert into users (id, org_id, name, employee_code, role, designation, departmen
 values
   ('00000000-0000-4000-8000-00000000000a', null,
    'Demo Owner', 'NT-0001', 'superadmin', 'Product Owner', 'Platform',
-   '+91 90000 00001', 'owner@sitetrack.demo',   -- CHANGE ME: your phone, your email
+   '+91 90000 00001', 'owner@workfence.demo',   -- CHANGE ME: your phone, your email
    265, 'active', 540, 1080),
 
   ('00000000-0000-4000-8000-00000000000b', '00000000-0000-4000-8000-000000000001',
    'Demo Admin', 'NT-0002', 'admin', 'Client Administrator', 'Management',
-   '+91 90000 00002', 'admin@sitetrack.demo', 200, 'active', 540, 1080),
+   '+91 90000 00002', 'admin@workfence.demo', 200, 'active', 540, 1080),
 
   ('00000000-0000-4000-8000-00000000000c', '00000000-0000-4000-8000-000000000001',
    'Demo Manager', 'NT-0003', 'manager', 'Project Manager', 'Operations',
-   '+91 90000 00003', 'manager@sitetrack.demo', 35, 'active', 510, 1080),
+   '+91 90000 00003', 'manager@workfence.demo', 35, 'active', 510, 1080),
 
   ('00000000-0000-4000-8000-00000000000d', '00000000-0000-4000-8000-000000000001',
    'Demo Employee', 'NT-0004', 'employee', 'Site Supervisor', 'Civil',
-   '+91 90000 00004', 'employee@sitetrack.demo', 16, 'active', 510, 1050)
+   '+91 90000 00004', 'employee@workfence.demo', 16, 'active', 510, 1050)
 on conflict (id) do nothing;
 
 -- ------------------------------------------------------------- premises ----

@@ -1,5 +1,5 @@
 /**
- * SiteTrack Platform — multi-tenant SaaS layer.
+ * Workfence Platform — multi-tenant SaaS layer.
  *
  * Hierarchy: Platform → Super Admin → Client Organization → Projects →
  * Managers → Employees. Everything a client owns carries an `orgId`, and

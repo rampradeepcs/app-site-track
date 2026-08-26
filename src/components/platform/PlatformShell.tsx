@@ -94,7 +94,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
         >
           {navOpen ? <IX size={18} /> : <IGrid size={18} />}
         </button>
-        <span className="wf-display font-bold">SiteTrack Platform</span>
+        <span className="wf-display font-bold">Workfence Platform</span>
       </header>
 
       {/* sidebar */}
@@ -106,7 +106,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
             SA
           </span>
           <span>
-            <span className="wf-display block text-[0.95rem] font-bold leading-tight">SiteTrack</span>
+            <span className="wf-display block text-[0.95rem] font-bold leading-tight">Workfence</span>
             <span className="block text-[0.66rem] uppercase tracking-wider text-[var(--wf-violet)]">
               Platform console
             </span>

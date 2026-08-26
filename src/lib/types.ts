@@ -1,5 +1,5 @@
 /**
- * SiteTrack — construction workforce attendance & live-site tracking.
+ * Workfence — construction workforce attendance & live-site tracking.
  *
  * Domain entities. Everything is serialisable so the whole store can be
  * persisted to localStorage and replayed offline (see `store.tsx`).

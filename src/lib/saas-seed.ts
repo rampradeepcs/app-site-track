@@ -1,5 +1,5 @@
 /**
- * The commercial state SiteTrack starts from.
+ * The commercial state Workfence starts from.
  *
  * The three plans are product configuration — what the platform sells — so
  * they are here. Everything a plan is *applied to* is not: no invented client
@@ -141,7 +141,7 @@ export function seedPlatform(now = Date.now()): PlatformState {
       industry: "Construction",
       website: "",
       contactName: "Demo Admin",
-      contactEmail: "admin@sitetrack.demo",
+      contactEmail: "admin@workfence.demo",
       contactPhone: "+91 90000 00002",
       country: "India",
       timezone: "Asia/Kolkata",
@@ -149,7 +149,7 @@ export function seedPlatform(now = Date.now()): PlatformState {
       billing: {
         legalName: "Nachi Tekneka",
         contactName: "Demo Admin",
-        email: "admin@sitetrack.demo",
+        email: "admin@workfence.demo",
         phone: "+91 90000 00002",
         addressLine: "Peelamedu",
         city: "Coimbatore",
@@ -163,7 +163,7 @@ export function seedPlatform(now = Date.now()): PlatformState {
         paymentMethod: "",
       },
       branding: {
-        appName: "SiteTrack",
+        appName: "Workfence",
         accent: "#f6a723",
         logoText: "NT",
       },
@@ -206,10 +206,10 @@ export function seedPlatform(now = Date.now()): PlatformState {
       defaultExitAlertMinutes: 10,
       maintenanceMode: false,
       maintenanceMessage:
-        "SiteTrack is undergoing scheduled maintenance. Attendance already captured on devices will sync automatically.",
+        "Workfence is undergoing scheduled maintenance. Attendance already captured on devices will sync automatically.",
       signupsEnabled: true,
       globalFeatureFlags: {},
-      supportEmail: "support@sitetrack.demo",
+      supportEmail: "support@workfence.demo",
       termsUrl: "",
       privacyUrl: "",
     },
