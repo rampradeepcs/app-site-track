@@ -87,7 +87,7 @@ export function EmployeeEditor({
                   key={p.id}
                   className={`flex cursor-pointer items-center justify-between rounded-xl border px-3.5 py-2.5 text-left text-sm font-semibold transition ${
                     on
-                      ? "border-[var(--wf-amber)] bg-[rgba(246,167,35,0.1)] text-[var(--wf-amber)]"
+                      ? "border-[var(--wf-amber)] bg-[var(--wf-amber-soft)] text-[var(--wf-amber)]"
                       : "border-[var(--wf-line)] bg-[var(--wf-surface2)] text-[var(--wf-muted)]"
                   }`}
                   onClick={() =>

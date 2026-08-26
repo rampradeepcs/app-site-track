@@ -127,7 +127,7 @@ export default function LiveGate() {
         </div>
       ) : step === "unlinked" ? (
         <div className="wf-fade-in flex flex-col gap-5 text-center">
-          <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[rgba(245,110,110,0.14)] text-[var(--wf-red)]">
+          <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[var(--wf-red-soft)] text-[var(--wf-red)]">
             <IAlert size={30} />
           </span>
           <div>
@@ -208,7 +208,7 @@ export default function LiveGate() {
           </button>
 
           <div className="flex flex-col items-center gap-3 text-center">
-            <span className="grid h-16 w-16 place-items-center rounded-2xl bg-[rgba(246,167,35,0.14)] text-[var(--wf-amber)]">
+            <span className="grid h-16 w-16 place-items-center rounded-2xl bg-[var(--wf-amber-soft)] text-[var(--wf-amber)]">
               <ILock size={28} />
             </span>
             <div>
@@ -258,7 +258,7 @@ function ErrorNote({ children }: { children: React.ReactNode }) {
   return (
     <p
       role="alert"
-      className="flex items-start gap-2 rounded-xl bg-[rgba(245,110,110,0.12)] px-3 py-2 text-[0.8rem] text-[var(--wf-red)]"
+      className="flex items-start gap-2 rounded-xl bg-[var(--wf-red-soft)] px-3 py-2 text-[0.8rem] text-[var(--wf-red)]"
     >
       <IAlert size={15} className="mt-0.5 shrink-0" />
       <span className="min-w-0">{children}</span>

@@ -7,7 +7,8 @@
 
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
-import { Field, KpiCard, SectionTitle, Toggle } from "@/components/ui";
+import { ThemeControl } from "@/components/ThemeControl";
+import { Field, KpiCard, SectionTitle } from "@/components/ui";
 import { fmtDateLong, fmtTime, todayISO } from "@/lib/format";
 import { downloadCSV, toCSV } from "@/lib/reports";
 import { useWorkforce } from "@/lib/store";
@@ -117,17 +118,13 @@ export default function AdminGovernance() {
             />
           </Field>
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold">Light map tiles</p>
-              <p className="text-[0.72rem] text-[var(--wf-muted)]">
-                Standard OpenStreetMap cartography instead of the dark theme
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">Appearance</p>
+              <p className="mb-2 text-[0.72rem] text-[var(--wf-muted)]">
+                Applies to the whole app, maps included
               </p>
+              <ThemeControl />
             </div>
-            <Toggle
-              checked={state.settings.mapStyle === "light"}
-              onChange={(v) => updateSettings({ mapStyle: v ? "light" : "dark" })}
-              label="Light map tiles"
-            />
           </div>
         </div>
 

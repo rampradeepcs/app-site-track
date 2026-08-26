@@ -129,7 +129,7 @@ function DemoGate() {
               setStep("who");
             }}
           >
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[rgba(246,167,35,0.14)] text-[var(--wf-amber)]">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[var(--wf-amber-soft)] text-[var(--wf-amber)]">
               <IHardHat size={26} />
             </span>
             <span className="min-w-0 flex-1">
@@ -148,7 +148,7 @@ function DemoGate() {
               setStep("otp");
             }}
           >
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[rgba(69,184,245,0.14)] text-[var(--wf-blue)]">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[var(--wf-blue-soft)] text-[var(--wf-blue)]">
               <IUsers size={26} />
             </span>
             <span className="min-w-0 flex-1">
@@ -167,7 +167,7 @@ function DemoGate() {
               setStep("otp");
             }}
           >
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[rgba(47,211,118,0.14)] text-[var(--wf-green)]">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[var(--wf-green-soft)] text-[var(--wf-green)]">
               <IBuilding size={26} />
             </span>
             <span className="min-w-0 flex-1">
@@ -186,7 +186,7 @@ function DemoGate() {
               setStep("otp");
             }}
           >
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[rgba(167,139,250,0.14)] text-[var(--wf-violet)]">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[var(--wf-violet-soft)] text-[var(--wf-violet)]">
               <IShield size={26} />
             </span>
             <span className="min-w-0 flex-1">

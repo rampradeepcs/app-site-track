@@ -241,12 +241,6 @@ export default function EmployeeHome() {
           follow={fix?.coords ?? null}
           accuracy={fix?.accuracy}
           heightClass="h-[300px]"
-          mapStyle={state.settings.mapStyle}
-          onToggleStyle={() =>
-            wf.updateSettings({
-              mapStyle: state.settings.mapStyle === "dark" ? "light" : "dark",
-            })
-          }
         />
 
         <div className="grid grid-cols-3 gap-2.5">
@@ -297,7 +291,7 @@ export default function EmployeeHome() {
             nearest={nearest}
           />
         ) : fence && !fence.inside ? (
-          <div className="wf-inset flex items-start gap-2.5 border-[rgba(246,167,35,0.4)] px-3.5 py-3 text-[0.8rem] leading-snug text-[var(--wf-amber-hi)]">
+          <div className="wf-inset flex items-start gap-2.5 border-[var(--wf-amber-edge)] px-3.5 py-3 text-[0.8rem] leading-snug text-[var(--wf-amber-hi)]">
             <IAlert size={16} className="mt-0.5 shrink-0" />
             You&apos;ve left the site boundary. Your shift stays open and the exit has
             been recorded — return to the site or check out when done.
@@ -410,15 +404,14 @@ export default function EmployeeHome() {
           markers={markers}
           heightClass="h-56 rounded-none border-x-0 border-b-0"
           accuracy={fix?.accuracy}
-          mapStyle={state.settings.mapStyle}
         />
         <div className="flex items-center gap-3 border-t border-[var(--wf-line)] p-4">
           <span
             className="grid h-10 w-10 shrink-0 place-items-center rounded-xl"
             style={{
               background: fence?.inside
-                ? "rgba(47,211,118,0.14)"
-                : "rgba(246,167,35,0.14)",
+                ? "var(--wf-green-soft)"
+                : "var(--wf-amber-soft)",
               color: fence?.inside ? "var(--wf-green)" : "var(--wf-amber)",
             }}
           >
@@ -518,7 +511,7 @@ function OffsitePolicyNote({
 }) {
   if (!recording) {
     return (
-      <div className="wf-inset flex items-start gap-2.5 border-[rgba(47,211,118,0.35)] px-3.5 py-3 text-[0.8rem] leading-snug">
+      <div className="wf-inset flex items-start gap-2.5 border-[var(--wf-green-edge)] px-3.5 py-3 text-[0.8rem] leading-snug">
         <IShield size={16} className="mt-0.5 shrink-0 text-[var(--wf-green)]" />
         <span className="min-w-0">
           <span className="font-semibold text-[var(--wf-green)]">
@@ -533,7 +526,7 @@ function OffsitePolicyNote({
     );
   }
   return (
-    <div className="wf-inset flex items-start gap-2.5 border-[rgba(246,167,35,0.4)] px-3.5 py-3 text-[0.8rem] leading-snug">
+    <div className="wf-inset flex items-start gap-2.5 border-[var(--wf-amber-edge)] px-3.5 py-3 text-[0.8rem] leading-snug">
       <IRoute size={16} className="mt-0.5 shrink-0 text-[var(--wf-amber)]" />
       <span className="min-w-0">
         <span className="font-semibold text-[var(--wf-amber-hi)]">
@@ -647,7 +640,7 @@ function FlowSheets({
         title="Can't continue"
       >
         <div className="flex flex-col items-center gap-4 py-4 text-center">
-          <span className="grid h-14 w-14 place-items-center rounded-full bg-[rgba(244,87,77,0.14)] text-[var(--wf-red)]">
+          <span className="grid h-14 w-14 place-items-center rounded-full bg-[var(--wf-red-soft)] text-[var(--wf-red)]">
             <IAlert size={28} />
           </span>
           <p className="max-w-xs text-[0.95rem] leading-relaxed">
@@ -678,7 +671,7 @@ function FlowSheets({
       {/* success: check-in */}
       <BottomSheet open={flow?.step === "done-in"} onClose={() => setFlow(null)}>
         <div className="flex flex-col items-center gap-4 py-4 text-center">
-          <span className="wf-pop-in grid h-16 w-16 place-items-center rounded-full bg-[rgba(47,211,118,0.15)] text-[var(--wf-green)]">
+          <span className="wf-pop-in grid h-16 w-16 place-items-center rounded-full bg-[var(--wf-green-soft)] text-[var(--wf-green)]">
             <ICheckCircle size={34} />
           </span>
           <div>
@@ -704,7 +697,7 @@ function FlowSheets({
       >
         {flow?.step === "done-out" && (
           <div className="flex flex-col items-center gap-4 py-4 text-center">
-            <span className="wf-pop-in grid h-16 w-16 place-items-center rounded-full bg-[rgba(47,211,118,0.15)] text-[var(--wf-green)]">
+            <span className="wf-pop-in grid h-16 w-16 place-items-center rounded-full bg-[var(--wf-green-soft)] text-[var(--wf-green)]">
               <ICheckCircle size={34} />
             </span>
             <div>

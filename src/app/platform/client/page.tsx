@@ -174,7 +174,7 @@ function ClientInner() {
         {tab === "overview" && (
           <>
             {org.status === "suspended" && org.suspendedReason && (
-              <p className="wf-inset border-[rgba(244,87,77,0.4)] px-4 py-3 text-[0.82rem] font-semibold text-[var(--wf-red)]">
+              <p className="wf-inset border-[var(--wf-red-edge)] px-4 py-3 text-[0.82rem] font-semibold text-[var(--wf-red)]">
                 Suspended — {org.suspendedReason}
               </p>
             )}
@@ -541,7 +541,7 @@ function ClientInner() {
                     onClick={() => setOrgStatus(org.id, s, s === "suspended" ? "Set from client configuration" : undefined)}
                     className={`flex cursor-pointer items-center justify-between rounded-xl border px-3.5 py-2.5 text-left text-sm font-semibold capitalize transition ${
                       org.status === s
-                        ? "border-[var(--wf-violet)] bg-[rgba(167,139,250,0.1)] text-[var(--wf-violet)]"
+                        ? "border-[var(--wf-violet)] bg-[var(--wf-violet-soft)] text-[var(--wf-violet)]"
                         : "border-[var(--wf-line)] bg-[var(--wf-surface2)] text-[var(--wf-muted)]"
                     }`}
                   >

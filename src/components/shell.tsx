@@ -141,7 +141,7 @@ export function StatusStrip() {
   return (
     <div className="pointer-events-none sticky top-0 z-40 flex flex-col gap-1 px-3 pt-2">
       {!online && (
-        <div className="pointer-events-auto flex items-center justify-between rounded-xl border border-[rgba(246,167,35,0.4)] bg-[rgba(60,42,8,0.94)] px-3 py-2 text-[0.78rem] font-semibold text-[var(--wf-amber-hi)] shadow-lg backdrop-blur">
+        <div className="pointer-events-auto flex items-center justify-between rounded-xl border border-[var(--wf-amber-edge)] bg-[color-mix(in_srgb,var(--wf-amber)_18%,var(--wf-surface))] px-3 py-2 text-[0.78rem] font-semibold text-[var(--wf-amber-hi)] shadow-lg backdrop-blur">
           <span>Offline mode</span>
           <span className="tabular-nums">
             {queued > 0 ? `${queued} record${queued === 1 ? "" : "s"} waiting to sync` : "capturing locally"}
@@ -149,7 +149,7 @@ export function StatusStrip() {
         </div>
       )}
       {openShift && (
-        <div className="pointer-events-auto flex items-center justify-center gap-2 rounded-xl border border-[rgba(47,211,118,0.35)] bg-[rgba(7,38,20,0.92)] px-3 py-1.5 text-[0.72rem] font-bold text-[var(--wf-green)] shadow-lg backdrop-blur">
+        <div className="pointer-events-auto flex items-center justify-center gap-2 rounded-xl border border-[var(--wf-green-edge)] bg-[color-mix(in_srgb,var(--wf-green)_18%,var(--wf-surface))] px-3 py-1.5 text-[0.72rem] font-bold text-[var(--wf-green)] shadow-lg backdrop-blur">
           <span
             className="wf-pulse-dot"
             style={{ background: "var(--wf-red)", width: 8, height: 8 }}
@@ -174,7 +174,7 @@ export function ImpersonationBanner() {
   if (!imp) return null;
   const org = platform.organizations.find((o) => o.id === imp.orgId);
   return (
-    <div className="sticky top-0 z-50 flex flex-wrap items-center justify-center gap-2 bg-[var(--wf-violet)] px-4 py-2 text-center text-[0.76rem] font-bold text-[#1b1030]">
+    <div className="sticky top-0 z-50 flex flex-wrap items-center justify-center gap-2 bg-[var(--wf-violet)] px-4 py-2 text-center text-[0.76rem] font-bold text-[var(--wf-on-violet)]">
       Super Admin view — {org?.name ?? "client"} · audited
       <button
         className="cursor-pointer rounded-md bg-black/20 px-2 py-0.5 text-[0.7rem] hover:bg-black/30"

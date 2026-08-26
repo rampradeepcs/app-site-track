@@ -60,7 +60,7 @@ export function SubscriptionPanel({ orgId }: { orgId: string }) {
           <p className="wf-display mt-0.5 text-xl font-bold">
             {plan.name}
             {customised && (
-              <span className="ml-2 rounded bg-[rgba(167,139,250,0.16)] px-1.5 py-0.5 align-middle text-[0.6rem] font-bold text-[var(--wf-violet)]">
+              <span className="ml-2 rounded bg-[var(--wf-violet-soft)] px-1.5 py-0.5 align-middle text-[0.6rem] font-bold text-[var(--wf-violet)]">
                 CUSTOM
               </span>
             )}
@@ -104,7 +104,7 @@ export function SubscriptionPanel({ orgId }: { orgId: string }) {
               }
               className={`cursor-pointer rounded-xl border px-3 py-2 text-[0.78rem] font-semibold capitalize transition ${
                 sub.status === s
-                  ? "border-[var(--wf-violet)] bg-[rgba(167,139,250,0.12)] text-[var(--wf-violet)]"
+                  ? "border-[var(--wf-violet)] bg-[var(--wf-violet-soft)] text-[var(--wf-violet)]"
                   : "border-[var(--wf-line)] bg-[var(--wf-surface2)] text-[var(--wf-muted)] hover:text-[var(--wf-fg)]"
               }`}
             >
@@ -256,7 +256,7 @@ export function SubscriptionPanel({ orgId }: { orgId: string }) {
                   <span className="block truncate text-[0.84rem] font-semibold">
                     {FEATURE_LABELS[k]}
                     {isOverridden && (
-                      <span className="ml-1.5 rounded bg-[rgba(167,139,250,0.16)] px-1 py-0.5 text-[0.56rem] font-bold text-[var(--wf-violet)]">
+                      <span className="ml-1.5 rounded bg-[var(--wf-violet-soft)] px-1 py-0.5 text-[0.56rem] font-bold text-[var(--wf-violet)]">
                         OVERRIDE
                       </span>
                     )}

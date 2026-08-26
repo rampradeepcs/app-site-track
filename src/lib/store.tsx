@@ -1228,7 +1228,7 @@ function subscribeToConnectivity(cb: () => void) {
 
 function WorkforceBoot() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0c1017]">
+    <div className="flex min-h-screen items-center justify-center bg-[var(--wf-bg)]">
       <div className="flex flex-col items-center gap-4">
         <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-amber-400" />
         <p className="text-sm font-medium tracking-wide text-white/60">

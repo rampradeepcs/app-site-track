@@ -55,17 +55,17 @@ const STATUS_STYLES: Record<
   AttendanceStatus | "working" | "not-in" | "queued" | "synced",
   { bg: string; fg: string; label: string }
 > = {
-  present: { bg: "rgba(47,211,118,0.14)", fg: "var(--wf-green)", label: "Present" },
-  absent: { bg: "rgba(244,87,77,0.14)", fg: "var(--wf-red)", label: "Absent" },
-  late: { bg: "rgba(246,167,35,0.15)", fg: "var(--wf-amber)", label: "Late" },
-  "early-checkout": { bg: "rgba(69,184,245,0.14)", fg: "var(--wf-blue)", label: "Early Out" },
-  "missing-checkout": { bg: "rgba(244,87,77,0.14)", fg: "var(--wf-red)", label: "No Checkout" },
-  "on-leave": { bg: "rgba(167,139,250,0.15)", fg: "var(--wf-violet)", label: "On Leave" },
-  holiday: { bg: "rgba(148,163,184,0.14)", fg: "var(--wf-muted)", label: "Holiday" },
-  working: { bg: "rgba(47,211,118,0.14)", fg: "var(--wf-green)", label: "Working" },
-  "not-in": { bg: "rgba(148,163,184,0.14)", fg: "var(--wf-muted)", label: "Not In" },
-  queued: { bg: "rgba(246,167,35,0.15)", fg: "var(--wf-amber)", label: "Queued" },
-  synced: { bg: "rgba(47,211,118,0.14)", fg: "var(--wf-green)", label: "Synced" },
+  present: { bg: "var(--wf-green-soft)", fg: "var(--wf-green)", label: "Present" },
+  absent: { bg: "var(--wf-red-soft)", fg: "var(--wf-red)", label: "Absent" },
+  late: { bg: "var(--wf-amber-soft)", fg: "var(--wf-amber)", label: "Late" },
+  "early-checkout": { bg: "var(--wf-blue-soft)", fg: "var(--wf-blue)", label: "Early Out" },
+  "missing-checkout": { bg: "var(--wf-red-soft)", fg: "var(--wf-red)", label: "No Checkout" },
+  "on-leave": { bg: "var(--wf-violet-soft)", fg: "var(--wf-violet)", label: "On Leave" },
+  holiday: { bg: "var(--wf-slate-soft)", fg: "var(--wf-muted)", label: "Holiday" },
+  working: { bg: "var(--wf-green-soft)", fg: "var(--wf-green)", label: "Working" },
+  "not-in": { bg: "var(--wf-slate-soft)", fg: "var(--wf-muted)", label: "Not In" },
+  queued: { bg: "var(--wf-amber-soft)", fg: "var(--wf-amber)", label: "Queued" },
+  synced: { bg: "var(--wf-green-soft)", fg: "var(--wf-green)", label: "Synced" },
 };
 
 export function StatusChip({
@@ -99,12 +99,12 @@ export function Chip({
   tone?: "neutral" | "amber" | "green" | "red" | "blue" | "violet";
 }) {
   const map = {
-    neutral: { bg: "rgba(148,163,184,0.13)", fg: "var(--wf-muted)" },
-    amber: { bg: "rgba(246,167,35,0.15)", fg: "var(--wf-amber)" },
-    green: { bg: "rgba(47,211,118,0.14)", fg: "var(--wf-green)" },
-    red: { bg: "rgba(244,87,77,0.14)", fg: "var(--wf-red)" },
-    blue: { bg: "rgba(69,184,245,0.14)", fg: "var(--wf-blue)" },
-    violet: { bg: "rgba(167,139,250,0.15)", fg: "var(--wf-violet)" },
+    neutral: { bg: "var(--wf-slate-soft)", fg: "var(--wf-muted)" },
+    amber: { bg: "var(--wf-amber-soft)", fg: "var(--wf-amber)" },
+    green: { bg: "var(--wf-green-soft)", fg: "var(--wf-green)" },
+    red: { bg: "var(--wf-red-soft)", fg: "var(--wf-red)" },
+    blue: { bg: "var(--wf-blue-soft)", fg: "var(--wf-blue)" },
+    violet: { bg: "var(--wf-violet-soft)", fg: "var(--wf-violet)" },
   }[tone];
   return (
     <span className="wf-chip" style={{ background: map.bg, color: map.fg }}>

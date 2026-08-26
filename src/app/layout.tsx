@@ -3,6 +3,7 @@ import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
 import { PlatformProvider } from "@/lib/platform-store";
 import { WorkforceProvider } from "@/lib/store";
+import { PREPAINT_SCRIPT } from "@/lib/theme";
 
 const display = Space_Grotesk({
   variable: "--font-display",
@@ -39,7 +40,13 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${display.variable} ${sans.variable} antialiased`}>
+    <html lang="en" suppressHydrationWarning className={`${display.variable} ${sans.variable} antialiased`}>
+      <head>
+        {/* Resolves the theme before anything paints. suppressHydrationWarning
+            because this script mutates the html element that React is about
+            to reconcile — which is the point, and not a mismatch to fix. */}
+        <script dangerouslySetInnerHTML={{ __html: PREPAINT_SCRIPT }} />
+      </head>
       <body>
         <div className="wf min-h-dvh">
           <PlatformProvider>

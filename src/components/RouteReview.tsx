@@ -155,7 +155,6 @@ export function RouteReview({
         markers={markers}
         highlight={highlight}
         heightClass={compact ? "h-64" : "h-[340px] md:h-[420px]"}
-        mapStyle={state.settings.mapStyle}
       />
 
       {/* playback deck — a paid capability on most plans */}
@@ -165,7 +164,7 @@ export function RouteReview({
           <div className="flex items-center gap-3">
             <button
               aria-label={playing ? "Pause route playback" : "Play route"}
-              className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-full text-[#171204] shadow-lg transition active:scale-95"
+              className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-full text-[var(--wf-on-amber)] shadow-lg transition active:scale-95"
               style={{ background: "linear-gradient(180deg, var(--wf-amber-hi), var(--wf-amber))" }}
               onClick={() => {
                 if (cursor >= end) setCursor(start);
@@ -376,7 +375,7 @@ export function Timeline({
           <li key={i} className="relative pb-4 pl-5 last:pb-1">
             <span
               className="absolute -left-[11px] top-0 grid h-5 w-5 place-items-center rounded-full border-2 border-[var(--wf-bg)]"
-              style={{ background: tone, color: "#0b0f16" }}
+              style={{ background: tone, color: "var(--wf-on-accent)" }}
             >
               {icon}
             </span>

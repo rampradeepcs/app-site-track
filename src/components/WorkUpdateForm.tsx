@@ -67,7 +67,7 @@ export function WorkUpdateForm({
               onClick={() => setCategory(c)}
               className={`cursor-pointer rounded-full border px-3 py-1.5 text-[0.76rem] font-semibold transition ${
                 category === c
-                  ? "border-[var(--wf-amber)] bg-[rgba(246,167,35,0.15)] text-[var(--wf-amber)]"
+                  ? "border-[var(--wf-amber)] bg-[var(--wf-amber-soft)] text-[var(--wf-amber)]"
                   : "border-[var(--wf-line)] bg-[var(--wf-surface2)] text-[var(--wf-muted)] hover:text-[var(--wf-fg)]"
               }`}
             >

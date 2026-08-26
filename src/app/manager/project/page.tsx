@@ -151,7 +151,6 @@ function ProjectInner() {
               project={project}
               markers={markers}
               heightClass="h-[320px]"
-              mapStyle={state.settings.mapStyle}
             />
             <div className="wf-card grid gap-3 p-4 text-[0.82rem] sm:grid-cols-2">
               <p className="flex items-center gap-2 text-[var(--wf-muted)]">
@@ -181,7 +180,7 @@ function ProjectInner() {
         {tab === "geofence" && (
           <>
             {savedFlash && (
-              <p className="wf-inset border-[rgba(47,211,118,0.4)] px-3.5 py-2.5 text-[0.8rem] font-semibold text-[var(--wf-green)]">
+              <p className="wf-inset border-[var(--wf-green-edge)] px-3.5 py-2.5 text-[0.8rem] font-semibold text-[var(--wf-green)]">
                 Geofence saved. Employees can now only check in inside the new boundary.
               </p>
             )}
@@ -268,7 +267,7 @@ function ProjectInner() {
                     )}
                     <button
                       aria-label={`Remove ${u.name} from project`}
-                      className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-lg text-[var(--wf-faint)] transition hover:bg-[rgba(244,87,77,0.12)] hover:text-[var(--wf-red)]"
+                      className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-lg text-[var(--wf-faint)] transition hover:bg-[var(--wf-red-soft)] hover:text-[var(--wf-red)]"
                       onClick={() => removeEmployeeFromProject(u.id, project.id)}
                     >
                       <IX size={15} />

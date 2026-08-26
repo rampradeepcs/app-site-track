@@ -51,7 +51,7 @@ export default function EmployeeHistory() {
                     onClick={() => setSelectedId(d.id)}
                     className={`flex shrink-0 cursor-pointer flex-col items-center rounded-xl border px-3.5 py-2 transition ${
                       active
-                        ? "border-[var(--wf-amber)] bg-[rgba(246,167,35,0.12)]"
+                        ? "border-[var(--wf-amber)] bg-[var(--wf-amber-soft)]"
                         : "border-[var(--wf-line)] bg-[var(--wf-surface)] hover:border-[var(--wf-line-strong)]"
                     }`}
                   >

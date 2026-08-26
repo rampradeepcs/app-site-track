@@ -1,21 +1,41 @@
 /* ============================================================
    Workfence — construction workforce app design system.
    Scoped under `.wf` so it never leaks into the marketing site.
-   Dark, high-contrast, outdoor-readable; amber = action,
-   green = on-site/success, red = alert.
+   High-contrast and outdoor-readable in both themes;
+   amber = action, green = on-site/success, red = alert.
+
+   THEMING
+   -------
+   Dark is the default and lives on `.wf`. Light overrides only the
+   colour tokens, under `html[data-theme="light"]`.
+
+   The attribute is always written explicitly — an inline script in
+   layout.tsx resolves "system" to a concrete light/dark before first
+   paint. That is why there is no `prefers-color-scheme` block here:
+   duplicating the whole light palette into a media query is how the
+   two copies drift apart, and the script closes the gap it would
+   have covered.
+
+   Anything that paints a colour must use a token. A literal
+   rgba() in a component is invisible to this file and will stay
+   dark-on-dark when someone switches to light — which is exactly
+   what the -soft / -edge tints below exist to prevent.
    ============================================================ */
 
 .wf {
+  /* ---- surfaces & text (dark) ---- */
   --wf-bg: #0b0f16;
   --wf-surface: #131926;
   --wf-surface2: #1b2334;
   --wf-surface3: #232d42;
+  --wf-inset: rgba(6, 9, 14, 0.55);
   --wf-line: rgba(148, 163, 184, 0.16);
   --wf-line-strong: rgba(148, 163, 184, 0.3);
   --wf-fg: #f2f5fa;
   --wf-muted: #9aa7ba;
-  --wf-faint: #67748a;
+  --wf-faint: #7d8aa0;
 
+  /* ---- brand hues (dark) ---- */
   --wf-amber: #f6a723;
   --wf-amber-hi: #ffc14d;
   --wf-orange: #ee6c2b;
@@ -24,9 +44,53 @@
   --wf-red: #f4574d;
   --wf-blue: #45b8f5;
   --wf-violet: #a78bfa;
+  --wf-slate: #94a3b8;
+
+  /* ---- tints ----
+     One vocabulary for every wash in the app: -soft fills, -edge
+     borders. Derived with color-mix so a hue only has to be correct
+     once per theme and every tint follows it. */
+  --wf-tint-soft: 14%;
+  --wf-tint-edge: 34%;
+  --wf-amber-soft: color-mix(in srgb, var(--wf-amber) var(--wf-tint-soft), transparent);
+  --wf-amber-edge: color-mix(in srgb, var(--wf-amber) var(--wf-tint-edge), transparent);
+  --wf-green-soft: color-mix(in srgb, var(--wf-green) var(--wf-tint-soft), transparent);
+  --wf-green-edge: color-mix(in srgb, var(--wf-green) var(--wf-tint-edge), transparent);
+  --wf-red-soft: color-mix(in srgb, var(--wf-red) var(--wf-tint-soft), transparent);
+  --wf-red-edge: color-mix(in srgb, var(--wf-red) var(--wf-tint-edge), transparent);
+  --wf-blue-soft: color-mix(in srgb, var(--wf-blue) var(--wf-tint-soft), transparent);
+  --wf-blue-edge: color-mix(in srgb, var(--wf-blue) var(--wf-tint-edge), transparent);
+  --wf-violet-soft: color-mix(in srgb, var(--wf-violet) var(--wf-tint-soft), transparent);
+  --wf-violet-edge: color-mix(in srgb, var(--wf-violet) var(--wf-tint-edge), transparent);
+  --wf-orange-soft: color-mix(in srgb, var(--wf-orange) var(--wf-tint-soft), transparent);
+  --wf-slate-soft: color-mix(in srgb, var(--wf-slate) var(--wf-tint-soft), transparent);
+
+  /* ---- ink that sits ON a brand fill ----
+     Dark ink on amber/green reads in both themes; the danger button
+     keeps white because its red stays dark enough for it. */
+  --wf-on-amber: #17130a;
+  --wf-on-green: #04150b;
+  --wf-on-red: #ffffff;
+  --wf-on-violet: #1b1030;
+  --wf-on-accent: #131313;
 
   --wf-radius: 16px;
   --wf-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.55);
+  --wf-glow-amber: 0 10px 26px -10px color-mix(in srgb, var(--wf-amber) 55%, transparent);
+  --wf-glow-green: 0 10px 26px -10px color-mix(in srgb, var(--wf-green) 45%, transparent);
+  /* ---- map ----
+     The map is the one surface the theme does not own: it is
+     photography underneath. Anything drawn on top needs a
+     contrast anchor that flips with the tiles, not with the app. */
+  --wf-tile-filter: brightness(0.72) saturate(0.72) contrast(1.06) hue-rotate(178deg) invert(1);
+  /* Knocks the tiles back so overlays read against them. */
+  --wf-map-veil: rgba(7, 11, 18, 0.28);
+  /* Drawn under the route line so it survives a busy tile. */
+  --wf-trail-halo: rgba(0, 0, 0, 0.45);
+  /* Ring around a worker marker, for separation from the ground. */
+  --wf-marker-ring: rgba(255, 255, 255, 0.88);
+  /* Shows through before tiles load, and where they never do. */
+  --wf-map-ground: #0d1420;
 
   color-scheme: dark;
   background: var(--wf-bg);
@@ -35,9 +99,61 @@
   -webkit-font-smoothing: antialiased;
 }
 
+/* ------------------------------------------------------------- light */
+/* Only colour is redefined. Every size, radius and motion token above
+   is shared, so the two themes cannot drift in layout — just in ink. */
+html[data-theme="light"] .wf {
+  --wf-bg: #f4f6fa;
+  --wf-surface: #ffffff;
+  --wf-surface2: #f7f9fc;
+  --wf-surface3: #eaeef5;
+  --wf-inset: rgba(15, 23, 42, 0.04);
+  --wf-line: rgba(15, 23, 42, 0.12);
+  --wf-line-strong: rgba(15, 23, 42, 0.26);
+  --wf-fg: #0f172a;
+  --wf-muted: #55637a;
+  --wf-faint: #687384;
+
+  /* Hues are darkened for white ground: the dark-theme amber and green
+     are tuned to glow against near-black and fail contrast on white. */
+  --wf-amber: #a25a00;
+  --wf-amber-hi: #d98407;
+  --wf-orange: #c2410c;
+  --wf-green: #16794a;
+  --wf-green-dim: #12633c;
+  --wf-red: #c62f28;
+  --wf-blue: #0369a1;
+  --wf-violet: #6d43d4;
+  --wf-slate: #64748b;
+
+  /* Tints sit on white, so they need less alpha to read as a wash and
+     more on the border to stay visible. */
+  --wf-tint-soft: 10%;
+  --wf-tint-edge: 40%;
+
+  --wf-on-amber: #ffffff;
+  --wf-on-green: #ffffff;
+  --wf-on-red: #ffffff;
+  --wf-on-violet: #ffffff;
+  --wf-on-accent: #ffffff;
+
+  --wf-shadow: 0 16px 34px -20px rgba(15, 23, 42, 0.34);
+  --wf-glow-amber: 0 8px 20px -10px color-mix(in srgb, var(--wf-amber) 42%, transparent);
+  --wf-glow-green: 0 8px 20px -10px color-mix(in srgb, var(--wf-green) 36%, transparent);
+  --wf-tile-filter: saturate(1.02) contrast(1.02);
+  /* The tiles are already bright, so the veil lifts rather than
+     darkens, and the halo and marker ring invert to stay visible. */
+  --wf-map-veil: rgba(255, 255, 255, 0.14);
+  --wf-trail-halo: rgba(255, 255, 255, 0.7);
+  --wf-marker-ring: rgba(15, 23, 42, 0.72);
+  --wf-map-ground: #dfe6ec;
+
+  color-scheme: light;
+}
+
 .wf ::selection {
   background: var(--wf-amber);
-  color: #131313;
+  color: var(--wf-on-accent);
 }
 
 .wf-display {
@@ -60,7 +176,7 @@
 }
 
 .wf-inset {
-  background: rgba(6, 9, 14, 0.55);
+  background: var(--wf-inset);
   border: 1px solid var(--wf-line);
   border-radius: 12px;
 }
@@ -90,30 +206,42 @@
 .wf-btn:active {
   transform: scale(0.97);
 }
+/* Disabled reads as grey, not as faint.
+   Fading the whole button to 42% washes the fill and its ink toward the page
+   together, so on a light ground the primary button became pale cream with
+   white text on it — unreadable, and it is the check-in button. Replacing
+   the fill with a neutral keeps the label legible while still saying
+   clearly that nothing will happen. */
 .wf-btn:disabled {
-  opacity: 0.42;
+  background: var(--wf-surface3);
+  background-image: none;
+  color: var(--wf-faint);
+  border: 1px solid var(--wf-line);
+  box-shadow: none;
   cursor: not-allowed;
   transform: none;
 }
 
 .wf-btn-primary {
   background: linear-gradient(180deg, var(--wf-amber-hi), var(--wf-amber));
-  color: #17130a;
-  box-shadow: 0 10px 26px -10px rgba(246, 167, 35, 0.55);
+  color: var(--wf-on-amber);
+  box-shadow: var(--wf-glow-amber);
 }
 .wf-btn-primary:hover:not(:disabled) {
   filter: brightness(1.06);
 }
 
 .wf-btn-success {
-  background: linear-gradient(180deg, #3ee287, var(--wf-green-dim));
-  color: #04150b;
-  box-shadow: 0 10px 26px -10px rgba(47, 211, 118, 0.45);
+  background: linear-gradient(180deg, var(--wf-green), var(--wf-green-dim));
+  color: var(--wf-on-green);
+  box-shadow: var(--wf-glow-green);
 }
 
 .wf-btn-danger {
-  background: linear-gradient(180deg, #ff6f66, #d9382e);
-  color: #fff;
+  background: linear-gradient(180deg,
+      color-mix(in srgb, var(--wf-red) 88%, white),
+      color-mix(in srgb, var(--wf-red) 78%, black));
+  color: var(--wf-on-red);
 }
 
 .wf-btn-ghost {
@@ -172,7 +300,7 @@
 .wf-input:focus {
   outline: none;
   border-color: var(--wf-amber);
-  box-shadow: 0 0 0 3px rgba(246, 167, 35, 0.22);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--wf-amber) 26%, transparent);
 }
 textarea.wf-input {
   min-height: 84px;
@@ -272,7 +400,7 @@ select.wf-input {
   background: transparent;
 }
 .wf ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.28);
+  background: color-mix(in srgb, var(--wf-slate) 28%, transparent);
   border-radius: 999px;
   border: none;
 }
@@ -312,7 +440,7 @@ select.wf-input {
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
   border-top: 1px solid var(--wf-line);
-  background: rgba(11, 15, 22, 0.92);
+  background: color-mix(in srgb, var(--wf-bg) 92%, transparent);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
 }
@@ -373,7 +501,7 @@ select.wf-input {
   transition: background-color 0.12s ease;
 }
 .wf-table tbody tr:hover {
-  background: rgba(148, 163, 184, 0.06);
+  background: color-mix(in srgb, var(--wf-slate) 8%, transparent);
 }
 .wf-table tbody tr[data-clickable="true"] {
   cursor: pointer;

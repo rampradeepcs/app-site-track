@@ -104,7 +104,6 @@ function LiveInner() {
           trailColor="var(--wf-green)"
           follow={followPoint}
           heightClass="h-[420px] md:h-[500px]"
-          mapStyle={state.settings.mapStyle}
         >
           {tracking && selected && (
             <div className="absolute left-3 top-3 z-10 flex items-center gap-2 rounded-xl bg-black/75 px-3 py-2 text-[0.74rem] font-bold text-white shadow-lg backdrop-blur">
@@ -131,7 +130,7 @@ function LiveInner() {
               }}
               className={`flex shrink-0 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 transition ${
                 b.user.id === selectedId
-                  ? "border-[var(--wf-amber)] bg-[rgba(246,167,35,0.1)]"
+                  ? "border-[var(--wf-amber)] bg-[var(--wf-amber-soft)]"
                   : "border-[var(--wf-line)] bg-[var(--wf-surface)] hover:border-[var(--wf-line-strong)]"
               }`}
             >

@@ -230,8 +230,8 @@ function ProfileInner() {
                   style={{
                     background:
                       n.severity === "critical" || n.severity === "warning"
-                        ? "rgba(246,167,35,0.14)"
-                        : "rgba(69,184,245,0.12)",
+                        ? "var(--wf-amber-soft)"
+                        : "var(--wf-blue-soft)",
                     color:
                       n.severity === "critical"
                         ? "var(--wf-red)"

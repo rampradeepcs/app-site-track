@@ -160,7 +160,7 @@ export default function ClientsPage() {
                       {ent.planName}
                       {(ent.overriddenLimits.length > 0 || ent.overriddenFeatures.length > 0) && (
                         <span
-                          className="ml-1 rounded bg-[rgba(167,139,250,0.16)] px-1 py-0.5 text-[0.58rem] font-bold text-[var(--wf-violet)]"
+                          className="ml-1 rounded bg-[var(--wf-violet-soft)] px-1 py-0.5 text-[0.58rem] font-bold text-[var(--wf-violet)]"
                           title="Customised from the base plan"
                         >
                           CUSTOM

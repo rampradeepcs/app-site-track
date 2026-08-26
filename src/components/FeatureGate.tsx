@@ -64,9 +64,9 @@ export function UpgradeNotice({
 }) {
   return (
     <div
-      className={`wf-card flex items-start gap-3 border-[rgba(167,139,250,0.35)] ${compact ? "p-3.5" : "p-5"}`}
+      className={`wf-card flex items-start gap-3 border-[var(--wf-violet-edge)] ${compact ? "p-3.5" : "p-5"}`}
     >
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[rgba(167,139,250,0.14)] text-[var(--wf-violet)]">
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--wf-violet-soft)] text-[var(--wf-violet)]">
         <ILock size={18} />
       </span>
       <div className="min-w-0 flex-1">

@@ -52,11 +52,11 @@ export function MetricCard({
 }
 
 const ORG_TONE: Record<OrgStatus, [string, string]> = {
-  active: ["rgba(47,211,118,0.15)", "var(--wf-green)"],
-  trial: ["rgba(69,184,245,0.15)", "var(--wf-blue)"],
-  suspended: ["rgba(244,87,77,0.15)", "var(--wf-red)"],
-  "payment-hold": ["rgba(246,167,35,0.15)", "var(--wf-amber)"],
-  cancelled: ["rgba(148,163,184,0.14)", "var(--wf-faint)"],
+  active: ["var(--wf-green-soft)", "var(--wf-green)"],
+  trial: ["var(--wf-blue-soft)", "var(--wf-blue)"],
+  suspended: ["var(--wf-red-soft)", "var(--wf-red)"],
+  "payment-hold": ["var(--wf-amber-soft)", "var(--wf-amber)"],
+  cancelled: ["var(--wf-slate-soft)", "var(--wf-faint)"],
 };
 
 export function StatusPill({ status }: { status: OrgStatus }) {
@@ -72,12 +72,12 @@ export function StatusPill({ status }: { status: OrgStatus }) {
 }
 
 const SUB_TONE: Record<SubscriptionStatus, [string, string]> = {
-  trial: ["rgba(69,184,245,0.15)", "var(--wf-blue)"],
-  active: ["rgba(47,211,118,0.15)", "var(--wf-green)"],
-  "past-due": ["rgba(246,167,35,0.15)", "var(--wf-amber)"],
-  paused: ["rgba(148,163,184,0.14)", "var(--wf-faint)"],
-  suspended: ["rgba(244,87,77,0.15)", "var(--wf-red)"],
-  cancelled: ["rgba(148,163,184,0.14)", "var(--wf-faint)"],
+  trial: ["var(--wf-blue-soft)", "var(--wf-blue)"],
+  active: ["var(--wf-green-soft)", "var(--wf-green)"],
+  "past-due": ["var(--wf-amber-soft)", "var(--wf-amber)"],
+  paused: ["var(--wf-slate-soft)", "var(--wf-faint)"],
+  suspended: ["var(--wf-red-soft)", "var(--wf-red)"],
+  cancelled: ["var(--wf-slate-soft)", "var(--wf-faint)"],
 };
 
 export function SubPill({ status }: { status: SubscriptionStatus }) {
@@ -93,14 +93,14 @@ export function SubPill({ status }: { status: SubscriptionStatus }) {
 }
 
 const INV_TONE: Record<InvoiceStatus, [string, string]> = {
-  draft: ["rgba(148,163,184,0.14)", "var(--wf-faint)"],
-  issued: ["rgba(69,184,245,0.15)", "var(--wf-blue)"],
-  paid: ["rgba(47,211,118,0.15)", "var(--wf-green)"],
-  pending: ["rgba(246,167,35,0.15)", "var(--wf-amber)"],
-  overdue: ["rgba(238,108,43,0.16)", "var(--wf-orange)"],
-  failed: ["rgba(244,87,77,0.15)", "var(--wf-red)"],
-  refunded: ["rgba(167,139,250,0.15)", "var(--wf-violet)"],
-  cancelled: ["rgba(148,163,184,0.14)", "var(--wf-faint)"],
+  draft: ["var(--wf-slate-soft)", "var(--wf-faint)"],
+  issued: ["var(--wf-blue-soft)", "var(--wf-blue)"],
+  paid: ["var(--wf-green-soft)", "var(--wf-green)"],
+  pending: ["var(--wf-amber-soft)", "var(--wf-amber)"],
+  overdue: ["var(--wf-orange-soft)", "var(--wf-orange)"],
+  failed: ["var(--wf-red-soft)", "var(--wf-red)"],
+  refunded: ["var(--wf-violet-soft)", "var(--wf-violet)"],
+  cancelled: ["var(--wf-slate-soft)", "var(--wf-faint)"],
 };
 
 export function InvoicePill({ status }: { status: InvoiceStatus }) {

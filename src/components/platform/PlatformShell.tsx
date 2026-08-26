@@ -68,7 +68,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-dvh md:flex">
       {/* impersonation is a privileged action — never let it be invisible */}
       {platform.impersonating && (
-        <div className="fixed inset-x-0 top-0 z-50 flex items-center justify-center gap-3 bg-[var(--wf-violet)] px-4 py-2 text-[0.8rem] font-bold text-[#1b1030]">
+        <div className="fixed inset-x-0 top-0 z-50 flex items-center justify-center gap-3 bg-[var(--wf-violet)] px-4 py-2 text-[0.8rem] font-bold text-[var(--wf-on-violet)]">
           Viewing{" "}
           {platform.organizations.find((o) => o.id === platform.impersonating!.orgId)?.name}
           {" "}as their admin — all actions are audited
@@ -102,7 +102,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
         className={`${navOpen ? "block" : "hidden"} border-b border-[var(--wf-line)] bg-[var(--wf-surface)] md:sticky md:top-0 md:block md:h-dvh md:w-60 md:shrink-0 md:border-b-0 md:border-r`}
       >
         <div className="hidden items-center gap-2.5 px-5 py-5 md:flex">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--wf-violet)] text-[0.8rem] font-bold text-[#1b1030]">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--wf-violet)] text-[0.8rem] font-bold text-[var(--wf-on-violet)]">
             SA
           </span>
           <span>
@@ -127,7 +127,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
                 aria-current={active ? "page" : undefined}
                 className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[0.86rem] font-semibold transition ${
                   active
-                    ? "bg-[rgba(167,139,250,0.14)] text-[var(--wf-violet)]"
+                    ? "bg-[var(--wf-violet-soft)] text-[var(--wf-violet)]"
                     : "text-[var(--wf-muted)] hover:bg-[var(--wf-surface2)] hover:text-[var(--wf-fg)]"
                 }`}
               >

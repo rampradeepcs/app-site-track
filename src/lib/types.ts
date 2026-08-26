@@ -342,7 +342,6 @@ export interface Settings {
   minMoveMeters: number;
   forceOffline: boolean;
   retentionDays: number;
-  mapStyle: "dark" | "light";
   units: "metric" | "imperial";
 }
 

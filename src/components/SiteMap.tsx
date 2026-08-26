@@ -28,8 +28,9 @@ import {
   metersPerPixel,
   unmercator,
 } from "@/lib/geo";
+import { useTheme } from "@/lib/use-theme";
 import type { Geofence, LatLng, Project } from "@/lib/types";
-import { ICrosshair, ILayers, IMinus, IPlus } from "./WfIcons";
+import { ICrosshair, IMinus, IPlus } from "./WfIcons";
 
 export interface MapMarker {
   id: string;
@@ -70,8 +71,6 @@ const MAX_TILE_ZOOM = 19;
 const TILE_URL = (z: number, x: number, y: number) =>
   `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
 /** Approximates a dark basemap from standard OSM tiles. */
-const DARK_TILE_FILTER =
-  "invert(0.93) hue-rotate(185deg) saturate(0.55) brightness(0.92) contrast(0.95)";
 
 function fitView(points: LatLng[], width: number, height: number): View {
   if (!points.length) return { center: { lat: 11.03, lng: 77.0 }, zoom: 16 };
@@ -108,8 +107,6 @@ export function SiteMap({
   onCenterDrag,
   heightClass = "h-72",
   showControls = true,
-  mapStyle = "dark",
-  onToggleStyle,
   interactive = true,
   accuracy,
   children,
@@ -128,12 +125,17 @@ export function SiteMap({
   onCenterDrag?: (p: LatLng) => void;
   heightClass?: string;
   showControls?: boolean;
-  mapStyle?: "dark" | "light";
-  onToggleStyle?: () => void;
   interactive?: boolean;
   accuracy?: number;
   children?: React.ReactNode;
 }) {
+  // The map follows the app theme. The tile filter and ground colour come
+  // from tokens; this only gates the procedural fallback texture, which is
+  // drawn for dark and would muddy the light tiles.
+  //
+  // Read here rather than beside its use further down: there are early
+  // returns between, and a hook after one of them changes call order.
+  const isDark = useTheme().resolved === "dark";
   const wrapRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ w: 360, h: 288 });
   const [view, setView] = useState<View | null>(null);
@@ -407,12 +409,11 @@ export function SiteMap({
     return (
       <div
         ref={wrapRef}
-        className={`relative overflow-hidden rounded-2xl border border-[var(--wf-line)] bg-[#0d1420] ${heightClass}`}
+        className={`relative overflow-hidden rounded-2xl border border-[var(--wf-line)] bg-[var(--wf-map-ground)] ${heightClass}`}
       />
     );
   }
 
-  const isDark = mapStyle !== "light";
   const fencePath =
     activeFence && activeFence.kind === "polygon" && activeFence.polygon.length >= 3
       ? activeFence.polygon
@@ -433,7 +434,7 @@ export function SiteMap({
     <div
       ref={wrapRef}
       className={`relative touch-none select-none overflow-hidden rounded-2xl border border-[var(--wf-line)] ${heightClass}`}
-      style={{ background: isDark ? "#0d1420" : "#dfe6ec", cursor: interactive ? "grab" : "default" }}
+      style={{ background: "var(--wf-map-ground)", cursor: interactive ? "grab" : "default" }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -453,11 +454,11 @@ export function SiteMap({
             />
           </filter>
           <pattern id={`grid${uid}`} width={64} height={64} patternUnits="userSpaceOnUse">
-            <path d="M64 0H0V64" fill="none" stroke="rgba(148,163,184,0.07)" strokeWidth="1" />
+            <path d="M64 0H0V64" fill="none" stroke="var(--wf-slate-soft)" strokeWidth="1" />
           </pattern>
           <radialGradient id={`glow${uid}`}>
-            <stop offset="0%" stopColor="rgba(69,184,245,0.5)" />
-            <stop offset="100%" stopColor="rgba(69,184,245,0)" />
+            <stop offset="0%" stopColor="var(--wf-blue-edge)" />
+            <stop offset="100%" stopColor="var(--wf-blue-soft)" />
           </radialGradient>
         </defs>
 
@@ -470,7 +471,7 @@ export function SiteMap({
         )}
 
         {/* real OpenStreetMap tiles */}
-        <g style={isDark ? { filter: DARK_TILE_FILTER } : undefined}>
+        <g style={{ filter: "var(--wf-tile-filter)" }}>
           {tiles.map((t) => (
             <image
               key={t.key}
@@ -487,7 +488,7 @@ export function SiteMap({
         <rect
           width={dims.w}
           height={dims.h}
-          fill={isDark ? "rgba(7,11,18,0.28)" : "rgba(255,255,255,0.12)"}
+          fill="var(--wf-map-veil)"
           pointerEvents="none"
         />
 
@@ -535,7 +536,7 @@ export function SiteMap({
                   cy={fenceCenter.y}
                   r={fenceRadiusPx + bufferPx}
                   fill="none"
-                  stroke="rgba(246,167,35,0.22)"
+                  stroke="var(--wf-amber-edge)"
                   strokeWidth="1.4"
                   strokeDasharray="3 5"
                 />
@@ -543,7 +544,7 @@ export function SiteMap({
                   cx={fenceCenter.x}
                   cy={fenceCenter.y}
                   r={fenceRadiusPx}
-                  fill="rgba(246,167,35,0.07)"
+                  fill="var(--wf-amber-soft)"
                   stroke="var(--wf-amber)"
                   strokeWidth="2.2"
                   strokeDasharray="9 6"
@@ -552,7 +553,7 @@ export function SiteMap({
             ) : fencePath ? (
               <path
                 d={fencePath}
-                fill="rgba(246,167,35,0.07)"
+                fill="var(--wf-amber-soft)"
                 stroke="var(--wf-amber)"
                 strokeWidth="2.2"
                 strokeDasharray="9 6"
@@ -574,7 +575,7 @@ export function SiteMap({
                 cy={s.y}
                 r={9}
                 fill="var(--wf-amber)"
-                stroke="#131313"
+                stroke="var(--wf-trail-halo)"
                 strokeWidth="2.5"
                 style={{ cursor: "move" }}
                 onPointerDown={(e) => {
@@ -594,7 +595,7 @@ export function SiteMap({
             cy={fenceCenter.y}
             r={10}
             fill="var(--wf-amber)"
-            stroke="#131313"
+            stroke="var(--wf-trail-halo)"
             strokeWidth="2.5"
             style={{ cursor: "move" }}
             onPointerDown={(e) => {
@@ -607,7 +608,7 @@ export function SiteMap({
         {/* movement trail */}
         {trailPath && (
           <>
-            <path d={trailPath} fill="none" stroke="rgba(0,0,0,0.45)" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d={trailPath} fill="none" stroke="var(--wf-trail-halo)" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round" />
             <path d={trailPath} fill="none" stroke={trailColor} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
           </>
         )}
@@ -668,15 +669,6 @@ export function SiteMap({
           <MapBtn label="Recenter map" onClick={recenter}>
             <ICrosshair size={16} />
           </MapBtn>
-          {onToggleStyle && (
-            <MapBtn
-              label={isDark ? "Switch to light map" : "Switch to dark map"}
-              onClick={onToggleStyle}
-              active={!isDark}
-            >
-              <ILayers size={16} />
-            </MapBtn>
-          )}
         </div>
       )}
 
@@ -731,8 +723,8 @@ function MapBtn({
       onPointerDown={(e) => e.stopPropagation()}
       className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg border border-[var(--wf-line)] shadow-md transition hover:brightness-125"
       style={{
-        background: active ? "var(--wf-amber)" : "rgba(15,21,32,0.92)",
-        color: active ? "#171204" : "var(--wf-fg)",
+        background: active ? "var(--wf-amber)" : "color-mix(in srgb, var(--wf-surface) 92%, transparent)",
+        color: active ? "var(--wf-on-amber)" : "var(--wf-fg)",
       }}
     >
       {children}
@@ -743,8 +735,8 @@ function MapBtn({
 function StartFlag({ at }: { at: { x: number; y: number } }) {
   return (
     <g>
-      <circle cx={at.x} cy={at.y} r={7} fill="var(--wf-green)" stroke="#0b0f16" strokeWidth="2.4" />
-      <circle cx={at.x} cy={at.y} r={2.4} fill="#0b0f16" />
+      <circle cx={at.x} cy={at.y} r={7} fill="var(--wf-green)" stroke="var(--wf-marker-ring)" strokeWidth="2.4" />
+      <circle cx={at.x} cy={at.y} r={2.4} fill="var(--wf-marker-ring)" />
     </g>
   );
 }
@@ -768,7 +760,7 @@ function MarkerEl({ marker: m, x, y }: { marker: MapMarker; x: number; y: number
           style={{
             background: `hsl(${m.hue ?? 200} 48% 30%)`,
             color: `hsl(${m.hue ?? 200} 85% 84%)`,
-            border: `2.5px solid ${m.selected ? "var(--wf-amber)" : "rgba(255,255,255,0.85)"}`,
+            border: `2.5px solid ${m.selected ? "var(--wf-amber)" : "var(--wf-marker-ring)"}`,
           }}
         >
           {m.initials ?? "•"}
@@ -807,7 +799,7 @@ function MarkerEl({ marker: m, x, y }: { marker: MapMarker; x: number; y: number
           width: dotSize,
           height: dotSize,
           background: color,
-          border: "2.5px solid rgba(255,255,255,0.9)",
+          border: "2.5px solid var(--wf-marker-ring)",
         }}
       />
       {m.label ? (

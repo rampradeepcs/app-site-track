@@ -11,13 +11,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { BarTrend, ScoreBars } from "@/components/charts";
 import { FeatureGate, UpgradeNotice, useFeature } from "@/components/FeatureGate";
 import { ScreenHeader } from "@/components/shell";
+import { ThemeControl } from "@/components/ThemeControl";
 import {
   Avatar,
   Chip,
   Field,
   SectionTitle,
   Segmented,
-  Toggle,
   useNowTick,
 } from "@/components/ui";
 import {
@@ -237,7 +237,7 @@ function MoreInner() {
         {tab === "performance" && (
           <FeatureGate feature="performance">
             {attention.length > 0 && (
-              <div className="wf-card border-[rgba(246,167,35,0.35)] p-4">
+              <div className="wf-card border-[var(--wf-amber-edge)] p-4">
                 <SectionTitle>Needs attention</SectionTitle>
                 <div className="flex flex-col gap-2">
                   {attention.map((a) => (
@@ -425,17 +425,13 @@ function MoreInner() {
                 />
               </Field>
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold">Light map tiles</p>
-                  <p className="text-[0.72rem] text-[var(--wf-muted)]">
-                    Standard OpenStreetMap cartography instead of the dark theme
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold">Appearance</p>
+                  <p className="mb-2 text-[0.72rem] text-[var(--wf-muted)]">
+                    Applies to the whole app, maps included
                   </p>
+                  <ThemeControl />
                 </div>
-                <Toggle
-                  checked={state.settings.mapStyle === "light"}
-                  onChange={(v) => updateSettings({ mapStyle: v ? "light" : "dark" })}
-                  label="Light map tiles"
-                />
               </div>
             </div>
 

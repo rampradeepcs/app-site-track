@@ -270,7 +270,6 @@ export function buildSeedState(now = Date.now()): WorkforceState {
       minMoveMeters: 3,
       forceOffline: false,
       retentionDays: 90,
-      mapStyle: "dark",
       units: "metric",
     },
     session: null,

@@ -197,9 +197,9 @@ export function OnboardWizard({
               <span
                 className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[0.66rem] font-bold ${
                   i < step
-                    ? "bg-[var(--wf-green)] text-[#06210f]"
+                    ? "bg-[var(--wf-green)] text-[var(--wf-on-green)]"
                     : i === step
-                      ? "bg-[var(--wf-violet)] text-[#1b1030]"
+                      ? "bg-[var(--wf-violet)] text-[var(--wf-on-violet)]"
                       : "bg-[var(--wf-surface3)] text-[var(--wf-faint)]"
                 }`}
               >
@@ -300,7 +300,7 @@ export function OnboardWizard({
                     onClick={() => setPlanId(p.id)}
                     className={`cursor-pointer rounded-xl border px-3.5 py-3 text-left transition ${
                       planId === p.id
-                        ? "border-[var(--wf-violet)] bg-[rgba(167,139,250,0.1)]"
+                        ? "border-[var(--wf-violet)] bg-[var(--wf-violet-soft)]"
                         : "border-[var(--wf-line)] bg-[var(--wf-surface2)]"
                     }`}
                   >

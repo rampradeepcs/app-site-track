@@ -105,7 +105,6 @@ export default function ManagerDashboard() {
               project={project}
               markers={markers}
               heightClass="h-72"
-              mapStyle={state.settings.mapStyle}
             />
           </div>
           <div className="md:col-span-2">
