@@ -26,8 +26,22 @@ roles:
 `/start` is the way in for a company that does not exist yet: four highlight
 screens, then name and mobile with a one-time code, the company name, a first
 site placed on a map with its boundary and tracking policy, an optional office,
-and a crew invited from the phone's own contacts where the browser allows it
-and by hand everywhere else.
+and a crew invited from the phone's own contacts, or by hand.
+
+**Adding the crew** uses whichever picker the device has, and they are not
+the same. The Android app registers a small `ContactPicker` plugin that
+launches the *system* picker — one contact per tap, and no permission
+declared or requested, because Android hands back a read grant for the single
+row the user chose. A browser gets Chrome's Contact Picker API, which is
+multi-select and equally permissionless but exists on almost nothing else.
+Everywhere else, name and number are typed in — the path that always works.
+
+Taking the system picker over `@capacitor-community/contacts` was deliberate:
+that plugin gates every call, `pickContact` included, behind an alias grouping
+`READ_CONTACTS` **and** `WRITE_CONTACTS`, and Capacitor grants an alias only
+when every permission in it is granted. Inviting a crew would have meant
+declaring write access to the address book, and asking a worker to hand over
+their whole contact list, to read one name and one number.
 
 It collects what makes attendance work on day one and nothing more. Billing,
 tax details and branding are asked for later, by the screens that need them —
@@ -233,6 +247,11 @@ Declared in `android/app/src/main/AndroidManifest.xml`, each tied to a feature:
 | `ACCESS_BACKGROUND_LOCATION`                        | Keeps the route recording while the phone is pocketed. Requested separately, only after check-in, and never held outside an active shift.                                        |
 | `FOREGROUND_SERVICE_LOCATION`, `POST_NOTIFICATIONS` | The persistent "tracking active" notification, which is what makes the tracking visible to the worker.                                                                           |
 | `CAMERA`                                            | Check-in / checkout selfies and work-update photos.                                                                                                                              |
+
+**Not** declared: anything for contacts. The signup wizard reads a contact
+through `ACTION_PICK`, which returns a one-shot read grant for the row the
+user picked — so the app never holds address-book access, and there is
+nothing to justify to Play Store review.
 
 `ACCESS_BACKGROUND_LOCATION` requires a Play Store justification: tracking runs
 only between check-in and checkout, is disclosed in-app before it starts, and

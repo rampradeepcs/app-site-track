@@ -1,44 +1,29 @@
 "use client";
 
 /**
- * Invite the crew — from the phone's own contacts where the browser allows
- * it, by hand everywhere else.
+ * Invite the crew — from the phone's own contacts where the device offers a
+ * picker, by hand everywhere else.
  *
- * The Contact Picker API is the right primitive and the wrong thing to depend
- * on: it exists on Android Chrome over HTTPS and essentially nowhere else, and
- * it deliberately gives no way to ask whether permission would be granted.
- * So it is offered when present and never assumed — the manual rows are the
- * real path, and the picker is a shortcut that fills them in.
+ * Which picker, and whether it returns one person or several, is decided in
+ * `lib/contacts`. This component only asks what tapping the button will do,
+ * so the label can promise the truth: the Android shell opens the system
+ * picker one contact at a time, Chrome opens its multi-select sheet, and
+ * everywhere else there is no button at all.
  *
- * Nothing leaves the device here. The picked contacts become rows in a draft;
+ * Nothing leaves the device here. Picked contacts become rows in a draft;
  * they are only ever written to the company being created.
  */
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Avatar } from "../ui";
 import { IPhone, IPlus, ITrash, IUsers } from "../WfIcons";
+import {
+  contactSource,
+  isMultiSelect,
+  pickContacts,
+  type ContactSource,
+} from "@/lib/contacts";
 import type { CrewInvite } from "@/lib/store";
-
-/**
- * Minimal shape of the Contact Picker API. Not in lib.dom, and declaring the
- * two calls used is honester than casting to `any` at each site.
- */
-interface PickedContact {
-  name?: string[];
-  tel?: string[];
-}
-interface ContactsManager {
-  select(
-    props: string[],
-    options?: { multiple?: boolean },
-  ): Promise<PickedContact[]>;
-}
-
-function contactsApi(): ContactsManager | null {
-  if (typeof navigator === "undefined" || typeof window === "undefined") return null;
-  const nav = navigator as Navigator & { contacts?: ContactsManager };
-  return nav.contacts && "ContactsManager" in window ? nav.contacts : null;
-}
 
 /** Digits only, so "+91 90000 00001" and "9000000001" are the same person. */
 export function phoneKey(raw: string): string {
@@ -49,6 +34,14 @@ export function phoneKey(raw: string): string {
 export function isUsablePhone(raw: string): boolean {
   return phoneKey(raw).length >= 7;
 }
+
+/**
+ * The picker a device has does not change while the page is open — the
+ * Capacitor bridge and the Contact Picker API are both present or absent for
+ * the lifetime of the document — so there is nothing to subscribe to.
+ */
+const subscribeNever = () => () => {};
+const serverNone = (): ContactSource => "none";
 
 export function InviteCrew({
   invites,
@@ -61,7 +54,16 @@ export function InviteCrew({
   const [phone, setPhone] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
-  const picker = contactsApi();
+
+  /*
+   * What the device can do is an external fact, not state this component
+   * owns: the Capacitor bridge injects its global into the page, so there is
+   * nothing to detect on the server or in the hydration render. The server
+   * snapshot is "none" so the markup matches, and React swaps in the real
+   * answer immediately after — without the extra render that mirroring it
+   * into state from an effect would cost.
+   */
+  const source = useSyncExternalStore(subscribeNever, contactSource, serverNone);
 
   const merge = (incoming: CrewInvite[]) => {
     const seen = new Set(invites.map((i) => phoneKey(i.phone)));
@@ -76,33 +78,28 @@ export function InviteCrew({
   };
 
   const pickFromContacts = async () => {
-    if (!picker) return;
     setNote(null);
     setPicking(true);
-    try {
-      const picked = await picker.select(["name", "tel"], { multiple: true });
-      const usable = picked
-        .map((c) => ({
-          name: (c.name?.[0] ?? "").trim(),
-          phone: (c.tel?.[0] ?? "").trim(),
-        }))
-        .filter((c) => c.name && isUsablePhone(c.phone));
-      const added = merge(usable);
-      const skipped = picked.length - added;
-      setNote(
-        added === 0
-          ? picked.length === 0
-            ? null
-            : "Those contacts were already on the list, or had no usable number."
-          : `Added ${added}${skipped > 0 ? ` — skipped ${skipped} without a usable number` : ""}.`,
-      );
-    } catch {
-      // A cancelled picker throws exactly like a denied one. Neither is an
-      // error worth alarming anybody about; the manual rows are right there.
-      setNote(null);
-    } finally {
-      setPicking(false);
+    const { contacts, error } = await pickContacts();
+    setPicking(false);
+
+    if (error) {
+      setNote(error);
+      return;
     }
+    // Nothing back and no error means the picker was dismissed. Saying
+    // "added 0" to someone who deliberately backed out is noise.
+    if (contacts.length === 0) return;
+
+    const usable = contacts.filter((c) => c.name && isUsablePhone(c.phone));
+    const added = merge(usable);
+    const skipped = contacts.length - added;
+
+    setNote(
+      added === 0
+        ? "Already on the list, or no usable number."
+        : `Added ${added}${skipped > 0 ? ` — skipped ${skipped} without a usable number` : ""}.`,
+    );
   };
 
   const addManual = () => {
@@ -117,19 +114,23 @@ export function InviteCrew({
 
   return (
     <div className="flex flex-col gap-4">
-      {picker ? (
+      {source !== "none" ? (
         <button
           className="wf-btn wf-btn-ghost"
           onClick={pickFromContacts}
           disabled={picking}
         >
           <IUsers size={16} />
-          {picking ? "Choosing…" : "Pick from contacts"}
+          {picking
+            ? "Choosing…"
+            : isMultiSelect(source) || invites.length === 0
+              ? "Pick from contacts"
+              : "Pick another contact"}
         </button>
       ) : (
         <p className="wf-card2 p-3 text-[0.78rem] leading-relaxed text-[var(--wf-muted)]">
-          Your browser can&apos;t open the contact list. Add people by name and
-          number below — the Android app can pick them straight from contacts.
+          This device can&apos;t open the contact list. Add people by name and
+          number below — the Android app picks them straight from contacts.
         </p>
       )}
 
