@@ -26,6 +26,7 @@ import {
 import { performanceFor, PERFORMANCE_WEIGHTS } from "@/lib/metrics";
 import { useWorkforce } from "@/lib/store";
 import type { Permissions } from "@/lib/types";
+import { ERASE_DEVICE, confirmDestructive } from "@/lib/confirm";
 import {
   IAlert,
   IBell,
@@ -50,7 +51,7 @@ export default function EmployeeProfilePage() {
 
 function ProfileInner() {
   const wf = useWorkforce();
-  const { state, currentUser, logout, setPermission, updateSettings, markNotificationsRead, resetDemo } = wf;
+  const { state, currentUser, logout, setPermission, updateSettings, markNotificationsRead, eraseLocalData } = wf;
   const router = useRouter();
   const params = useSearchParams();
   const tab = (params.get("tab") as Tab) ?? "profile";
@@ -296,8 +297,8 @@ function ProfileInner() {
                 />
               </div>
             </div>
-            <button className="wf-btn wf-btn-ghost" onClick={resetDemo}>
-              <IRefresh size={16} /> Reset demo data
+            <button className="wf-btn wf-btn-ghost" onClick={() => confirmDestructive(ERASE_DEVICE, eraseLocalData)}>
+              <IRefresh size={16} /> Erase this device
             </button>
           </>
         )}

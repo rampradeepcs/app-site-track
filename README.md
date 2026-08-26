@@ -52,7 +52,7 @@ The last step provisions the tenant in one write, and the empty dashboard it
 lands on says what is missing rather than showing zeroes with no explanation.
 That panel clears itself on the first check-in.
 
-Both backends do the same thing by different routes. In demo mode
+Both backends do the same thing by different routes. With no credentials
 `provisionCompany` (workforce store) and `onboardClient` (platform store)
 create the operational and commercial halves; against Supabase a single
 `provision_company()` RPC does both in one transaction, because until it runs
@@ -86,10 +86,11 @@ Premises are marked as a **site** or an **office**; both can start and end a
 shift, which is what lets a crew sign off at the office after a delivery
 instead of driving back.
 
-Everything runs client-side — a localStorage-persisted store with a
-deterministic 14-day seeded demo dataset and a simulated **or** real
-(`navigator.geolocation`) GPS engine — so every flow is demoable immediately
-with no backend.
+Every mutation lands in a local store first — so the app is instant and keeps
+working with no signal, which is what a site needs — and is then pushed to
+Postgres. Anything captured offline queues in an outbox and uploads on
+reconnect; a write that fails says so on screen rather than leaving a manager
+looking at a project that exists only on their phone.
 
 ## Run
 
@@ -108,13 +109,20 @@ static `out/` directory for any static host.
 The app runs in one of two modes, decided at build time by whether
 `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set:
 
-- **Demo** — the seeded localStorage store. Every flow is explorable with no
-  backend at all, which is what makes the product demoable from a cold clone.
-- **Live** — Postgres via Supabase, with real OTP sign-in and row-level
-  security enforcing tenant isolation.
+- **Local** — the localStorage store on its own. The whole product works,
+  starting from an empty install: create a company, add your crew, work
+  shifts. Nothing leaves the device and no code is ever sent, so any 4 digits
+  pass the verify step.
+- **Live** — Postgres via Supabase: real OTP sign-in, row-level security
+  enforcing tenant isolation, and every mutation persisted — shifts, trails,
+  work updates, people, premises, rosters and boundaries.
 
 The account sheet on every screen says which mode the running build is in; the
 two are otherwise indistinguishable by eye.
+
+Ids are minted by the client, not the database, so a record has one identity
+in both places. That is what makes the optimistic write safe: nothing has to
+be rewritten when the server answers, so nothing is broken if it never does.
 
 To go live, copy `.env.example` to `.env.local`, fill in the anon key, and
 apply the migrations — see [`supabase/README.md`](supabase/README.md) for the
@@ -145,49 +153,47 @@ same reason: a static export has no server, so a missing or misnamed secret
 produces a perfectly healthy-looking site quietly serving seed data — which
 nobody notices until someone tries to save a shift.
 
-## Demo accounts
+## Starting from nothing
 
-One identity per role, named for the role so the sign-in list is unambiguous.
-In demo mode any 4-digit code works; against a real backend these are the
-phone numbers and emails a Supabase sign-in is matched to.
+A fresh install has no organisation, no people, no premises and no history.
+That is not a limitation to work around — it is the point. There are no demo
+identities to sign in as and no placeholder company to mistake for a real one,
+because the product now has a front door: `/start` creates a company, and
+everything after that is something a person actually did.
 
-| Role          | Name          | Phone           | Email                   |
-| ------------- | ------------- | --------------- | ----------------------- |
-| Product Owner | Demo Owner    | +91 90000 00001 | owner@workfence.demo    |
-| Client Admin  | Demo Admin    | +91 90000 00002 | admin@workfence.demo    |
-| Manager       | Demo Manager  | +91 90000 00003 | manager@workfence.demo  |
-| Employee      | Demo Employee | +91 90000 00004 | employee@workfence.demo |
+The first screen says so. With no company on the device it welcomes you and
+offers to create one; once a company exists it asks for the mobile number you
+were added with, and the code step follows. Both gates work that way now — the
+role picker that used to list four invented people is gone, and with it the
+implication that anyone chooses their own role.
 
-The app starts from one organisation, two premises (a site and an office) and
-those four people. There is **no invented history** — no attendance nobody
-worked, no routes nobody walked, no invoices nobody was sent. Everything past
-that is recorded by using the product.
+`supabase/bootstrap.sql` starts from the same nothing, seating only the
+platform owner. That row is a real person with a real number, because a
+one-time code has to reach a handset that exists; it is the one record that
+cannot arrive through the app, since the thing that creates everyone else is a
+signed-in session that does not yet exist.
 
-`src/lib/seed.ts` and `supabase/bootstrap.sql` create the same state, so the
-app looks identical on either backend. Change one and change the other.
+**One consequence worth knowing:** the platform portal (`/platform/*`) needs a
+real backend. The platform owner is a person, not a seed row, so on a build
+with no Supabase credentials there is nobody to open it as, and the route
+redirects. Inventing a local owner would be exactly the placeholder data this
+removed.
 
-**One row differs on purpose.** Against a real backend the Product Owner is a
-person, not a placeholder — `supabase/bootstrap.sql` gives that row live
-contact details, because a one-time code has to reach an inbox that exists and
-nobody receives mail at `@workfence.demo`. The table above describes demo mode,
-where no code is ever sent. To hand the platform to someone else, change the
-owner's phone and email in the bootstrap: a new auth identity is matched to
-these rows by phone digits first, then email.
+## Walkthrough
 
-## Demo walkthrough
+1. Open the app → **Create your company** → four highlight screens.
+2. Your name and mobile, a one-time code, the company name.
+3. Place your first site on the map, size its boundary, choose whether on-site
+   movement is recorded, optionally add an office.
+4. Invite your crew — from the phone's contacts on Android, by hand elsewhere.
+5. You land on the admin dashboard, which is honestly empty and says what to
+   do next. That panel clears on the first check-in.
+6. Sign out, sign back in with a crew member's number, and check in on the
+   site you just drew.
 
-1. Open the app → pick **Employee** → Demo Employee → any 4-digit OTP.
-2. Use the **Demo GPS** switcher on Home ("Walk to gate" / "Jump on site") to
-   move inside the geofence — the Check In button unlocks only inside the
-   boundary.
-3. Check in (selfie or placeholder) and watch live tracking draw your route;
-   add work updates; check out and file the daily summary.
-4. Sign out → **Manager** (any 4-digit OTP) for the dashboard, live map,
-   geofence editor, movement history playback, attendance and reports.
-5. Sign out → **Product Owner / Super Admin** for the org overview, role
-   management and governance/audit surfaces.
-6. Profile → Settings switches between simulated and real device GPS, and can
-   simulate offline mode to exercise the outbox/sync flow.
+Profile → Settings switches between real device GPS and a simulator, for
+trying the product away from a real boundary, and can force offline mode to
+exercise the outbox.
 
 ## Structure
 

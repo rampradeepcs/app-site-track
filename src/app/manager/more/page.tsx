@@ -41,6 +41,7 @@ import {
   toCSV,
 } from "@/lib/reports";
 import { useWorkforce } from "@/lib/store";
+import { ERASE_DEVICE, confirmDestructive } from "@/lib/confirm";
 import {
   IAlert,
   IArrowR,
@@ -66,7 +67,7 @@ export default function MorePage() {
 
 function MoreInner() {
   const wf = useWorkforce();
-  const { state, updateSettings, markNotificationsRead, logout, resetDemo } = wf;
+  const { state, updateSettings, markNotificationsRead, logout, eraseLocalData } = wf;
   const router = useRouter();
   const params = useSearchParams();
   const tab = (params.get("tab") as Tab) ?? "reports";
@@ -464,8 +465,8 @@ function MoreInner() {
             </div>
 
             <div className="flex gap-2.5">
-              <button className="wf-btn wf-btn-ghost flex-1" onClick={resetDemo}>
-                <IRefresh size={15} /> Reset demo data
+              <button className="wf-btn wf-btn-ghost flex-1" onClick={() => confirmDestructive(ERASE_DEVICE, eraseLocalData)}>
+                <IRefresh size={15} /> Erase this device
               </button>
               <button
                 className="wf-btn wf-btn-ghost flex-1"

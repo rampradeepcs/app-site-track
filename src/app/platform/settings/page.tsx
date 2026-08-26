@@ -7,10 +7,11 @@ import { Field, SectionTitle, Toggle } from "@/components/ui";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
 import { IAlert, IRefresh, IShield } from "@/components/WfIcons";
+import { ERASE_DEVICE, confirmDestructive } from "@/lib/confirm";
 
 export default function PlatformSettingsPage() {
   const { platform, updatePlatformSettings, resetPlatform } = usePlatform();
-  const { resetDemo } = useWorkforce();
+  const { eraseLocalData } = useWorkforce();
   const s = platform.platformSettings;
 
   return (
@@ -124,8 +125,8 @@ export default function PlatformSettingsPage() {
             <button className="wf-btn wf-btn-ghost" onClick={resetPlatform}>
               <IRefresh size={15} /> Reset platform data
             </button>
-            <button className="wf-btn wf-btn-ghost" onClick={resetDemo}>
-              <IRefresh size={15} /> Reset workforce demo data
+            <button className="wf-btn wf-btn-ghost" onClick={() => confirmDestructive(ERASE_DEVICE, eraseLocalData)}>
+              <IRefresh size={15} /> Erase workforce data on this device
             </button>
           </div>
         </div>

@@ -15,6 +15,7 @@ import { roleLabel } from "@/lib/format";
 import { canEnter, rememberDestination } from "@/lib/routes";
 import { isLiveBackend } from "@/lib/supabase/client";
 import { Avatar, BottomSheet, Chip } from "./ui";
+import { SyncBanner } from "./SyncBanner";
 import {
   IBell,
   ICalendar,
@@ -59,7 +60,14 @@ export function RoleGuard({
       </div>
     );
   }
-  return <>{children}</>;
+  // Every authenticated surface passes through here, which makes it the one
+  // place a failed write has to be announced from.
+  return (
+    <>
+      <SyncBanner />
+      {children}
+    </>
+  );
 }
 
 /* ------------------------------------------------------------ tab bars */

@@ -37,7 +37,17 @@ import { assignedPremises, nearestPremise, premiseAt } from "./premises";
 import { SEED_VERSION, buildSeedState, makeSelfie } from "./seed";
 import { isLiveBackend } from "./supabase/client";
 import { onAuthChange, signOut as authSignOut } from "./supabase/auth";
-import { fetchWorkforce } from "./supabase/repository";
+import {
+  fetchWorkforce,
+  insertCheckIn,
+  insertCheckOut,
+  insertPoints,
+  insertWorkUpdate,
+  replaceProjectMembers,
+  upsertProject,
+  upsertUser,
+} from "./supabase/repository";
+import { persist, uid } from "./supabase/sync";
 import type {
   AppNotification,
   Attendance,
@@ -62,6 +72,10 @@ const STORAGE_KEY = `workfence.v${SEED_VERSION}`;
 
 
 let idCounter = Math.floor(Math.random() * 1e6);
+/**
+ * Id for something that never leaves this device — an outbox entry, a
+ * notification, a local audit line. Readable on purpose.
+ */
 const rid = (p: string) => `${p}_${Date.now().toString(36)}_${(idCounter++).toString(36)}`;
 
 /** Default contracted shift for a freshly provisioned company: 9-to-6. */
@@ -92,6 +106,25 @@ function hueFor(name: string): number {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
   return h;
+}
+
+/** The company's own name, for codes that used to be hardcoded "NT-". */
+function orgNameFor(s: WorkforceState): string {
+  const me = s.users.find((u) => u.id === s.session?.userId);
+  const mate = s.users.find((u) => u.orgId === me?.orgId && u.role === "admin");
+  return s.projects.find((p) => p.orgId === me?.orgId)?.client || mate?.name || "";
+}
+
+/** Next free employee code for a company, e.g. AB-0007. */
+function nextCode(s: WorkforceState, stem: string): string {
+  const n = s.users.filter((u) => u.employeeCode.startsWith(`${stem}-`)).length + 1;
+  return `${stem}-${String(n).padStart(4, "0")}`;
+}
+
+/** Next free premise code, e.g. AB-S03. */
+function nextProjectCode(s: WorkforceState, stem: string): string {
+  const n = s.projects.filter((p) => p.code.startsWith(`${stem}-S`)).length + 1;
+  return `${stem}-S${String(n).padStart(2, "0")}`;
 }
 
 /**
@@ -219,7 +252,14 @@ interface StoreApi {
   updateSettings: (patch: Partial<Settings>) => void;
   markNotificationsRead: (audience: Role) => void;
   pushNotification: (n: Omit<AppNotification, "id" | "at" | "read">) => void;
-  resetDemo: () => void;
+  /**
+   * Wipe this device's copy of everything and start from an empty install.
+   *
+   * Named for what it does now that there is no seeded demo to return to:
+   * against a local store this is the company's only copy, and there is no
+   * undo. Callers must confirm before calling it.
+   */
+  eraseLocalData: () => void;
 }
 
 const Ctx = createContext<StoreApi | null>(null);
@@ -550,7 +590,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
 
       const isOffline = !(navigator.onLine && !s.settings.forceOffline);
       const point: LocationPoint = {
-        id: rid("pt"),
+        id: uid(),
         attendanceId: shift.id,
         employeeId: user.id,
         projectId: shift.projectId,
@@ -588,6 +628,15 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
             ]
           : prev.outbox,
       }));
+      // One fix per call rather than a batch: the trail has to survive the
+      // phone dying mid-shift, and a buffer that is flushed every few minutes
+      // is exactly the stretch of route that would be lost. Offline fixes
+      // batch anyway — they queue in the outbox and flush together.
+      if (!isOffline) {
+        persist("save the location trail", () =>
+          insertPoints([point], user.orgId),
+        );
+      }
     },
     [mutate],
   );
@@ -717,13 +766,21 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     watchFence,
   ]);
 
-  /* Outbox sync when connectivity returns. */
-  useEffect(() => {
-    if (!online) return;
+  /**
+   * Send what was captured offline, once there is a connection again.
+   *
+   * This used to empty the outbox on a timer and tell the worker
+   * "uploaded successfully" — true enough with no backend to upload to, and
+   * data loss with a success message once there was one. It now sends the
+   * records and clears only what the server accepted; a failure leaves the
+   * queue intact so the next reconnection tries again.
+   */
+  const flushOutbox = useCallback(() => {
     const s = stateRef.current;
     if (!s || s.outbox.length === 0) return;
     const count = s.outbox.length;
-    const t = window.setTimeout(() => {
+
+    const settle = () => {
       mutate((prev) => ({
         ...prev,
         outbox: [],
@@ -732,18 +789,73 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           u.status === "queued" ? { ...u, status: "synced" } : u,
         ),
       }));
-      const sess = stateRef.current?.session;
       pushNotification({
         audience: "employee",
-        userId: sess?.userId,
+        userId: stateRef.current?.session?.userId,
         kind: "sync",
-        title: "Back online — data synced",
-        body: `${count} queued record${count === 1 ? "" : "s"} uploaded successfully.`,
+        title: "Back online",
+        body: isLiveBackend
+          ? `${count} queued record${count === 1 ? "" : "s"} uploaded.`
+          : `${count} queued record${count === 1 ? "" : "s"} synced to this device.`,
         severity: "success",
       });
-    }, 1600);
+    };
+
+    if (!isLiveBackend) {
+      // Nowhere to send them: the records already live in the only store
+      // there is, and the queue was only ever modelling the wait.
+      settle();
+      return;
+    }
+
+    const me = s.users.find((u) => u.id === s.session?.userId);
+    const orgId = me?.orgId ?? "";
+
+    persist("upload what was captured offline", async () => {
+      // Shifts first: a trail point references its attendance row, so
+      // sending points before the shift exists would be rejected.
+      const shiftIds = new Set(
+        s.outbox
+          .filter((o) => o.kind === "attendance" || o.kind === "selfie")
+          .map((o) => o.payloadId),
+      );
+      for (const id of shiftIds) {
+        const a = s.attendance.find((x) => x.id === id);
+        if (!a?.checkIn) continue;
+        await insertCheckIn({
+          id: a.id,
+          orgId,
+          employeeId: a.employeeId,
+          projectId: a.projectId,
+          date: a.date,
+          mark: a.checkIn,
+          status: a.status,
+        });
+        if (a.checkOut) {
+          await insertCheckOut(a.id, {
+            mark: a.checkOut,
+            workedMinutes: a.workedMinutes ?? 0,
+            distanceMeters: a.distanceMeters,
+            status: a.status,
+          });
+        }
+      }
+      const points = s.points.filter((pt) => pt.queued);
+      if (points.length) await insertPoints(points, orgId);
+      for (const u of s.updates.filter((x) => x.status === "queued")) {
+        await insertWorkUpdate(u, orgId);
+      }
+      settle();
+    });
+  }, [mutate, pushNotification]);
+
+  useEffect(() => {
+    if (!online) return;
+    // A moment's grace: a connection that flickers back should not start an
+    // upload it is about to lose.
+    const t = window.setTimeout(flushOutbox, 1600);
     return () => window.clearTimeout(t);
-  }, [online, state?.outbox.length, mutate, pushNotification]);
+  }, [online, state?.outbox.length, flushOutbox]);
 
   /* --------------------------------------------------------- public API */
 
@@ -846,7 +958,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           (project.rules.shiftStart + project.rules.lateGraceMinutes) * 60000;
 
       const att: Attendance = {
-        id: rid("att"),
+        id: uid(),
         employeeId: user.id,
         projectId: project.id,
         date: today,
@@ -870,6 +982,22 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
             ]
           : prev.outbox,
       }));
+      // The shift is real the moment it is recorded here; the row in Postgres
+      // is the same record with the same id, not a second one. Offline it
+      // waits in the outbox above and the flush below sends it.
+      if (!isOffline) {
+        persist("record the check-in", () =>
+          insertCheckIn({
+            id: att.id,
+            orgId: user.orgId,
+            employeeId: att.employeeId,
+            projectId: att.projectId,
+            date: att.date,
+            mark,
+            status: att.status,
+          }),
+        );
+      }
       pushNotification({
         audience: "manager",
         kind: late ? "late-check-in" : "check-in",
@@ -968,6 +1096,16 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
             ]
           : prev.outbox,
       }));
+      if (!isOffline) {
+        persist("record the checkout", () =>
+          insertCheckOut(shift.id, {
+            mark,
+            workedMinutes: worked,
+            distanceMeters: shift.distanceMeters,
+            status,
+          }),
+        );
+      }
       pushNotification({
         audience: "manager",
         kind: "check-out",
@@ -995,7 +1133,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         (a) => a.employeeId === user.id && a.date === today && a.checkIn,
       );
       const update: WorkUpdate = {
-        id: rid("wu"),
+        id: uid(),
         employeeId: user.id,
         projectId: pid ?? "",
         attendanceId: shift?.id,
@@ -1027,6 +1165,9 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
             ]
           : prev.outbox,
       }));
+      if (!isOffline) {
+        persist("save the work update", () => insertWorkUpdate(update, user.orgId));
+      }
       pushNotification({
         audience: "manager",
         kind: "work-update",
@@ -1038,12 +1179,32 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     [mutate, pushNotification],
   );
 
+  /**
+   * Push a project's roster after it changes.
+   *
+   * Assign and remove both come down to the same fact — this is who is on
+   * this project now — so both send the whole set rather than a delta. Read
+   * from the ref after the mutation so the membership sent is the one that
+   * actually landed, not the one the caller intended.
+   */
+  const syncRoster = useCallback((projectId: string) => {
+    const s = stateRef.current;
+    const project = s?.projects.find((p) => p.id === projectId);
+    if (!project) return;
+    persist("update who is on the project", () =>
+      replaceProjectMembers(projectId, project.employeeIds, project.orgId),
+    );
+  }, []);
+
   const setUserRole = useCallback(
     (userId: string, role: Role) => {
       mutate((s) => {
         const target = s.users.find((u) => u.id === userId);
-        // The seeded product owner cannot be demoted — someone must hold the keys.
-        if (!target || target.id === "usr_owner") return s;
+        // The platform owner cannot be demoted — somebody has to hold the
+        // keys, and there is no seeded row to fall back on any more. Stated
+        // against the role rather than an id, because the id belongs to
+        // whichever real person was seated by the bootstrap.
+        if (!target || target.role === "superadmin") return s;
         const actor = s.session?.userId ?? "system";
         return {
           ...s,
@@ -1061,6 +1222,13 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ].slice(0, 200),
         };
       });
+      const s = stateRef.current;
+      const target = s?.users.find((u) => u.id === userId);
+      if (target && target.role !== "superadmin") {
+        persist("change the role", () =>
+          upsertUser({ ...target, role }, target.orgId),
+        );
+      }
     },
     [mutate],
   );
@@ -1078,10 +1246,11 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           return { ...s, users };
         }
         const created: User = {
-          id: rid("usr"),
+          id: uid(),
           orgId: patch.orgId ?? currentOrgId(s),
           name: patch.name,
-          employeeCode: patch.employeeCode ?? `NT-${String(Math.floor(Math.random() * 900) + 100)}`,
+          employeeCode:
+            patch.employeeCode ?? nextCode(s, codeStem(orgNameFor(s))),
           role: "employee",
           designation: patch.designation ?? "Worker",
           department: patch.department ?? "Civil",
@@ -1101,7 +1270,20 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         );
         return { ...s, users: [...s.users, created], projects };
       });
-      return saved!;
+      const person = saved!;
+      persist("save the person", async () => {
+        await upsertUser(person, person.orgId);
+        // A new hire assigned to sites in the same breath: the membership
+        // rows are part of saving them, not a separate thing the manager
+        // has to remember to do.
+        for (const projectId of person.projectIds) {
+          const project = stateRef.current?.projects.find((p) => p.id === projectId);
+          if (project) {
+            await replaceProjectMembers(projectId, project.employeeIds, person.orgId);
+          }
+        }
+      });
+      return person;
     },
     [mutate],
   );
@@ -1125,8 +1307,9 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ...s.audit,
         ],
       }));
+      syncRoster(projectId);
     },
-    [mutate],
+    [mutate, syncRoster],
   );
 
   const removeEmployeeFromProject = useCallback(
@@ -1144,8 +1327,9 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
             : p,
         ),
       }));
+      syncRoster(projectId);
     },
-    [mutate],
+    [mutate, syncRoster],
   );
 
   const saveProject = useCallback(
@@ -1162,20 +1346,23 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         }
         const loc = patch.location ?? { lat: 11.03, lng: 77.0 };
         const created: Project = {
-          id: rid("proj"),
+          id: uid(),
           orgId: patch.orgId ?? currentOrgId(s),
           kind: patch.kind ?? "site",
           // Defaults to recording the whole shift: the stricter policy is the
           // safer thing to arrive at by accident, and turning it off is a
           // deliberate choice the manager makes at creation.
           trackingMode: patch.trackingMode ?? "full-shift",
-          code: patch.code ?? `NT-CW-${Math.floor(Math.random() * 900) + 100}`,
+          code: patch.code ?? nextProjectCode(s, codeStem(orgNameFor(s))),
           name: patch.name,
           client: patch.client ?? "",
           address: patch.address ?? "",
           siteContact: patch.siteContact ?? "",
           siteContactPhone: patch.siteContactPhone ?? "",
-          managerId: s.session?.userId ?? "usr_manager",
+          // Whoever is creating it owns it until they hand it over. There is
+          // no seeded manager to fall back on any more, and an unowned project
+          // has nobody to raise a geofence alert with.
+          managerId: s.session?.userId ?? "",
           startDate: patch.startDate ?? todayISO(),
           endDate: patch.endDate ?? "",
           status: patch.status ?? "planning",
@@ -1205,7 +1392,9 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         saved = created;
         return { ...s, projects: [...s.projects, created] };
       });
-      return saved!;
+      const project = saved!;
+      persist("save the project", () => upsertProject(project));
+      return project;
     },
     [mutate],
   );
@@ -1220,6 +1409,8 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ...s.audit,
         ],
       }));
+      const project = stateRef.current?.projects.find((p) => p.id === projectId);
+      if (project) persist("save the boundary", () => upsertProject(project));
     },
     [mutate],
   );
@@ -1268,14 +1459,14 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
   const provisionCompany = useCallback(
     (draft: CompanyDraft): ProvisionedCompany => {
       const now = Date.now();
-      const orgId = rid("org");
-      const adminId = rid("usr");
-      const siteId = rid("proj");
-      const officeId = draft.office ? rid("proj") : null;
+      const orgId = uid();
+      const adminId = uid();
+      const siteId = uid();
+      const officeId = draft.office ? uid() : null;
       const premiseIds = [siteId, ...(officeId ? [officeId] : [])];
 
       const crew: User[] = draft.crew.map((c, i) => ({
-        id: rid("usr"),
+        id: uid(),
         orgId,
         name: c.name,
         employeeCode: `${codeStem(draft.company)}-${String(i + 2).padStart(4, "0")}`,
@@ -1412,11 +1603,11 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     [mutate],
   );
 
-  const resetDemo = useCallback(() => {
+  const eraseLocalData = useCallback(() => {
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {
-      /* ignore */
+      /* private mode, or storage already gone — the reset below still holds */
     }
     setFix(null);
     setState(buildSeedState());
@@ -1456,7 +1647,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     updateSettings,
     markNotificationsRead,
     pushNotification,
-    resetDemo,
+    eraseLocalData,
   };
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

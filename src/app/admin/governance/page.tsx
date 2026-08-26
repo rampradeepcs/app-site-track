@@ -20,9 +20,10 @@ import {
   IShield,
 } from "@/components/WfIcons";
 import { useRouter } from "next/navigation";
+import { ERASE_DEVICE, confirmDestructive } from "@/lib/confirm";
 
 export default function AdminGovernance() {
-  const { state, updateSettings, resetDemo, logout } = useWorkforce();
+  const { state, updateSettings, eraseLocalData, logout } = useWorkforce();
   const router = useRouter();
   const [auditFilter, setAuditFilter] = useState("");
 
@@ -208,8 +209,8 @@ export default function AdminGovernance() {
         </div>
 
         <div className="flex gap-2.5">
-          <button className="wf-btn wf-btn-ghost flex-1" onClick={resetDemo}>
-            <IRefresh size={15} /> Reset demo data
+          <button className="wf-btn wf-btn-ghost flex-1" onClick={() => confirmDestructive(ERASE_DEVICE, eraseLocalData)}>
+            <IRefresh size={15} /> Erase this device
           </button>
           <button
             className="wf-btn wf-btn-ghost flex-1"

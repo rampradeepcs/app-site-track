@@ -1,17 +1,18 @@
 /**
  * The commercial state Workfence starts from.
  *
- * The three plans are product configuration — what the platform sells — so
- * they are here. Everything a plan is *applied to* is not: no invented client
- * organisations, no invoices nobody was sent, no usage nobody generated, no
- * support tickets nobody raised. One tenant exists, on a trial of the default
- * plan, and the rest accumulates from real use.
+ * The three plans and the platform settings are product configuration — what
+ * this platform sells and how it behaves — so they are here.
  *
- * `supabase/bootstrap.sql` creates the same plans and the same single tenant,
- * so the platform portal reads the same on either backend.
+ * Everything a plan is *applied to* is not: no client organisations, no
+ * subscriptions, no invoices nobody was sent, no usage nobody generated, no
+ * tickets nobody raised. A tenant exists because somebody signed up for one.
+ *
+ * `supabase/migrations/*_plans_and_settings.sql` creates the same plans and
+ * settings in Postgres, so the platform portal reads the same on either
+ * backend. Change one and change the other.
  */
 
-import { DEMO_ORG_ID } from "./seed";
 import type {
   FeatureSet,
   Organization,
@@ -129,64 +130,14 @@ export function seedPlatform(now = Date.now()): PlatformState {
     },
   ];
 
-  /* ------------------------------------------------------------ tenant */
+  /* ------------------------------------------------------------ tenants */
 
-  // The one organisation, matching the workforce store's DEMO_ORG_ID so a
-  // manager signing in lands inside a client the platform owner can also see.
-  const organizations: Organization[] = [
-    {
-      id: DEMO_ORG_ID,
-      name: "Nachi Tekneka",
-      code: "CL-1001",
-      industry: "Construction",
-      website: "",
-      contactName: "Demo Admin",
-      contactEmail: "admin@workfence.demo",
-      contactPhone: "+91 90000 00002",
-      country: "India",
-      timezone: "Asia/Kolkata",
-      status: "trial",
-      billing: {
-        legalName: "Nachi Tekneka",
-        contactName: "Demo Admin",
-        email: "admin@workfence.demo",
-        phone: "+91 90000 00002",
-        addressLine: "Peelamedu",
-        city: "Coimbatore",
-        state: "Tamil Nadu",
-        postcode: "641004",
-        country: "India",
-        taxIdLabel: "GSTIN",
-        taxId: "",
-        taxPercent: 18,
-        currency: "INR",
-        paymentMethod: "",
-      },
-      branding: {
-        appName: "Workfence",
-        accent: "#f6a723",
-        logoText: "NT",
-      },
-      createdAt: now,
-    },
-  ];
-
-  const subscriptions: Subscription[] = [
-    {
-      id: "sub_demo",
-      orgId: DEMO_ORG_ID,
-      planId: "plan_growth",
-      status: "trial",
-      cycle: "monthly",
-      startedAt: now,
-      trialEndsAt: now + 14 * DAY,
-      renewsAt: now + 14 * DAY,
-      limitOverrides: {},
-      featureOverrides: {},
-      creditBalance: 0,
-      onLimitReached: "block",
-    },
-  ];
+  // None. A tenant exists because somebody signed up for one — through
+  // `/start` locally, or through the `provision_company` RPC against
+  // Postgres. Shipping a placeholder client here is what used to make the
+  // platform portal look busy while telling the owner nothing true.
+  const organizations: Organization[] = [];
+  const subscriptions: Subscription[] = [];
 
   return {
     organizations,
@@ -209,7 +160,7 @@ export function seedPlatform(now = Date.now()): PlatformState {
         "Workfence is undergoing scheduled maintenance. Attendance already captured on devices will sync automatically.",
       signupsEnabled: true,
       globalFeatureFlags: {},
-      supportEmail: "support@workfence.demo",
+      supportEmail: "support@workfence.app",
       termsUrl: "",
       privacyUrl: "",
     },

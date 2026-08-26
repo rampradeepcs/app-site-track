@@ -1,22 +1,22 @@
 /**
- * The state Workfence starts from.
+ * The state Workfence starts from: nothing.
  *
- * This is a first run, not a demonstration: one organisation, the two
- * premises a crew actually needs, and one signed-in identity per role. There
- * is no invented history — no attendance nobody worked, no GPS trails nobody
- * walked, no invoices nobody was sent. Everything past this point is recorded
- * by using the product.
+ * No organisation, no people, no premises, no history. A fresh install has
+ * never been used, and the app now says so rather than inventing a company to
+ * stand in for one.
  *
- * The same shape is created in Postgres by `supabase/bootstrap.sql`, so the
- * app looks identical whether it is running on this local store or on a real
- * backend. If you change one, change the other.
+ * That became possible when signup did. Before `/start` existed, the app had
+ * to ship with a tenant or there was no way to see past the sign-in screen,
+ * and the placeholder people that made it demoable were also the thing that
+ * made it impossible to tell real data from filler. Now the first screen
+ * offers to create a company, and everything after it is something a person
+ * actually did.
+ *
+ * `supabase/bootstrap.sql` starts from the same nothing, seating only the
+ * platform owner so the first sign-in resolves to somebody.
  */
 
-import { offsetMeters } from "./geo";
-import type { LatLng, Project, User, WorkforceState } from "./types";
-
-/** The single tenant every seeded record belongs to. */
-export const DEMO_ORG_ID = "org_demo";
+import type { WorkforceState } from "./types";
 
 /**
  * Shape version of the persisted store. A browser holding anything else
@@ -25,10 +25,17 @@ export const DEMO_ORG_ID = "org_demo";
  * Exported from here because this file decides the shape. It used to be
  * declared separately in the store as well, and the two drifted the moment
  * one was bumped — which silently threw away every reload's session.
+ *
+ * v6 empties the seed. The bump matters: a browser still holding v5 has the
+ * old invented company in it, and that data must not survive the change.
  */
-export const SEED_VERSION = 5;
+export const SEED_VERSION = 6;
 
-/** Generated SVG selfie placeholder — keeps records self-contained. */
+/**
+ * Generated SVG selfie placeholder, for a check-in where the camera was
+ * declined or unavailable. Not seed data — it is produced at the moment a
+ * real shift opens, and stands in for a photo that person chose not to take.
+ */
 export function makeSelfie(name: string, hue: number, label: string): string {
   const initials = name
     .split(/\s+/)
@@ -39,217 +46,18 @@ export function makeSelfie(name: string, hue: number, label: string): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
-/* ------------------------------------------------------------- premises */
-
-// Peelamedu, Coimbatore — the Nachi Tekneka home base.
-const SITE: LatLng = { lat: 11.0273, lng: 77.0037 };
-const OFFICE: LatLng = { lat: 11.0219, lng: 76.9938 };
-
-export const SITE_PROJECT_ID = "proj_site";
-export const OFFICE_PROJECT_ID = "proj_office";
-
-function buildProjects(managerId: string): Project[] {
-  const site: Project = {
-    id: SITE_PROJECT_ID,
-    orgId: DEMO_ORG_ID,
-    kind: "site",
-    trackingMode: "full-shift",
-    code: "NT-CW-101",
-    name: "Riverside Tower",
-    client: "Nachi Tekneka",
-    address: "Avinashi Road, Peelamedu, Coimbatore 641004",
-    siteContact: "Site Office",
-    siteContactPhone: "+91 90000 00001",
-    managerId,
-    startDate: "",
-    endDate: "",
-    status: "active",
-    description:
-      "First site. Rename it, redraw the boundary and assign your crew from Projects.",
-    location: SITE,
-    // A circle, not a hand-drawn polygon: this is a starting boundary, and
-    // the manager redraws it against the real site in the geofence editor.
-    // It is also what `supabase/bootstrap.sql` creates, so the two agree.
-    geofence: {
-      kind: "circle",
-      polygon: [],
-      center: SITE,
-      radius: 170,
-      bufferMeters: 40,
-    },
-    zones: [
-      { id: "z_gate", name: "Main Gate", center: offsetMeters(SITE, 150, 200), radius: 32, kind: "access" },
-      { id: "z_work", name: "Work Area", center: offsetMeters(SITE, 92, 320), radius: 45, kind: "work" },
-      { id: "z_yard", name: "Material Yard", center: offsetMeters(SITE, 118, 262), radius: 40, kind: "material" },
-      { id: "z_welfare", name: "Rest Area", center: offsetMeters(SITE, 60, 250), radius: 26, kind: "welfare" },
-    ],
-    employeeIds: [],
-    rules: {
-      shiftStart: 8 * 60 + 30,
-      shiftEnd: 17 * 60 + 30,
-      lateGraceMinutes: 15,
-      minShiftMinutes: 7 * 60,
-      exitAlertMinutes: 10,
-      autoCheckoutHours: 14,
-    },
-    createdAt: Date.now(),
-  };
-
-  // Not a job — a place a shift can legitimately end. Without it, a project
-  // switched to `outside-only` tracking would have nowhere but the site to
-  // check out, which is the case that policy exists to handle.
-  const office: Project = {
-    id: OFFICE_PROJECT_ID,
-    orgId: DEMO_ORG_ID,
-    kind: "office",
-    trackingMode: "full-shift",
-    code: "NT-HO-001",
-    name: "Head Office",
-    client: "Internal",
-    address: "Peelamedu, Coimbatore 641004",
-    siteContact: "Front Desk",
-    siteContactPhone: "+91 90000 00002",
-    managerId,
-    startDate: "",
-    endDate: "",
-    status: "active",
-    description:
-      "Office premise. Crews working away from a site can start and end the day here.",
-    location: OFFICE,
-    geofence: {
-      kind: "circle",
-      polygon: [],
-      center: OFFICE,
-      radius: 70,
-      bufferMeters: 25,
-    },
-    zones: [
-      { id: "zo_recep", name: "Reception", center: OFFICE, radius: 22, kind: "access" },
-      { id: "zo_desk", name: "Project Desk", center: offsetMeters(OFFICE, 34, 70), radius: 20, kind: "work" },
-    ],
-    employeeIds: [],
-    rules: {
-      shiftStart: 9 * 60,
-      shiftEnd: 18 * 60,
-      lateGraceMinutes: 15,
-      minShiftMinutes: 7 * 60,
-      exitAlertMinutes: 15,
-      autoCheckoutHours: 14,
-    },
-    createdAt: Date.now(),
-  };
-
-  return [site, office];
-}
-
-/* ---------------------------------------------------------------- users */
-
 /**
- * One identity per role, named for the role rather than for a person.
+ * An empty install.
  *
- * The sign-in screen lists these, so a name like "Demo Manager" tells you
- * what you are about to see; a plausible-sounding person does not, and reads
- * as real data when it is not.
- *
- * Phone and email matter: `supabase/bootstrap.sql` creates the same four
- * rows, and a live sign-in is matched to them by phone digits first, then
- * email. Change one side and that matching quietly stops working.
+ * The device preferences below are not data — they are how this browser is
+ * configured, and they have to start somewhere. Everything that belongs to a
+ * company or a person starts empty.
  */
-const BOTH_PREMISES = [SITE_PROJECT_ID, OFFICE_PROJECT_ID];
-
-function buildUsers(): User[] {
-  const now = Date.now();
-  return [
-    {
-      id: "usr_owner",
-      // The platform owner sits above every tenant, so belongs to none.
-      orgId: "",
-      name: "Demo Owner",
-      employeeCode: "NT-0001",
-      role: "superadmin",
-      designation: "Product Owner",
-      department: "Platform",
-      phone: "+91 90000 00001",
-      email: "owner@workfence.demo",
-      avatarHue: 265,
-      status: "active",
-      projectIds: BOTH_PREMISES,
-      shiftStart: 9 * 60,
-      shiftEnd: 18 * 60,
-      joinedAt: now,
-    },
-    {
-      id: "usr_admin",
-      orgId: DEMO_ORG_ID,
-      name: "Demo Admin",
-      employeeCode: "NT-0002",
-      role: "admin",
-      designation: "Client Administrator",
-      department: "Management",
-      phone: "+91 90000 00002",
-      email: "admin@workfence.demo",
-      avatarHue: 200,
-      status: "active",
-      projectIds: BOTH_PREMISES,
-      shiftStart: 9 * 60,
-      shiftEnd: 18 * 60,
-      joinedAt: now,
-    },
-    {
-      id: "usr_manager",
-      orgId: DEMO_ORG_ID,
-      name: "Demo Manager",
-      employeeCode: "NT-0003",
-      role: "manager",
-      designation: "Project Manager",
-      department: "Operations",
-      phone: "+91 90000 00003",
-      email: "manager@workfence.demo",
-      avatarHue: 35,
-      status: "active",
-      projectIds: BOTH_PREMISES,
-      shiftStart: 8 * 60 + 30,
-      shiftEnd: 18 * 60,
-      joinedAt: now,
-    },
-    {
-      id: "usr_employee",
-      orgId: DEMO_ORG_ID,
-      name: "Demo Employee",
-      employeeCode: "NT-0004",
-      role: "employee",
-      designation: "Site Supervisor",
-      department: "Civil",
-      phone: "+91 90000 00004",
-      email: "employee@workfence.demo",
-      avatarHue: 16,
-      status: "active",
-      projectIds: BOTH_PREMISES,
-      shiftStart: 8 * 60 + 30,
-      shiftEnd: 17 * 60 + 30,
-      joinedAt: now,
-    },
-  ];
-}
-
-/* ------------------------------------------------------------- assembler */
-
-export function buildSeedState(now = Date.now()): WorkforceState {
-  const users = buildUsers();
-  const manager = users.find((u) => u.role === "manager")!;
-  const projects = buildProjects(manager.id);
-  for (const p of projects) {
-    p.employeeIds = users
-      .filter((u) => u.role === "employee" && u.projectIds.includes(p.id))
-      .map((u) => u.id);
-  }
-  void now;
-
+export function buildSeedState(): WorkforceState {
   return {
     version: SEED_VERSION,
-    users,
-    projects,
-    // Deliberately empty. These fill as the product is used.
+    users: [],
+    projects: [],
     attendance: [],
     points: [],
     updates: [],
@@ -264,7 +72,10 @@ export function buildSeedState(now = Date.now()): WorkforceState {
       privacyAccepted: false,
     },
     settings: {
-      locationSource: "simulated",
+      // Real device GPS is the honest default now that there is no simulated
+      // site to walk around. The simulator stays available in settings for
+      // anyone trying the product away from a real boundary.
+      locationSource: "device",
       samplingSeconds: 15,
       accuracyFloor: 35,
       minMoveMeters: 3,
