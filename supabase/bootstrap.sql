@@ -7,17 +7,21 @@
 -- (a site and an office) and one user per role. No invented history — the
 -- attendance, routes and work updates all arrive by using the product.
 --
--- This mirrors `src/lib/seed.ts`. If you change one, change the other, or the
--- app will look different depending on which backend it is talking to.
+-- This mirrors `src/lib/seed.ts`, with one deliberate exception: the platform
+-- owner's phone and email are real here and placeholders there, because the
+-- local seed never sends anyone a code. Everything else must stay in step, or
+-- the app looks different depending on which backend it is talking to.
 --
 -- Why it exists at all: row-level security resolves every request through
 -- auth.uid() -> users.auth_id. A freshly migrated database has no users, so
 -- the first person to sign in matches nothing, resolves to no organisation,
 -- and gets an empty app that looks broken.
 --
--- BEFORE RUNNING: change the phone and email on the CHANGE ME line to the
--- ones you will actually sign in with. A new auth identity is matched to
--- these rows by phone digits first, then email.
+-- The platform owner below carries real contact details so a one-time code
+-- reaches someone; the other three are demo identities, editable from the app.
+-- A new auth identity is matched to these rows by phone digits first, then
+-- email, so changing the owner's number here is how the platform is handed to
+-- someone else.
 -- ============================================================================
 
 begin;
@@ -50,8 +54,11 @@ insert into users (id, org_id, name, employee_code, role, designation, departmen
                    phone, email, avatar_hue, status, shift_start, shift_end)
 values
   ('00000000-0000-4000-8000-00000000000a', null,
-   'Demo Owner', 'NT-0001', 'superadmin', 'Product Owner', 'Platform',
-   '+91 90000 00001', 'owner@workfence.demo',   -- CHANGE ME: your phone, your email
+   'Platform Owner', 'NT-0001', 'superadmin', 'Product Owner', 'Platform',
+   -- Real, on purpose: a one-time code has to reach a number and an inbox that
+   -- exist, and nobody receives mail at @workfence.demo. This is the one row
+   -- that deliberately differs from src/lib/seed.ts.
+   '+91 99443 11118', 'rampradeepux@gmail.com',
    265, 'active', 540, 1080),
 
   ('00000000-0000-4000-8000-00000000000b', '00000000-0000-4000-8000-000000000001',

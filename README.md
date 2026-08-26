@@ -128,6 +128,14 @@ that is recorded by using the product.
 `src/lib/seed.ts` and `supabase/bootstrap.sql` create the same state, so the
 app looks identical on either backend. Change one and change the other.
 
+**One row differs on purpose.** Against a real backend the Product Owner is a
+person, not a placeholder — `supabase/bootstrap.sql` gives that row live
+contact details, because a one-time code has to reach an inbox that exists and
+nobody receives mail at `@workfence.demo`. The table above describes demo mode,
+where no code is ever sent. To hand the platform to someone else, change the
+owner's phone and email in the bootstrap: a new auth identity is matched to
+these rows by phone digits first, then email.
+
 ## Demo walkthrough
 
 1. Open the app → pick **Employee** → Demo Employee → any 4-digit OTP.
