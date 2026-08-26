@@ -1,3 +1,5 @@
+import type { Role } from "./types";
+
 /**
  * Formatting helpers shared across employee + manager surfaces.
  */
@@ -93,4 +95,23 @@ export function initialsOf(name: string): string {
 
 export function pct(n: number): string {
   return `${Math.round(n)}%`;
+}
+
+/**
+ * How a role is named to a person. Kept here rather than at each call site
+ * because the /admin surface is shared: the platform owner opens it while
+ * impersonating, and a client's own administrator lives there — and labelling
+ * the second one "Product Owner" tells them they hold access they do not.
+ */
+export function roleLabel(role: Role): string {
+  switch (role) {
+    case "superadmin":
+      return "Product Owner";
+    case "admin":
+      return "Client Admin";
+    case "manager":
+      return "Manager";
+    default:
+      return "Employee";
+  }
 }

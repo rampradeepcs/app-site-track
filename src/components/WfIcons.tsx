@@ -204,3 +204,10 @@ export const ILock = (p: IconProps) => (
     <circle cx="12" cy="15.4" r="1.3" />
   </Icon>
 );
+
+export const IShare = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 15.5V4m0 0L8.2 7.8M12 4l3.8 3.8" />
+    <path d="M5 13.2V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4.8" />
+  </Icon>
+);

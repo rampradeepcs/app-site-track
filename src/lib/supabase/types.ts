@@ -232,8 +232,48 @@ export type Database = {
     // Canonical "empty" form used by `supabase gen types`; `Record<string, never>`
     // does not satisfy GenericSchema and silently collapses Insert to `never`.
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Functions: {
+      /** Self-serve signup — see supabase/migrations/*_self_serve_signup.sql. */
+      provision_company: {
+        Args: { payload: SignupPayload };
+        Returns: ProvisionResult;
+      };
+    };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };
+}
+
+/* --------------------------------------------------------------- signup --- */
+
+/**
+ * Payload for `provision_company`. Deliberately the same shape as the
+ * wizard's `CompanyDraft`, so the live and demo paths hand the same object to
+ * two different backends instead of each inventing a wire format.
+ */
+export interface SignupPayload {
+  company: string;
+  admin: { name: string; phone: string; email?: string };
+  site: {
+    name: string;
+    address: string;
+    location: { lat: number; lng: number };
+    radius: number;
+    trackingMode: "full-shift" | "outside-only";
+  };
+  office: {
+    name: string;
+    address: string;
+    location: { lat: number; lng: number };
+    radius: number;
+  } | null;
+  crew: Array<{ name: string; phone: string; designation?: string }>;
+  timezone?: string;
+}
+
+export interface ProvisionResult {
+  orgId: string;
+  userId: string;
+  siteId: string;
+  officeId: string | null;
 }

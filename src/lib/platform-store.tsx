@@ -20,6 +20,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { currentActor } from "./actor";
 import { seedPlatform } from "./saas-seed";
 import { isLiveBackend } from "./supabase/client";
 import { onAuthChange } from "./supabase/auth";
@@ -58,6 +59,18 @@ export interface OnboardInput {
   trialDays: number;
   limitOverrides: Partial<PlanLimits>;
   featureOverrides: Partial<FeatureSet>;
+  /**
+   * Tenant id to file this against, when the operational side has already
+   * minted one. Self-serve signup provisions the company first — it has to,
+   * because the admin it creates needs an org to belong to — and the two
+   * halves must land on the same organisation, not two that half-match.
+   */
+  orgId?: string;
+  /**
+   * Who to credit. Supplied by signup, where the new admin does the acting
+   * but is not yet the signed-in user this store can see.
+   */
+  actor?: { id: string; name: string };
 }
 
 interface PlatformApi {
@@ -185,24 +198,37 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
     setPlatform((prev) => (prev ? fn(prev) : prev));
   }, []);
 
-  /** Append-only: audit entries are never edited or removed from the UI. */
+  /**
+   * Append-only: audit entries are never edited or removed from the UI.
+   *
+   * The actor defaults to whoever is signed in rather than being named here.
+   * A hardcoded one was wrong in both directions: it credited every client
+   * admin's change to the platform owner, and it credited a self-serve signup
+   * to a person who was not involved. Callers may still pass an actor
+   * explicitly — the signup does, because the account it is creating does not
+   * exist yet at the moment the entry is written.
+   */
   const record = useCallback(
     (
       s: PlatformState,
-      e: Omit<PlatformAuditEntry, "id" | "at" | "actorId" | "actorName">,
-    ): PlatformState => ({
-      ...s,
-      platformAudit: [
-        {
-          id: pid("pa"),
-          at: Date.now(),
-          actorId: "usr_owner",
-          actorName: "Priya Venkatesh",
-          ...e,
-        },
-        ...s.platformAudit,
-      ],
-    }),
+      e: Omit<PlatformAuditEntry, "id" | "at" | "actorId" | "actorName"> &
+        Partial<Pick<PlatformAuditEntry, "actorId" | "actorName">>,
+    ): PlatformState => {
+      const who = currentActor();
+      return {
+        ...s,
+        platformAudit: [
+          {
+            id: pid("pa"),
+            at: Date.now(),
+            actorId: who.id,
+            actorName: who.name,
+            ...e,
+          },
+          ...s.platformAudit,
+        ],
+      };
+    },
     [],
   );
 
@@ -210,7 +236,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
 
   const onboardClient = useCallback<PlatformApi["onboardClient"]>(
     (input) => {
-      const id = pid("org");
+      const id = input.orgId ?? pid("org");
       const plan = (ref.current?.plans ?? []).find((p) => p.id === input.planId);
       const now = Date.now();
       const org: Organization = {
@@ -247,6 +273,9 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
             target: org.name,
             newValue: `${plan?.name ?? input.planId} (${input.cycle})`,
             detail: `Onboarded with admin ${input.admin.name} <${input.admin.email}>`,
+            ...(input.actor
+              ? { actorId: input.actor.id, actorName: input.actor.name }
+              : {}),
           },
         ),
       );

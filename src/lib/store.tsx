@@ -32,6 +32,7 @@ import {
   type FenceCheck,
 } from "./geo";
 import { fmtDistance, todayISO } from "./format";
+import { setActor } from "./actor";
 import { assignedPremises, nearestPremise, premiseAt } from "./premises";
 import { SEED_VERSION, buildSeedState, makeSelfie } from "./seed";
 import { isLiveBackend } from "./supabase/client";
@@ -48,6 +49,7 @@ import type {
   Role,
   Settings,
   ShiftEvent,
+  TrackingMode,
   User,
   WorkUpdate,
   WorkforceState,
@@ -61,6 +63,36 @@ const STORAGE_KEY = `workfence.v${SEED_VERSION}`;
 
 let idCounter = Math.floor(Math.random() * 1e6);
 const rid = (p: string) => `${p}_${Date.now().toString(36)}_${(idCounter++).toString(36)}`;
+
+/** Default contracted shift for a freshly provisioned company: 9-to-6. */
+const DEFAULT_SHIFT = { start: 9 * 60, end: 18 * 60 };
+
+/**
+ * Employee-code prefix from a company name: "Nachi Tekneka" -> "NT".
+ * Initials read better on a badge than a slug, and stay short when the name
+ * does not. Falls back to WF so a code is never just a number.
+ */
+function codeStem(company: string): string {
+  const initials = company
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((w) => w[0])
+    .join("")
+    .replace(/[^A-Za-z]/g, "")
+    .toUpperCase();
+  return initials || "WF";
+}
+
+/**
+ * Stable avatar tint from a name, so the same person is the same colour on
+ * every device instead of a fresh random one per install.
+ */
+function hueFor(name: string): number {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+  return h;
+}
 
 /**
  * Tenant of the signed-in user. New records inherit it, so a manager can
@@ -112,6 +144,41 @@ export interface LiveFix {
 
 export type SimScenario = "outside" | "approach" | "onsite" | "wander-out";
 
+/* --------------------------------------------------------- self-serve setup */
+
+/** A premise as the signup wizard describes it, before it becomes a Project. */
+export interface PremiseDraft {
+  name: string;
+  address: string;
+  location: LatLng;
+  /** Metres. The wizard offers a slider; there is no sensible universal default. */
+  radius: number;
+}
+
+/** Somebody the founder invited, from their contacts or typed in by hand. */
+export interface CrewInvite {
+  name: string;
+  phone: string;
+  designation?: string;
+}
+
+export interface CompanyDraft {
+  company: string;
+  admin: { name: string; phone: string; email?: string };
+  site: PremiseDraft & { trackingMode: TrackingMode };
+  /** Optional: a company that only ever works on site does not need one. */
+  office: PremiseDraft | null;
+  crew: CrewInvite[];
+}
+
+export interface ProvisionedCompany {
+  orgId: string;
+  admin: User;
+  site: Project;
+  office: Project | null;
+  crew: User[];
+}
+
 interface StoreApi {
   state: WorkforceState;
   hydrated: boolean;
@@ -121,6 +188,8 @@ interface StoreApi {
   login: (role: Role, userId?: string) => void;
   /** Sign in as a record that came from the backend rather than the seed. */
   loginAs: (user: User) => void;
+  /** Stand up a whole new tenant from the self-serve signup, and sign in. */
+  provisionCompany: (draft: CompanyDraft) => ProvisionedCompany;
   logout: () => void;
   currentUser: User | null;
   setActiveProject: (projectId: string) => void;
@@ -296,6 +365,18 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     const sess = state.session;
     return state.users.find((u) => u.id === sess.userId) ?? null;
   }, [state]);
+
+  /*
+   * Publish who is acting, for the platform audit trail.
+   *
+   * The audit lives in the platform store, which is this store's *parent* in
+   * the provider tree and so cannot read the session from context. An effect
+   * writing to a plain module — not to state — is the whole bridge; nothing
+   * renders from it, it is only read when an entry is appended.
+   */
+  useEffect(() => {
+    setActor(currentUser ? { id: currentUser.id, name: currentUser.name } : null);
+  }, [currentUser]);
 
   const activeProject = useMemo(() => {
     if (!state || !currentUser) return null;
@@ -1169,6 +1250,168 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     [mutate],
   );
 
+  /**
+   * Stand up a whole new tenant from the self-serve signup, in one write.
+   *
+   * Everything a company needs for the product to work on the very next
+   * screen: the founder as its admin, the first site with a boundary drawn
+   * around it, optionally an office to close shifts at, and whoever they
+   * invited. One `mutate`, because a half-provisioned company is worse than
+   * none — an admin with no site, or a site with no crew, is a dead end the
+   * app offers no way out of.
+   *
+   * Unlike every other creator here it cannot call `currentOrgId`: nobody is
+   * signed in yet, which is the whole point. The tenant id is minted here and
+   * handed back, so the commercial record in the platform store is filed
+   * against the same organisation rather than a second one.
+   */
+  const provisionCompany = useCallback(
+    (draft: CompanyDraft): ProvisionedCompany => {
+      const now = Date.now();
+      const orgId = rid("org");
+      const adminId = rid("usr");
+      const siteId = rid("proj");
+      const officeId = draft.office ? rid("proj") : null;
+      const premiseIds = [siteId, ...(officeId ? [officeId] : [])];
+
+      const crew: User[] = draft.crew.map((c, i) => ({
+        id: rid("usr"),
+        orgId,
+        name: c.name,
+        employeeCode: `${codeStem(draft.company)}-${String(i + 2).padStart(4, "0")}`,
+        role: "employee",
+        designation: c.designation?.trim() || "Worker",
+        department: "Site",
+        phone: c.phone,
+        avatarHue: hueFor(c.name),
+        status: "active",
+        projectIds: premiseIds,
+        shiftStart: DEFAULT_SHIFT.start,
+        shiftEnd: DEFAULT_SHIFT.end,
+        joinedAt: now,
+      }));
+
+      const admin: User = {
+        id: adminId,
+        orgId,
+        name: draft.admin.name,
+        employeeCode: `${codeStem(draft.company)}-0001`,
+        role: "admin",
+        designation: "Client Administrator",
+        department: "Management",
+        phone: draft.admin.phone,
+        email: draft.admin.email?.trim() || undefined,
+        avatarHue: hueFor(draft.admin.name),
+        status: "active",
+        projectIds: premiseIds,
+        shiftStart: DEFAULT_SHIFT.start,
+        shiftEnd: DEFAULT_SHIFT.end,
+        joinedAt: now,
+      };
+
+      const roster = [admin.id, ...crew.map((c) => c.id)];
+
+      const premise = (
+        id: string,
+        d: PremiseDraft,
+        kind: Project["kind"],
+        trackingMode: TrackingMode,
+        code: string,
+        description: string,
+      ): Project => ({
+        id,
+        orgId,
+        kind,
+        trackingMode,
+        code,
+        name: d.name,
+        client: draft.company,
+        address: d.address,
+        siteContact: draft.admin.name,
+        siteContactPhone: draft.admin.phone,
+        // The founder runs everything until they hand a site to someone else;
+        // an unowned project has no one to raise a geofence alert with.
+        managerId: adminId,
+        startDate: todayISO(),
+        endDate: "",
+        status: "active",
+        description,
+        location: d.location,
+        geofence: {
+          kind: "circle",
+          polygon: [],
+          center: d.location,
+          radius: d.radius,
+          bufferMeters: 40,
+        },
+        zones: [],
+        employeeIds: roster,
+        rules: {
+          shiftStart: DEFAULT_SHIFT.start,
+          shiftEnd: DEFAULT_SHIFT.end,
+          lateGraceMinutes: 15,
+          minShiftMinutes: 7 * 60,
+          exitAlertMinutes: 10,
+          autoCheckoutHours: 14,
+        },
+        createdAt: now,
+      });
+
+      const site = premise(
+        siteId,
+        draft.site,
+        "site",
+        draft.site.trackingMode,
+        `${codeStem(draft.company)}-S01`,
+        "Your first site. Redraw the boundary and add zones from Projects.",
+      );
+      const office = draft.office
+        ? premise(
+            officeId!,
+            draft.office,
+            "office",
+            "full-shift",
+            `${codeStem(draft.company)}-HO1`,
+            "Office premise. Crews working away from a site can start and end the day here.",
+          )
+        : null;
+
+      mutate((s) => {
+        // Idempotent: React may invoke an updater twice, and provisioning a
+        // company twice would double the whole tenant.
+        if (s.users.some((u) => u.id === adminId)) return s;
+        return {
+          ...s,
+          users: [...s.users, admin, ...crew],
+          projects: [...s.projects, site, ...(office ? [office] : [])],
+          audit: [
+            {
+              id: rid("aud"),
+              at: now,
+              actorId: adminId,
+              action: "company.provision",
+              target: draft.company,
+              detail:
+                `${premiseIds.length} premise${premiseIds.length === 1 ? "" : "s"}, ` +
+                `${crew.length} invited`,
+            },
+            ...s.audit,
+          ],
+          session: { userId: adminId, role: "admin" as Role, at: now },
+          activeProjectId: siteId,
+        };
+      });
+
+      fenceStateRef.current = null;
+      lastRecordedRef.current = 0;
+      recordingRef.current = false;
+      setFix(null);
+
+      return { orgId, admin, site, office, crew };
+    },
+    [mutate],
+  );
+
   const resetDemo = useCallback(() => {
     try {
       localStorage.removeItem(STORAGE_KEY);
@@ -1190,6 +1433,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     online,
     login,
     loginAs,
+    provisionCompany,
     logout,
     currentUser,
     setActiveProject,

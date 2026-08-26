@@ -19,6 +19,7 @@ import { currentAppUser, sendOtp, signOut, verifyOtp } from "@/lib/supabase/auth
 import { landingFor } from "@/lib/routes";
 import { Field } from "@/components/ui";
 import { WorkfenceMark } from "@/components/Brand";
+import { NewCompanyLink } from "@/components/onboarding/NewCompanyLink";
 import { IAlert, IArrowR, IChevronL, ILock, IShield } from "@/components/WfIcons";
 
 const CODE_LENGTH = 6;
@@ -190,6 +191,8 @@ export default function LiveGate() {
           >
             {busy ? "Sending…" : "Send code"} <IArrowR size={17} />
           </button>
+
+          <NewCompanyLink />
 
           <p className="flex items-center justify-center gap-1.5 text-center text-[0.7rem] text-[var(--wf-faint)]">
             <IShield size={13} /> Location is tracked only during an active shift

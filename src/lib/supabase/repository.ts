@@ -23,6 +23,7 @@ import type {
   UserRow,
   WorkUpdateRow,
 } from "./types";
+import type { ProvisionResult, SignupPayload } from "./types";
 import type {
   Attendance,
   AttendanceMark,
@@ -414,4 +415,23 @@ export async function insertWorkUpdate(u: WorkUpdate, orgId: string) {
     at: iso(u.at),
   });
   if (error) throw error;
+}
+
+/**
+ * Self-serve signup.
+ *
+ * One RPC rather than a series of inserts, because the tenant it creates is
+ * the thing every RLS policy resolves *through*: until the organisation and
+ * the admin row exist, the caller belongs nowhere and no policy can admit
+ * their writes. The database function is the only place that can create both,
+ * and it does so in one transaction — see the migration for why a
+ * half-provisioned company is the failure worth designing against.
+ */
+export async function provisionCompanyRemote(
+  payload: SignupPayload,
+): Promise<ProvisionResult> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("provision_company", { payload });
+  if (error) throw error;
+  return data as ProvisionResult;
 }

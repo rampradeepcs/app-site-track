@@ -595,3 +595,33 @@ select.wf-input {
     stroke-dashoffset: 0;
   }
 }
+
+/* ---------------------------------------------------------- onboarding */
+
+/* A swipeable pager. The scrollbar is hidden because the dots below already
+   say where you are, and a horizontal bar under a full-bleed panel reads as
+   a rendering fault rather than a control. */
+.wf-snap-x {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overscroll-behavior-x: contain;
+}
+.wf-snap-x::-webkit-scrollbar {
+  display: none;
+}
+
+/* Step rail across the top of the signup wizard. */
+.wf-steps {
+  display: flex;
+  gap: 0.3rem;
+}
+.wf-steps > span {
+  flex: 1;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--wf-line-strong);
+  transition: background 0.25s ease;
+}
+.wf-steps > span[data-on="true"] {
+  background: var(--wf-amber);
+}

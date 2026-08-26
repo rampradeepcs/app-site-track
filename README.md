@@ -21,6 +21,30 @@ roles:
   super admin can also open any manager surface while keeping the admin
   navigation.
 
+## Signing up
+
+`/start` is the way in for a company that does not exist yet: four highlight
+screens, then name and mobile with a one-time code, the company name, a first
+site placed on a map with its boundary and tracking policy, an optional office,
+and a crew invited from the phone's own contacts where the browser allows it
+and by hand everywhere else.
+
+It collects what makes attendance work on day one and nothing more. Billing,
+tax details and branding are asked for later, by the screens that need them —
+a construction company signing up from a site has no patience for a form that
+does not lead to a worker checking in.
+
+The last step provisions the tenant in one write, and the empty dashboard it
+lands on says what is missing rather than showing zeroes with no explanation.
+That panel clears itself on the first check-in.
+
+Both backends do the same thing by different routes. In demo mode
+`provisionCompany` (workforce store) and `onboardClient` (platform store)
+create the operational and commercial halves; against Supabase a single
+`provision_company()` RPC does both in one transaction, because until it runs
+the caller belongs to no organisation and no row-level-security policy could
+admit their writes. See [`supabase/README.md`](supabase/README.md).
+
 ### Tracking policy
 
 A project chooses, at creation or any time after, whether on-site movement is

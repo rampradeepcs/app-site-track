@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
 import type { Role } from "@/lib/types";
+import { roleLabel } from "@/lib/format";
 import { canEnter, rememberDestination } from "@/lib/routes";
 import { isLiveBackend } from "@/lib/supabase/client";
 import { Avatar, BottomSheet, Chip } from "./ui";
@@ -242,14 +243,7 @@ export function AccountMenu() {
   if (!currentUser) return null;
 
   const role = state.session?.role ?? currentUser.role;
-  const roleLabel =
-    role === "superadmin"
-      ? "Product Owner"
-      : role === "admin"
-        ? "Client Admin"
-        : role === "manager"
-          ? "Manager"
-          : "Employee";
+  const label = roleLabel(role);
 
   return (
     <>
@@ -281,7 +275,7 @@ export function AccountMenu() {
                     : "blue"
               }
             >
-              {roleLabel}
+              {label}
             </Chip>
           </div>
           <button

@@ -27,6 +27,7 @@ import { landingFor } from "@/lib/routes";
 import { isLiveBackend } from "@/lib/supabase/client";
 import LiveGate from "@/components/LiveGate";
 import { WorkfenceMark, WorkfenceSplash } from "@/components/Brand";
+import { NewCompanyLink } from "@/components/onboarding/NewCompanyLink";
 
 type Step = "splash" | "role" | "who" | "otp";
 
@@ -197,6 +198,7 @@ function DemoGate() {
             </span>
             <IArrowR size={18} className="shrink-0 text-[var(--wf-faint)]" />
           </button>
+          <NewCompanyLink />
           <p className="flex items-center justify-center gap-1.5 text-center text-[0.7rem] text-[var(--wf-faint)]">
             <IShield size={13} /> Location is tracked only during an active shift
           </p>

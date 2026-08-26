@@ -9,10 +9,12 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { BarTrend, Donut } from "@/components/charts";
+import { FirstRun } from "@/components/onboarding/FirstRun";
 import { ScreenHeader } from "@/components/shell";
 import { Avatar, Chip, KpiCard, SectionTitle, useNowTick } from "@/components/ui";
-import { fmtDuration, fmtRelative, pct, todayISO } from "@/lib/format";
+import { fmtDuration, fmtRelative, pct, roleLabel, todayISO } from "@/lib/format";
 import { attendanceTrend, dashboardStats, liveBoard, needsAttention } from "@/lib/metrics";
+import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
 import {
   IAlert,
@@ -25,6 +27,8 @@ import {
 
 export default function AdminOverview() {
   const { state, currentUser } = useWorkforce();
+  const { platform } = usePlatform();
+  const org = platform.organizations.find((o) => o.id === currentUser?.orgId);
   const now = useNowTick(15);
   const stats = useMemo(() => dashboardStats(state, now), [state, now]);
   const board = useMemo(() => liveBoard(state, undefined, now), [state, now]);
@@ -42,9 +46,20 @@ export default function AdminOverview() {
     <div>
       <ScreenHeader
         title="Organisation Overview"
-        sub={`${currentUser?.name ?? ""} · Product Owner · ${new Date(now).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short" })}`}
+        sub={`${currentUser?.name ?? ""} · ${roleLabel(state.session?.role ?? currentUser?.role ?? "admin")} · ${new Date(now).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short" })}`}
       />
       <div className="flex flex-col gap-5 px-4">
+        {/* A tenant with no recorded shift is new, not broken — and only the
+            empty state can tell the difference, so it says so itself. */}
+        {state.attendance.every((a) => !a.checkIn) ? (
+          <FirstRun
+            orgName={org?.name ?? "Your company"}
+            projects={state.projects}
+            employees={employees}
+            managers={managers}
+          />
+        ) : null}
+
         <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
           <KpiCard label="Projects" value={`${stats.activeProjects}/${stats.totalProjects}`} tone="blue" icon={<IHardHat size={17} />} sub="active / total" />
           <KpiCard label="Workforce" value={stats.workforce} icon={<IUsers size={17} />} sub={`${managers.length} manager${managers.length === 1 ? "" : "s"}`} />

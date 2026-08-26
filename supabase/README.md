@@ -1,6 +1,6 @@
 # Workfence — Supabase backend
 
-Six migrations, applied in order:
+Eight migrations, applied in order:
 
 | File                                 | Purpose                                                                                                                                                                                                   |
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -10,6 +10,38 @@ Six migrations, applied in order:
 | `20260824000400_auth_link.sql`       | Links a new auth identity to the worker record that already exists for that person                                                                                                                        |
 | `20260824000500_rls_hardening.sql`   | Policy helpers moved to `private`, wrapped in InitPlan subqueries, targeted at `authenticated`                                                                                                            |
 | `20260825000600_tracking_policy.sql` | `projects.kind`, `projects.tracking_mode`, `location_points.segment_start`                                                                                                                                |
+| `20260826000700_self_serve_signup.sql` | `provision_company()` — the one write that can create a tenant, because until it runs the caller belongs to none                                                                                        |
+| `20260826000800_auth_link_phone_match.sql` | Matches an identity to its worker record on the national number, so someone enrolled as `9000022222` still links when they sign in as `+91 90000 22222`                                             |
+
+## Self-serve signup
+
+`provision_company(payload jsonb)` is the only `SECURITY DEFINER` write in the
+schema that creates rows for a tenant the caller does not yet belong to — and
+it exists because that is exactly the situation a signup is in. Every RLS
+policy resolves through `auth.uid() -> users.auth_id -> org_id`; before the
+organisation and the admin row exist there is no org to resolve to, so no
+insert policy could ever admit the write.
+
+What keeps it from being a hole:
+
+- an authenticated identity is required, and becomes the new admin;
+- an identity that already has a `users` row is refused, so it cannot spawn
+  organisations or re-parent an existing account;
+- every id it writes is generated inside the function — nothing in the payload
+  names an existing row, so there is no object outside the new tenant it can
+  reach;
+- `provision_premise()`, its helper, is revoked from every role: on its own it
+  takes an org id and would let a signed-in caller add a premise to somebody
+  else's tenant.
+
+It is one transaction on purpose. An organisation with no admin, or an admin
+with no site, is a tenant nobody can sign in to and no screen offers a way out
+of.
+
+The demo build reaches the same end state through `provisionCompany` in
+`src/lib/store.tsx` plus `onboardClient` in `src/lib/platform-store.tsx`.
+Change one and change the other, the same way `seed.ts` and `bootstrap.sql`
+have to stay in step.
 
 ## Apply
 
