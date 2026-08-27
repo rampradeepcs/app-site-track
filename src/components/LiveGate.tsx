@@ -20,11 +20,16 @@ import { landingFor } from "@/lib/routes";
 import { Field } from "@/components/ui";
 import { WorkfenceMark } from "@/components/Brand";
 import { NewCompanyLink } from "@/components/onboarding/NewCompanyLink";
+import {
+  Highlights,
+  markHighlightsSeen,
+  seenHighlights,
+} from "@/components/onboarding/Highlights";
 import { IAlert, IArrowR, IChevronL, ILock, IShield } from "@/components/WfIcons";
 
 const CODE_LENGTH = 6;
 
-type Step = "restoring" | "identity" | "code" | "unlinked";
+type Step = "restoring" | "highlights" | "identity" | "code" | "unlinked";
 
 export default function LiveGate() {
   const { state, loginAs } = useWorkforce();
@@ -63,16 +68,19 @@ export default function LiveGate() {
     router.replace(landingFor(state.session.role));
   }, [state.session, router]);
 
-  /* An unexpired token means this device is already signed in. */
+  /* An unexpired token means this device is already signed in. Anyone else
+     gets the product highlights first, once per device, then sign-in. */
   useEffect(() => {
     let cancelled = false;
     if (state.session) return; // the effect above is already taking them in
+    const arrive = () =>
+      setStep(seenHighlights() ? "identity" : "highlights");
     enter()
       .then((ok) => {
-        if (!cancelled && !ok) setStep("identity");
+        if (!cancelled && !ok) arrive();
       })
       .catch(() => {
-        if (!cancelled) setStep("identity");
+        if (!cancelled) arrive();
       });
     return () => {
       cancelled = true;
@@ -80,6 +88,11 @@ export default function LiveGate() {
     // Runs once: this is session restore, not a subscription.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const finishHighlights = () => {
+    markHighlightsSeen();
+    setStep("identity");
+  };
 
   const requestCode = async () => {
     const id = identifier.trim();
@@ -120,12 +133,30 @@ export default function LiveGate() {
   };
 
   return (
-    <main className="wf-phone justify-center px-6 py-10">
+    /* Session restore sits centred like a splash; the highlights fill the
+       screen; the input steps sit in the top half so the keypad that opens
+       with the focused field never covers what the screen is asking for.
+       Matches the local gate. */
+    <main
+      className={`wf-phone px-6 ${
+        step === "restoring"
+          ? "justify-center py-10"
+          : step === "highlights"
+            ? "pt-6 pb-8"
+            : "justify-start pt-[9dvh] pb-10"
+      }`}
+    >
       {step === "restoring" ? (
         <div className="flex flex-col items-center gap-4 text-center">
           <WorkfenceMark size={72} />
           <p className="text-sm text-[var(--wf-muted)]">Checking your session…</p>
         </div>
+      ) : step === "highlights" ? (
+        <Highlights
+          onDone={finishHighlights}
+          onSkip={finishHighlights}
+          doneLabel="Get started"
+        />
       ) : step === "unlinked" ? (
         <div className="wf-fade-in flex flex-col gap-5 text-center">
           <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[var(--wf-red-soft)] text-[var(--wf-red)]">

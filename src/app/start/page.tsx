@@ -18,7 +18,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Field, Segmented } from "@/components/ui";
-import { Highlights } from "@/components/onboarding/Highlights";
+import {
+  Highlights,
+  markHighlightsSeen,
+  seenHighlights,
+} from "@/components/onboarding/Highlights";
 import { PremiseStep, type PremiseFields } from "@/components/onboarding/PremiseStep";
 import { InviteCrew, isUsablePhone } from "@/components/onboarding/InviteCrew";
 import { WorkfenceMark } from "@/components/Brand";
@@ -53,6 +57,18 @@ export default function StartPage() {
   const { signUp, signupsEnabled } = useSignUp();
 
   const [step, setStep] = useState<Step>("highlights");
+
+  /* The gate already ran the highlights on this device's first launch, so
+     arriving here from its "Create your company" would replay them. Checked
+     in an effect rather than the initializer so the server markup and the
+     first client render agree. */
+  useEffect(() => {
+    if (seenHighlights()) {
+      setStep((s) => (s === "highlights" ? "identity" : s));
+    }
+    // On-mount check only — this must not re-fire as the wizard advances.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -270,8 +286,14 @@ export default function StartPage() {
 
       {step === "highlights" ? (
         <Highlights
-          onDone={() => setStep("identity")}
-          onSkip={() => setStep("identity")}
+          onDone={() => {
+            markHighlightsSeen();
+            setStep("identity");
+          }}
+          onSkip={() => {
+            markHighlightsSeen();
+            setStep("identity");
+          }}
         />
       ) : null}
 
@@ -385,7 +407,7 @@ export default function StartPage() {
           <Field label="Company name" required>
             <input
               className="wf-input"
-              placeholder="e.g. Nachi Tekneka"
+              placeholder="e.g. Born Creative"
               autoComplete="organization"
               value={company}
               onChange={(e) => setCompany(e.target.value)}

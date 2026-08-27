@@ -85,7 +85,7 @@ const rid = (p: string) => `${p}_${Date.now().toString(36)}_${(idCounter++).toSt
 const DEFAULT_SHIFT = { start: 9 * 60, end: 18 * 60 };
 
 /**
- * Employee-code prefix from a company name: "Nachi Tekneka" -> "NT".
+ * Employee-code prefix from a company name: "Born Creative" -> "BC".
  * Initials read better on a badge than a slug, and stay short when the name
  * does not. Falls back to WF so a code is never just a number.
  */

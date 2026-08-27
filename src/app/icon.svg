@@ -1,14 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- Workfence: a perimeter, a gate on the right, presence inside. Same
-       geometry as src/components/Brand.tsx so the tab icon and the app agree. -->
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#f6a723"/>
-      <stop offset="100%" stop-color="#ee6c2b"/>
-    </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="14" fill="#0b0f16"/>
-  <path d="M52.78,44.0 L32.0,56.0 L11.22,44.0 L11.22,20.0 L32.0,8.0 L52.78,20.0" fill="none" stroke="url(#g)" stroke-width="5.3"
-        stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="32" cy="32" r="6.6" fill="url(#g)"/>
+  <!-- Workfence: the W mark, white on black. Same artwork as
+       src/components/Brand.tsx so the tab icon and the app agree. -->
+  <rect width="64" height="64" rx="14" fill="#000000"/>
+  <!-- Artwork box is 820x340 at (90,330); scale to fit 52px wide, centred. -->
+  <g transform="translate(6 21.2) scale(0.0634146) translate(-90 -330)">
+    <path d="M103 345H192.521L286.537 507.232L317.224 453.285L357.685 523.651L281.846 654.805L103 345Z" fill="#ffffff"/>
+    <path d="M281.846 345H371.367L461.279 499.805L506.039 422.598L461.279 345H896.178L852.004 422.598H595.56L460.693 654.805L281.846 345Z" fill="#ffffff"/>
+    <path d="M640.32 499.218H814.084L768.737 577.011H685.08L640.515 655L595.364 577.207L640.32 499.218Z" fill="#ffffff"/>
+  </g>
 </svg>

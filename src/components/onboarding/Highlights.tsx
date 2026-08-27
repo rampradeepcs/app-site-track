@@ -21,6 +21,8 @@ import { WorkfenceMark } from "../Brand";
 interface Slide {
   key: string;
   icon: React.ReactNode;
+  /* Literal colours, not tokens: the chip sits over dark video on every
+     slide, so it must stay light in both themes. */
   tint: string;
   ink: string;
   title: string;
@@ -31,12 +33,36 @@ interface Slide {
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
+/**
+ * Whether this device has been through the highlights once — the gate shows
+ * them between the splash and sign-in on first run, and never again. Their
+ * own key rather than the store: the store is versioned and can be
+ * discarded, and "has seen the pitch" should survive that.
+ */
+const SEEN_KEY = "workfence.highlights-seen";
+
+export function seenHighlights(): boolean {
+  try {
+    return localStorage.getItem(SEEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function markHighlightsSeen(): void {
+  try {
+    localStorage.setItem(SEEN_KEY, "1");
+  } catch {
+    /* private mode — they'll see them again, which is harmless */
+  }
+}
+
 const SLIDES: Slide[] = [
   {
     key: "record",
     icon: <ICheckCircle size={34} />,
-    tint: "var(--wf-green-soft)",
-    ink: "var(--wf-green)",
+    tint: "rgba(255, 255, 255, 0.22)",
+    ink: "#ffffff",
     title: "Attendance writes itself",
     body: "Hours, lateness, the day's route and the work logged against it — recorded as it happens, exportable when payroll asks.",
     video: "/onboarding/record.mp4",
@@ -44,8 +70,8 @@ const SLIDES: Slide[] = [
   {
     key: "live",
     icon: <IMap size={34} />,
-    tint: "var(--wf-blue-soft)",
-    ink: "var(--wf-blue)",
+    tint: "rgba(255, 255, 255, 0.22)",
+    ink: "#ffffff",
     title: "See the whole site live",
     body: "Every crew member on one map while their shift is open — who is on site, who left the boundary, and how long ago.",
     video: "/onboarding/live.mp4",
@@ -53,8 +79,8 @@ const SLIDES: Slide[] = [
   {
     key: "policy",
     icon: <IShield size={34} />,
-    tint: "var(--wf-violet-soft)",
-    ink: "var(--wf-violet)",
+    tint: "rgba(255, 255, 255, 0.22)",
+    ink: "#ffffff",
     title: "Track what matters, not everything",
     body: "Per site, choose whether on-site movement is recorded at all. Turn it off and only trips away from the boundary are — material runs, client visits, nothing else.",
     video: "/onboarding/policy.mp4",
@@ -62,8 +88,8 @@ const SLIDES: Slide[] = [
   {
     key: "checkin",
     icon: <IHardHat size={34} />,
-    tint: "var(--wf-amber-soft)",
-    ink: "var(--wf-amber)",
+    tint: "rgba(255, 255, 255, 0.22)",
+    ink: "#ffffff",
     title: "The gate is the clock",
     body: "A shift starts with a selfie, inside the site boundary. No paper register, no one signing in for a mate who is still on the bus.",
     video: "/onboarding/checkin.mp4",
@@ -73,9 +99,12 @@ const SLIDES: Slide[] = [
 export function Highlights({
   onDone,
   onSkip,
+  doneLabel = "Create your company",
 }: {
   onDone: () => void;
   onSkip: () => void;
+  /** Last slide's CTA — the wizard creates a company, the gate signs in. */
+  doneLabel?: string;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
@@ -200,7 +229,7 @@ export function Highlights({
         className="wf-btn wf-btn-primary wf-btn-lg"
         onClick={() => (last ? onDone() : goTo(index + 1))}
       >
-        {last ? "Create your company" : "Next"} <IArrowR size={18} />
+        {last ? doneLabel : "Next"} <IArrowR size={18} />
       </button>
     </div>
   );

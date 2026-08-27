@@ -24,6 +24,11 @@ import { isLiveBackend } from "@/lib/supabase/client";
 import LiveGate from "@/components/LiveGate";
 import { WorkfenceMark, WorkfenceSplash } from "@/components/Brand";
 import { NewCompanyLink } from "@/components/onboarding/NewCompanyLink";
+import {
+  Highlights,
+  markHighlightsSeen,
+  seenHighlights,
+} from "@/components/onboarding/Highlights";
 import { phoneKey } from "@/components/onboarding/InviteCrew";
 
 export default function WorkforceGate() {
@@ -34,7 +39,7 @@ export default function WorkforceGate() {
   return isLiveBackend ? <LiveGate /> : <LocalGate />;
 }
 
-type Step = "splash" | "identify" | "code";
+type Step = "splash" | "highlights" | "identify" | "code";
 
 function LocalGate() {
   const { state, login } = useWorkforce();
@@ -108,15 +113,44 @@ function LocalGate() {
     login(match.role, match.id);
   };
 
+  /* Splash → highlights on the first run of this device, straight to
+     sign-in ever after. Read post-splash rather than in the initializer,
+     so the server markup and the first client render agree. */
+  const afterSplash = () =>
+    setStep(seenHighlights() ? "identify" : "highlights");
+
+  const finishHighlights = () => {
+    markHighlightsSeen();
+    setStep("identify");
+  };
+
   return (
-    <main className="wf-phone justify-center px-6 py-10">
+    /* The splash owns the whole screen and sits centred; the highlights fill
+       it edge to edge; the input steps sit in the top half instead, so the
+       keypad that opens with the focused field never covers what the screen
+       is asking for. */
+    <main
+      className={`wf-phone px-6 ${
+        step === "splash"
+          ? "justify-center py-10"
+          : step === "highlights"
+            ? "pt-6 pb-8"
+            : "justify-start pt-[9dvh] pb-10"
+      }`}
+    >
       {step === "splash" ? (
         <div className="flex flex-col items-center gap-6 text-center">
-          <WorkfenceSplash onDone={() => setStep("identify")} />
+          <WorkfenceSplash onDone={afterSplash} />
           <p className="text-[0.68rem] text-[var(--wf-faint)]">
-            A Nachi Tekneka product
+            A Born Creative product
           </p>
         </div>
+      ) : step === "highlights" ? (
+        <Highlights
+          onDone={finishHighlights}
+          onSkip={finishHighlights}
+          doneLabel="Get started"
+        />
       ) : step === "identify" ? (
         <div className="wf-fade-in flex flex-col gap-6">
           <div className="flex flex-col items-center gap-3 text-center">
@@ -150,15 +184,38 @@ function LocalGate() {
             </>
           ) : (
             <>
-              <Field label="Mobile number or email">
+              <Field label="Mobile number">
+                {/* Focused on arrival so the phone's keypad is already up —
+                    the whole screen asks for one number, so the first tap
+                    should be a digit, not the field. `numeric` keeps that
+                    keypad digits-only; email sign-in still works from a
+                    hardware keyboard, it just isn't advertised. */}
                 <input
                   className="wf-input"
-                  inputMode="tel"
+                  autoFocus
+                  inputMode="numeric"
                   autoComplete="tel"
-                  placeholder="+91 90000 00000"
+                  placeholder="90000 00000"
                   value={identifier}
                   onChange={(e) => {
-                    setIdentifier(e.target.value);
+                    // Digits only, ten of them — an Indian mobile number.
+                    // An eleventh keystroke on a full number is a stray tap
+                    // and is ignored; a multi-character jump is a paste, and
+                    // keeps the *last* ten (the same rule phoneKey applies),
+                    // so "+91 90000 00001" lands on the number, not the
+                    // country code.
+                    let d = e.target.value.replace(/\D/g, "");
+                    // A pasted number arrives dressed up — "+91 90000 00001"
+                    // or "090000 00001" — so shed the country code or trunk
+                    // zero before capping at ten digits.
+                    if (d.length === 12 && d.startsWith("91")) d = d.slice(2);
+                    if (d.length === 11 && d.startsWith("0")) d = d.slice(1);
+                    d = d.slice(0, 10);
+                    // Write the DOM too: when the state doesn't change
+                    // (a keystroke past the cap), React bails out of
+                    // re-rendering and would leave the raw text in the field.
+                    e.target.value = d;
+                    setIdentifier(d);
                     setError(null);
                   }}
                   onKeyDown={(e) => e.key === "Enter" && requestCode()}
@@ -177,7 +234,7 @@ function LocalGate() {
 
               <button
                 className="wf-btn wf-btn-primary wf-btn-lg"
-                disabled={identifier.trim() === ""}
+                disabled={identifier.length !== 10}
                 onClick={requestCode}
               >
                 Send code <IArrowR size={17} />

@@ -3,22 +3,25 @@
 /**
  * Workfence identity.
  *
- * The mark is the product stated in one shape: a perimeter, a way through it,
- * and someone inside. A hexagon reads as a surveyed plot rather than a generic
- * circle; the open right edge is the gate, which is the only part of a
- * boundary a worker actually interacts with; the dot is presence.
+ * The mark is a W cut like site signage: three strokes with gate-shaped
+ * notches, reading as a route through a boundary. It ships as filled paths
+ * in `currentColor`, so the same component is black on paper and white on
+ * black — the mark IS the monochrome system, not a coloured badge on it.
  *
- * It is drawn from six computed vertices rather than a traced path so it stays
- * exact at any size — the same geometry serves a 16px favicon and a full
- * splash screen.
+ * `size` is the mark's HEIGHT; width follows the natural 2.4:1 aspect.
  */
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
 
-/** Flat sides left, gate on the right. Vertices at 30°…330°, r=18 in a 48 box. */
-const PERIMETER = "M39.588,33 L24,42 L8.412,33 L8.412,15 L24,6 L39.588,15";
-/** Length of that polyline, for the draw-on animation. */
-const PERIMETER_LEN = 90;
+/* The supplied artwork, tightened to its content box. */
+const VIEWBOX = "90 330 820 340";
+const ASPECT = 820 / 340;
+
+const STROKES = [
+  "M103 345H192.521L286.537 507.232L317.224 453.285L357.685 523.651L281.846 654.805L103 345Z",
+  "M281.846 345H371.367L461.279 499.805L506.039 422.598L461.279 345H896.178L852.004 422.598H595.56L460.693 654.805L281.846 345Z",
+  "M640.32 499.218H814.084L768.737 577.011H685.08L640.515 655L595.364 577.207L640.32 499.218Z",
+];
 
 export function WorkfenceMark({
   size = 48,
@@ -31,40 +34,25 @@ export function WorkfenceMark({
 }) {
   return (
     <svg
-      viewBox="0 0 48 48"
-      width={size}
+      viewBox={VIEWBOX}
+      width={Math.round(size * ASPECT)}
       height={size}
       className={className}
       role={title ? "img" : undefined}
       aria-label={title}
       aria-hidden={title ? undefined : true}
     >
-      <defs>
-        <linearGradient id="wf-mark-g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#f6a723" />
-          <stop offset="100%" stopColor="#ee6c2b" />
-        </linearGradient>
-      </defs>
-      <path
-        d={PERIMETER}
-        fill="none"
-        stroke="url(#wf-mark-g)"
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="24" cy="24" r="5" fill="url(#wf-mark-g)" />
+      {STROKES.map((d) => (
+        <path key={d} d={d} fill="currentColor" />
+      ))}
     </svg>
   );
 }
 
 /**
- * The mark, assembling itself.
- *
- * Order matters: the boundary is drawn first, then the worker appears inside
- * it, then a single pulse leaves through the gate. That is the product's
- * sequence — a site exists, someone arrives, their presence is recorded — so
- * the splash is a sentence rather than decoration.
+ * The mark, assembling itself: the three strokes land left to right, then
+ * the wordmark settles under them. Short on purpose — this screen stands
+ * between a worker and their shift.
  *
  * `onDone` fires once the sequence finishes. Under prefers-reduced-motion
  * everything is already in its final state and `onDone` fires promptly, so a
@@ -109,51 +97,21 @@ export function WorkfenceSplash({ onDone }: { onDone?: () => void }) {
 
   return (
     <div className="wf-splash">
-      <svg viewBox="0 0 48 48" width={112} height={112} aria-hidden="true">
-        <defs>
-          <linearGradient id="wf-splash-g" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#f6a723" />
-            <stop offset="100%" stopColor="#ee6c2b" />
-          </linearGradient>
-        </defs>
-
-        {/* The pulse leaving through the gate — behind the perimeter. */}
-        {!reduced && (
-          <circle
-            className="wf-splash-pulse"
-            cx="24"
-            cy="24"
-            r="14"
-            fill="none"
-            stroke="var(--wf-amber)"
-            strokeWidth="1.5"
+      <svg viewBox={VIEWBOX} width={220} height={91} aria-hidden="true">
+        {STROKES.map((d, i) => (
+          <path
+            key={d}
+            d={d}
+            fill="currentColor"
+            className={reduced ? undefined : "wf-splash-stroke"}
+            style={reduced ? undefined : { animationDelay: `${120 + i * 220}ms` }}
           />
-        )}
-
-        <path
-          className={reduced ? undefined : "wf-splash-perimeter"}
-          d={PERIMETER}
-          fill="none"
-          stroke="url(#wf-splash-g)"
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeDasharray={reduced ? undefined : PERIMETER_LEN}
-          strokeDashoffset={reduced ? undefined : PERIMETER_LEN}
-        />
-
-        <circle
-          className={reduced ? undefined : "wf-splash-dot"}
-          cx="24"
-          cy="24"
-          r="5"
-          fill="url(#wf-splash-g)"
-        />
+        ))}
       </svg>
 
       <div className={reduced ? undefined : "wf-splash-word"}>
-        <h1 className="wf-display text-[1.9rem] font-bold tracking-tight">
-          Work<span className="text-[var(--wf-amber)]">fence</span>
+        <h1 className="wf-display text-center text-[1.9rem] tracking-tight">
+          Workfence
         </h1>
         <p className="mt-1 text-center text-[0.82rem] text-[var(--wf-muted)]">
           Attendance that knows where you are

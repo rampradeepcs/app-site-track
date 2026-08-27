@@ -1,21 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { PlatformProvider } from "@/lib/platform-store";
 import { WorkforceProvider } from "@/lib/store";
 import { PREPAINT_SCRIPT } from "@/lib/theme";
 
 /*
- * The app asks for the system face first (SF on Apple platforms) and only
- * falls back to this. SF already ships optical sizing, per-size tracking
- * tables and legibility tuning that no substitute reproduces, so overriding
- * it needs a reason and there isn't one — this is an iOS app.
- *
- * Inter is the fallback rather than the choice: on a device with no SF it
- * is the closest grotesque, and it keeps the app from landing on whatever
- * the platform's default happens to be.
+ * The face is the identity, so the webfont leads the stack (workforce.css
+ * puts var(--font-sans) first). Plus Jakarta Sans is the choice: a tight
+ * geometric grotesque in the spirit of Uber Move — heavy at the top of the
+ * scale, plain at body size — and it renders the same on every platform,
+ * which is the point of a monochrome system: the type IS the brand.
  */
-const sans = Inter({
+const sans = Plus_Jakarta_Sans({
   variable: "--font-sans",
   subsets: ["latin"],
   display: "swap",
@@ -32,7 +29,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b0f16",
+  themeColor: "#000000",
   colorScheme: "dark",
   width: "device-width",
   initialScale: 1,

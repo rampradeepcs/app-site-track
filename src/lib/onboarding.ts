@@ -40,7 +40,7 @@ function newBilling(company: string, admin: CompanyDraft["admin"]) {
   };
 }
 
-/** Initials for the in-app logo tile: "Nachi Tekneka" -> "NT". */
+/** Initials for the in-app logo tile: "Born Creative" -> "BC". */
 function logoText(company: string): string {
   const initials = company
     .split(/\s+/)
