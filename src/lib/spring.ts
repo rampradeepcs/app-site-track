@@ -30,6 +30,24 @@ export function project(velocity: number, decelerationRate = 0.998): number {
 }
 
 /**
+ * Deceleration rates, and why the choice matters more than it looks.
+ *
+ * The default 0.998 models a scroll view that coasts a long way — at that
+ * rate a lazy 250px/s drag projects 125px, which is most of a short sheet.
+ * Used for a dismissal decision it means a gentle nudge throws the sheet
+ * away, which is exactly the bug this pair of constants exists to prevent.
+ *
+ * A sheet is a short-throw control: it should go where you actually put it
+ * unless you meant to flick it.
+ */
+export const DECELERATION = {
+  /** Long coast — scroll views and carousels with many snap points. */
+  scroll: 0.998,
+  /** Short throw — sheets, drawers, anything with two states. */
+  sheet: 0.99,
+} as const;
+
+/**
  * Progressive resistance past a boundary.
  *
  * A hard stop reads as frozen — the user cannot tell a limit from a bug.

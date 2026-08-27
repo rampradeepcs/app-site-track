@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { VelocityTracker, project, rubberband, spring } from "@/lib/spring";
+import { DECELERATION, VelocityTracker, project, rubberband, spring } from "@/lib/spring";
 import { fmtClock, initialsOf } from "@/lib/format";
 import type { AttendanceStatus } from "@/lib/types";
 import { IX } from "./WfIcons";
@@ -411,6 +411,25 @@ export function BottomSheet({
    * which it always does on a downward flick.
    */
   const surface = useRef<HTMLDivElement>(null);
+  /*
+   * The entry animation has to be taken off once it has played.
+   * `wf-sheet-in` uses `animation-fill-mode: both`, so its final keyframe
+   * keeps applying a transform — and a running animation beats an inline
+   * style in the cascade. The drag below sets `style.transform` every
+   * frame and it was being silently overridden, so the sheet did not move
+   * at all: it only ever appeared to work because a dismissing sheet
+   * unmounts. Dropping the class when the animation ends hands control
+   * back to the gesture.
+   */
+  const [entering, setEntering] = useState(true);
+  // Adjusted during render rather than in an effect: the sheet stays mounted
+  // when closed (the early return is below the hooks), so `entering` has to
+  // be re-armed when `open` flips or the second opening plays no animation.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    setEntering(open);
+  }
   const scrim = useRef<HTMLButtonElement>(null);
   const drag = useRef<{ startY: number; y: number; height: number } | null>(null);
   const tracker = useRef(new VelocityTracker());
@@ -434,6 +453,9 @@ export function BottomSheet({
     if (!el) return;
     stopSpring.current?.();
     stopSpring.current = null;
+    // Grabbing mid-entry: take over from the presentation value rather than
+    // letting the animation keep running underneath the drag.
+    setEntering(false);
     el.setPointerCapture(e.pointerId);
     drag.current = { startY: e.clientY, y: 0, height: el.offsetHeight };
     tracker.current.reset();
@@ -459,7 +481,7 @@ export function BottomSheet({
     const v = tracker.current.velocity();
     // Where the throw lands, not where the finger stopped. A fast flick
     // from near the top dismisses; a slow drag most of the way does not.
-    const projected = d.y + project(v);
+    const projected = d.y + project(v, DECELERATION.sheet);
     if (projected > d.height * 0.4) {
       stopSpring.current = spring(d.y, d.height, paint,
         { damping: 1, response: 0.32, velocity: v }, onClose);
@@ -494,7 +516,8 @@ export function BottomSheet({
       >
         <div
           ref={surface}
-          className="wf-sheet-in flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[20px] bg-[var(--wf-surface)] shadow-[0_-1px_0_var(--wf-line)] touch-none"
+          className={`${entering ? "wf-sheet-in" : ""} flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[20px] bg-[var(--wf-surface)] shadow-[0_-1px_0_var(--wf-line)] touch-none`}
+          onAnimationEnd={() => setEntering(false)}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
