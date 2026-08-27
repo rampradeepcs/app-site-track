@@ -213,8 +213,30 @@ export function ScreenHeader({
   account?: boolean;
 }) {
   const router = useRouter();
+
+  /*
+   * The iOS scroll edge effect: the header is transparent over the top of
+   * the page and becomes a material only once content has passed under it.
+   * That is what replaced the permanent 1px rule — a divider that is always
+   * there separates the header from content it is not yet overlapping.
+   *
+   * A passive scroll listener rather than IntersectionObserver: the state
+   * is a single boolean read from a value the browser already has, and it
+   * only ever flips once per direction.
+   */
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <header className="flex items-center gap-3 px-4 pb-3 pt-4">
+    <header
+      className="wf-navbar flex items-center gap-3 px-4 pb-3 pt-4"
+      data-scrolled={scrolled}
+    >
       {back ? (
         <button
           aria-label="Go back"

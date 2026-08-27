@@ -1,17 +1,20 @@
 import type { Metadata, Viewport } from "next";
-import { Space_Grotesk, Inter } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { PlatformProvider } from "@/lib/platform-store";
 import { WorkforceProvider } from "@/lib/store";
 import { PREPAINT_SCRIPT } from "@/lib/theme";
 
-const display = Space_Grotesk({
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  display: "swap",
-});
-
+/*
+ * The app asks for the system face first (SF on Apple platforms) and only
+ * falls back to this. SF already ships optical sizing, per-size tracking
+ * tables and legibility tuning that no substitute reproduces, so overriding
+ * it needs a reason and there isn't one — this is an iOS app.
+ *
+ * Inter is the fallback rather than the choice: on a device with no SF it
+ * is the closest grotesque, and it keeps the app from landing on whatever
+ * the platform's default happens to be.
+ */
 const sans = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
@@ -40,7 +43,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${display.variable} ${sans.variable} antialiased`}>
+    <html lang="en" suppressHydrationWarning className={`${sans.variable} antialiased`}>
       <head>
         {/* Resolves the theme before anything paints. suppressHydrationWarning
             because this script mutates the html element that React is about

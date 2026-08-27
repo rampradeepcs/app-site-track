@@ -5,7 +5,8 @@
  * Everything assumes the `.wf` token scope from workforce.css.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { VelocityTracker, project, rubberband, spring } from "@/lib/spring";
 import { fmtClock, initialsOf } from "@/lib/format";
 import type { AttendanceStatus } from "@/lib/types";
 import { IX } from "./WfIcons";
@@ -99,7 +100,10 @@ export function Chip({
   tone?: "neutral" | "amber" | "green" | "red" | "blue" | "violet";
 }) {
   const map = {
-    neutral: { bg: "var(--wf-slate-soft)", fg: "var(--wf-muted)" },
+    // Full label ink, not secondary: a chip already sits on a fill, and
+    // secondary-on-a-wash measured 3.82:1. iOS puts label colour on a
+    // system fill for exactly this reason.
+    neutral: { bg: "var(--wf-fill-2)", fg: "var(--wf-fg)" },
     amber: { bg: "var(--wf-amber-soft)", fg: "var(--wf-amber)" },
     green: { bg: "var(--wf-green-soft)", fg: "var(--wf-green)" },
     red: { bg: "var(--wf-red-soft)", fg: "var(--wf-red)" },
@@ -243,36 +247,63 @@ export function Segmented<T extends string>({
   size?: "sm" | "md";
   ariaLabel?: string;
 }) {
+  const track = useRef<HTMLDivElement>(null);
+  const index = Math.max(0, options.findIndex((o) => o.value === value));
+
+  /*
+   * The pill's geometry is measured from the DOM rather than computed as
+   * `100 / options.length` percent, because the segments are not equal
+   * width — "Don't record it" is twice "Record it" — and a pill that
+   * assumes they are lands off the label it is meant to be under.
+   *
+   * Measured in a layout effect so the first paint already has it right:
+   * a pill that snaps into place after mount is a visible flicker on the
+   * screen a worker sees first.
+   */
+  const [pill, setPill] = useState<{ x: number; w: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = track.current;
+    if (!el) return;
+    const measure = () => {
+      const active = el.querySelectorAll<HTMLElement>("[data-seg]")[index];
+      if (!active) return;
+      setPill({ x: active.offsetLeft - 2, w: active.offsetWidth });
+    };
+    measure();
+    // Re-measure on resize: the labels reflow, so the pill must follow.
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [index, options.length]);
+
   return (
     <div
+      ref={track}
       role="tablist"
       aria-label={ariaLabel}
-      className="inline-flex max-w-full gap-1 overflow-x-auto rounded-xl border border-[var(--wf-line)] bg-[var(--wf-surface)] p-1"
+      className="wf-seg max-w-full"
+      style={{ minHeight: size === "sm" ? 28 : 32 }}
     >
-      {options.map((o) => {
-        const active = o.value === value;
-        return (
-          <button
-            key={o.value}
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(o.value)}
-            // min-h keeps a tab hittable: the label alone left these at 29px,
-            // which is a poor target on a phone held in one hand at a gate.
-            className={`inline-flex shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-lg font-semibold transition ${
-              size === "sm"
-                ? "min-h-9 px-3 text-[0.72rem]"
-                : "min-h-10 px-3.5 text-[0.8rem]"
-            } ${
-              active
-                ? "bg-[var(--wf-surface3)] text-[var(--wf-amber)] shadow-sm"
-                : "text-[var(--wf-muted)] hover:text-[var(--wf-fg)]"
-            }`}
-          >
-            {o.label}
-          </button>
-        );
-      })}
+      {pill ? (
+        <span
+          aria-hidden
+          className="wf-seg-pill"
+          style={{ width: pill.w, transform: `translateX(${pill.x}px)` }}
+        />
+      ) : null}
+      {options.map((o) => (
+        <button
+          key={o.value}
+          data-seg
+          role="tab"
+          aria-selected={o.value === value}
+          onClick={() => onChange(o.value)}
+          className="wf-seg-item inline-flex items-center justify-center whitespace-nowrap"
+          style={{ minHeight: size === "sm" ? 24 : 28 }}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -287,25 +318,20 @@ export function Toggle({
   label: string;
 }) {
   return (
-    // The track stays 28px because that is what reads as a switch; the button
-    // around it is 44 so a gloved thumb on a site can actually hit it. Growing
-    // the track instead would make every settings row look like a toy.
+    /*
+     * 51×31 with a 27px knob — the real UIKit dimensions, in the CSS. The
+     * button around it is 44px tall so a gloved thumb at a site gate can
+     * hit it; the switch itself does not grow, because a switch that is
+     * bigger than iOS's reads as a toy on every settings row.
+     */
     <button
       role="switch"
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
-      className="grid h-11 w-12 shrink-0 cursor-pointer place-items-center bg-transparent"
+      className="grid h-11 shrink-0 cursor-pointer place-items-center bg-transparent"
     >
-      <span
-        className="relative block h-7 w-12 rounded-full transition-colors"
-        style={{ background: checked ? "var(--wf-green-dim)" : "var(--wf-surface3)" }}
-      >
-        <span
-          className="absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all"
-          style={{ left: checked ? "calc(100% - 26px)" : "2px" }}
-        />
-      </span>
+      <span className="wf-switch" data-on={checked} />
     </button>
   );
 }
@@ -375,12 +401,85 @@ export function BottomSheet({
     };
   }, [open, onClose]);
 
+  /* ------------------------------------------------------- the drag */
+  /*
+   * A sheet you can throw. Tracking is 1:1 with the finger from the first
+   * move, and the release either dismisses or springs home — decided by
+   * where the throw was *going*, not where the finger happened to stop.
+   *
+   * Pointer capture keeps the drag alive when the finger leaves the sheet,
+   * which it always does on a downward flick.
+   */
+  const surface = useRef<HTMLDivElement>(null);
+  const scrim = useRef<HTMLButtonElement>(null);
+  const drag = useRef<{ startY: number; y: number; height: number } | null>(null);
+  const tracker = useRef(new VelocityTracker());
+  const stopSpring = useRef<(() => void) | null>(null);
+
+  const paint = useCallback((y: number) => {
+    const el = surface.current;
+    if (el) el.style.transform = y === 0 ? "" : `translate3d(0, ${y}px, 0)`;
+    // The scrim thins as the sheet leaves, so the background comes back at
+    // the rate the sheet is actually moving rather than at the end.
+    const sc = scrim.current;
+    const h = drag.current?.height ?? 1;
+    if (sc) sc.style.opacity = String(Math.max(0, 1 - y / h));
+  }, []);
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    // Only from the grabber/header area: dragging from inside a scrolling
+    // list would fight the scroll, and the loser is always the user.
+    if ((e.target as HTMLElement).closest("[data-sheet-scroll]")) return;
+    const el = surface.current;
+    if (!el) return;
+    stopSpring.current?.();
+    stopSpring.current = null;
+    el.setPointerCapture(e.pointerId);
+    drag.current = { startY: e.clientY, y: 0, height: el.offsetHeight };
+    tracker.current.reset();
+    tracker.current.add(0);
+    el.style.transition = "none";
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d) return;
+    const raw = e.clientY - d.startY;
+    // Downward tracks the finger exactly. Upward resists, because there is
+    // nothing above the top of a sheet — but it must not feel stuck.
+    d.y = raw >= 0 ? raw : -rubberband(-raw, d.height);
+    tracker.current.add(d.y);
+    paint(d.y);
+  };
+
+  const onPointerUp = () => {
+    const d = drag.current;
+    if (!d) return;
+    drag.current = null;
+    const v = tracker.current.velocity();
+    // Where the throw lands, not where the finger stopped. A fast flick
+    // from near the top dismisses; a slow drag most of the way does not.
+    const projected = d.y + project(v);
+    if (projected > d.height * 0.4) {
+      stopSpring.current = spring(d.y, d.height, paint,
+        { damping: 1, response: 0.32, velocity: v }, onClose);
+    } else {
+      // Home. A little bounce is earned here — the gesture had momentum.
+      stopSpring.current = spring(d.y, 0, paint,
+        { damping: 0.82, response: 0.4, velocity: v });
+    }
+  };
+
+  useEffect(() => () => stopSpring.current?.(), []);
+
   if (!open) return null;
   return (
-    <div className="wf-fade-in fixed inset-0 z-[70]">
+    <div className="fixed inset-0 z-[70]">
       <button
+        ref={scrim}
         aria-label="Close"
-        className="absolute inset-0 cursor-pointer bg-black/60 backdrop-blur-[2px]"
+        className="wf-fade-in absolute inset-0 cursor-pointer"
+        style={{ background: "var(--wf-scrim)", backdropFilter: "blur(2px)" }}
         onClick={onClose}
       />
       <div
@@ -389,27 +488,40 @@ export function BottomSheet({
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className={`wf-sheet-in absolute inset-x-0 bottom-0 mx-auto flex w-full flex-col rounded-t-3xl border border-b-0 border-[var(--wf-line)] bg-[var(--wf-surface)] ${
+        className={`absolute inset-x-0 bottom-0 mx-auto flex w-full flex-col ${
           wide ? "max-w-[720px]" : "max-w-[430px]"
         } ${tall ? "max-h-[92dvh]" : "max-h-[80dvh]"}`}
       >
-        <div className="flex items-center justify-between gap-3 px-5 pb-2 pt-3">
-          <span className="mx-auto -mt-0.5 mb-1 block h-1 w-10 shrink-0 rounded-full bg-[var(--wf-line-strong)]" />
-        </div>
-        {title ? (
-          <div className="flex items-center justify-between px-5 pb-3">
-            <h2 className="wf-display text-lg font-bold">{title}</h2>
-            <button
-              onClick={onClose}
-              aria-label="Close sheet"
-              className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-[var(--wf-surface2)] text-[var(--wf-muted)] hover:text-[var(--wf-fg)]"
-            >
-              <IX size={17} />
-            </button>
+        <div
+          ref={surface}
+          className="wf-sheet-in flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[20px] bg-[var(--wf-surface)] shadow-[0_-1px_0_var(--wf-line)] touch-none"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+        >
+          <span className="wf-grabber" aria-hidden />
+          {title ? (
+            <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-2.5">
+              <h2 className="wf-title">{title}</h2>
+              <button
+                onClick={onClose}
+                aria-label="Close sheet"
+                className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full bg-[var(--wf-fill-2)] text-[var(--wf-muted)]"
+              >
+                <IX size={16} />
+              </button>
+            </div>
+          ) : (
+            <div className="h-2" />
+          )}
+          {/* Marked so the drag handler lets the scroll win in here. */}
+          <div
+            data-sheet-scroll
+            className="wf-safe-bottom min-h-0 flex-1 touch-pan-y overflow-y-auto px-5 pb-5"
+          >
+            {children}
           </div>
-        ) : null}
-        <div className="wf-safe-bottom min-h-0 flex-1 overflow-y-auto px-5 pb-5">
-          {children}
         </div>
       </div>
     </div>

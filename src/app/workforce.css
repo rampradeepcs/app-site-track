@@ -1,8 +1,12 @@
 /* ============================================================
-   Workfence — construction workforce app design system.
-   Scoped under `.wf` so it never leaks into the marketing site.
-   High-contrast and outdoor-readable in both themes;
-   amber = action, green = on-site/success, red = alert.
+   Workfence — an iOS-native design system on the web.
+
+   This follows Apple's Human Interface Guidelines rather than
+   approximating them: the semantic colour roles are UIKit's
+   (label / secondaryLabel / separator / systemGroupedBackground),
+   the type scale is SF's with its size-specific tracking and
+   leading, surfaces are materials with content scrolling under
+   them, and controls respond on press rather than on release.
 
    THEMING
    -------
@@ -16,41 +20,91 @@
    two copies drift apart, and the script closes the gap it would
    have covered.
 
-   Anything that paints a colour must use a token. A literal
-   rgba() in a component is invisible to this file and will stay
-   dark-on-dark when someone switches to light — which is exactly
-   what the -soft / -edge tints below exist to prevent.
+   WHY THE TOKEN NAMES DID NOT CHANGE
+   ----------------------------------
+   `--wf-muted` is used 243 times, `--wf-amber` 92. Renaming them to
+   `--wf-label-secondary` would have been a thousand-line diff that
+   changed nothing on screen. The names stayed and the values moved,
+   so every screen became iOS at once — and the diff is reviewable.
+
+   Anything that paints a colour must use a token. A literal rgba()
+   in a component is invisible to this file and will stay dark-on-dark
+   when someone switches to light.
    ============================================================ */
 
 .wf {
-  /* ---- surfaces & text (dark) ---- */
-  --wf-bg: #0b0f16;
-  --wf-surface: #131926;
-  --wf-surface2: #1b2334;
-  --wf-surface3: #232d42;
-  --wf-inset: rgba(6, 9, 14, 0.55);
-  --wf-line: rgba(148, 163, 184, 0.16);
-  --wf-line-strong: rgba(148, 163, 184, 0.3);
-  --wf-fg: #f2f5fa;
-  --wf-muted: #9aa7ba;
-  --wf-faint: #7d8aa0;
+  /* ---- surfaces (dark) ----
+     iOS pairs a near-black canvas with raised cards. In dark mode the
+     *grouped* background is the darker one and the cards sit above it,
+     which is the inverse of light mode — that inversion is the single
+     thing that makes a dark iOS app read as iOS. */
+  --wf-bg: #000000;                    /* systemGroupedBackground */
+  --wf-surface: #1c1c1e;               /* secondarySystemGroupedBackground */
+  --wf-surface2: #2c2c2e;              /* tertiarySystemFill, raised row */
+  --wf-surface3: #3a3a3c;              /* quaternary — chips, track fills */
+  --wf-inset: rgba(0, 0, 0, 0.5);
+  /* Hairlines. iOS separators are a translucent grey, not a tint of the
+     surface, so they hold up over a material or an image. */
+  --wf-line: rgba(84, 84, 88, 0.65);   /* separator */
+  --wf-line-strong: rgba(84, 84, 88, 1);  /* opaqueSeparator */
 
-  /* ---- brand hues (dark) ---- */
-  --wf-amber: #f6a723;
-  --wf-amber-hi: #ffc14d;
-  --wf-orange: #ee6c2b;
-  --wf-green: #2fd376;
-  --wf-green-dim: #159d52;
-  --wf-red: #f4574d;
-  --wf-blue: #45b8f5;
-  --wf-violet: #a78bfa;
-  --wf-slate: #94a3b8;
+  /* ---- label hierarchy (dark) ----
+     Four weights of the same near-white, by alpha. Alpha rather than four
+     fixed greys is what keeps text legible when it lands on a material or
+     a photo instead of the flat background.
+
+     The alphas are Apple's structure at higher values, on purpose. UIKit's
+     own secondaryLabel (0.60) and tertiaryLabel (0.30) do not clear WCAG
+     AA at body size — Apple relies on its own guidance, not WCAG. This app
+     is read at a site gate in direct sun by someone who cannot lean into a
+     shaded screen, so where the two disagree, legibility wins. Measured:
+     every level clears 4.5:1 on both the card and the canvas. */
+  --wf-fg: #ffffff;                              /* label */
+  --wf-muted: rgba(235, 235, 245, 0.72);         /* secondaryLabel */
+  --wf-faint: rgba(235, 235, 245, 0.56);         /* tertiaryLabel */
+
+  /* ---- system colours (dark) ----
+     Apple ships a light and a dark variant of every system colour; the
+     dark ones are brighter and less saturated so they hold up on black. */
+  --wf-amber: #ff9f0a;                 /* systemOrange (dark) */
+  --wf-amber-hi: #ffb340;
+  --wf-orange: #ff6b22;
+  --wf-green: #30d158;                 /* systemGreen (dark) */
+  --wf-green-dim: #248a3d;
+  --wf-red: #ff453a;                   /* systemRed (dark) */
+  /* systemBlue, lightened. Apple's #0A84FF measured 3.76:1 as chip text on
+     its own 18% wash — the one place a tint sits on a tint. */
+  --wf-blue: #54aeff;
+  --wf-violet: #bf5af2;                /* systemPurple (dark) */
+  /* systemGrey, one step lighter than Apple's: at #98989f the role chip
+     (grey text on a grey wash) measured 3.82:1 and missed AA. */
+  --wf-slate: #aeaeb2;
+
+  /* ---- fills ----
+     iOS "system fills" are translucent greys for the backs of controls
+     — a segmented track, a search field. They sit on any surface. */
+  --wf-fill: rgba(120, 120, 128, 0.36);
+  --wf-fill-2: rgba(120, 120, 128, 0.24);
+  --wf-fill-3: rgba(120, 120, 128, 0.18);
+  /* The selected segment reads as raised — which is lighter than its
+     track here, and white on light. Reusing --wf-surface made it darker
+     than the track in dark mode, so the pill read as a hole. */
+  --wf-seg-pill: #636366;
+
+  /* ---- materials ----
+     Translucent chrome. Content scrolls *under* these, which is why the
+     blur has to be strong enough to keep text on top legible. */
+  --wf-material-bar: rgba(28, 28, 30, 0.72);
+  --wf-material-thick: rgba(28, 28, 30, 0.88);
+  --wf-material-blur: saturate(180%) blur(20px);
+  /* The bright top edge is light catching the near edge of the glass. */
+  --wf-material-edge: rgba(255, 255, 255, 0.10);
+  --wf-scrim: rgba(0, 0, 0, 0.4);
 
   /* ---- tints ----
-     One vocabulary for every wash in the app: -soft fills, -edge
-     borders. Derived with color-mix so a hue only has to be correct
-     once per theme and every tint follows it. */
-  --wf-tint-soft: 14%;
+     One vocabulary for every wash: -soft fills, -edge borders, derived
+     with color-mix so a hue is only correct once per theme. */
+  --wf-tint-soft: 18%;
   --wf-tint-edge: 34%;
   --wf-amber-soft: color-mix(in srgb, var(--wf-amber) var(--wf-tint-soft), transparent);
   --wf-amber-edge: color-mix(in srgb, var(--wf-amber) var(--wf-tint-edge), transparent);
@@ -65,71 +119,119 @@
   --wf-orange-soft: color-mix(in srgb, var(--wf-orange) var(--wf-tint-soft), transparent);
   --wf-slate-soft: color-mix(in srgb, var(--wf-slate) var(--wf-tint-soft), transparent);
 
-  /* ---- ink that sits ON a brand fill ----
-     Dark ink on amber/green reads in both themes; the danger button
-     keeps white because its red stays dark enough for it. */
-  --wf-on-amber: #17130a;
+  /* ---- ink that sits ON a system-colour fill ----
+     Orange and green are light colours; iOS puts dark ink on them and
+     white on red and purple. Not a preference — a contrast requirement. */
+  --wf-on-amber: #1a1200;
   --wf-on-green: #04150b;
   --wf-on-red: #ffffff;
-  --wf-on-violet: #1b1030;
-  --wf-on-accent: #131313;
+  --wf-on-violet: #ffffff;
+  --wf-on-accent: #1a1200;
 
-  --wf-radius: 16px;
-  --wf-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.55);
-  --wf-glow-amber: 0 10px 26px -10px color-mix(in srgb, var(--wf-amber) 55%, transparent);
-  --wf-glow-green: 0 10px 26px -10px color-mix(in srgb, var(--wf-green) 45%, transparent);
+  /* ---- shape ----
+     iOS radii are a small set, applied by role: 10 for grouped list
+     cards, 14 for standalone cards, 12 for buttons, 20 for sheets. */
+  --wf-radius: 14px;
+  --wf-radius-sm: 10px;
+  --wf-radius-lg: 20px;
+  --wf-radius-pill: 999px;
+
+  /* Shadows are shallow. Depth on iOS comes from the material and the
+     background dimming behind it, not from a drop shadow doing the work. */
+  --wf-shadow: 0 8px 30px -12px rgba(0, 0, 0, 0.7);
+  --wf-shadow-raised: 0 3px 8px rgba(0, 0, 0, 0.5);
+  --wf-glow-amber: none;
+  --wf-glow-green: none;
+
+  /* ---- motion ----
+     Two springs, matching the values Apple publishes: critically damped
+     for anything that just moves, a little bounce for anything the user
+     threw. Real gestures use JS springs (lib/spring.ts) because a CSS
+     transition cannot be grabbed mid-flight; these cover the rest. */
+  --wf-spring: linear(
+    0, 0.0033, 0.0243, 0.0736, 0.1521, 0.2564, 0.3789, 0.5093, 0.6379,
+    0.7562, 0.8586, 0.9418, 1.0043, 1.0463, 1.0693, 1.0759, 1.0698,
+    1.055, 1.0356, 1.0151, 0.9968, 0.9827, 0.9739, 0.9705, 0.9718,
+    0.9767, 0.984, 0.9924, 1.0007, 1.0082, 1.0142, 1.0184, 1.0208,
+    1.0214, 1.0207, 1.019, 1.0167, 1.0143, 1.0119, 1.0099, 1.0083,
+    1.0071, 1.0063, 1.0058, 1.0055, 1.0053, 1.0051, 1.0049, 1.0046,
+    1.0043, 1
+  );
+  --wf-ease-out: cubic-bezier(0.32, 0.72, 0, 1);   /* iOS sheet curve */
+  --wf-ease-in: cubic-bezier(1, 0, 0.68, 0.28);    /* its mirror, for exits */
+  --wf-dur-press: 120ms;
+  --wf-dur-move: 400ms;
+
   /* ---- map ----
-     The map is the one surface the theme does not own: it is
-     photography underneath. Anything drawn on top needs a
-     contrast anchor that flips with the tiles, not with the app. */
+     The map is the one surface the theme does not own: it is photography
+     underneath. Anything drawn on top needs a contrast anchor that flips
+     with the tiles, not with the app. */
   --wf-tile-filter: brightness(0.72) saturate(0.72) contrast(1.06) hue-rotate(178deg) invert(1);
-  /* Knocks the tiles back so overlays read against them. */
-  --wf-map-veil: rgba(7, 11, 18, 0.28);
-  /* Drawn under the route line so it survives a busy tile. */
+  --wf-map-veil: rgba(0, 0, 0, 0.28);
   --wf-trail-halo: rgba(0, 0, 0, 0.45);
-  /* Ring around a worker marker, for separation from the ground. */
-  --wf-marker-ring: rgba(255, 255, 255, 0.88);
-  /* Shows through before tiles load, and where they never do. */
+  --wf-marker-ring: rgba(255, 255, 255, 0.9);
   --wf-map-ground: #0d1420;
 
   color-scheme: dark;
   background: var(--wf-bg);
   color: var(--wf-fg);
-  font-family: var(--font-sans), system-ui, sans-serif;
+  /* SF where it exists, a close grotesque where it does not. system-ui
+     first is the point: it already ships optical sizing, tracking tables
+     and legibility tuning that no webfont substitute reproduces. */
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui,
+    var(--font-sans), "Segoe UI", Roboto, sans-serif;
+  /* SF's body size. Everything else is a ratio of it, so the whole app
+     scales with the reader's text-size setting. */
+  font-size: 17px;
+  line-height: 1.294;                  /* 22/17 — SF body leading */
+  letter-spacing: -0.011em;            /* SF body tracking */
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 /* ------------------------------------------------------------- light */
-/* Only colour is redefined. Every size, radius and motion token above
-   is shared, so the two themes cannot drift in layout — just in ink. */
+/* Only colour is redefined. Every size, radius and motion token above is
+   shared, so the two themes cannot drift in layout — just in ink. */
 html[data-theme="light"] .wf {
-  --wf-bg: #f4f6fa;
+  /* The inversion noted above: grouped background is the *grey* one and
+     cards are white, the opposite of dark mode. */
+  --wf-bg: #f2f2f7;                    /* systemGroupedBackground */
   --wf-surface: #ffffff;
-  --wf-surface2: #f7f9fc;
-  --wf-surface3: #eaeef5;
-  --wf-inset: rgba(15, 23, 42, 0.04);
-  --wf-line: rgba(15, 23, 42, 0.12);
-  --wf-line-strong: rgba(15, 23, 42, 0.26);
-  --wf-fg: #0f172a;
-  --wf-muted: #55637a;
-  --wf-faint: #687384;
+  --wf-surface2: #f2f2f7;
+  --wf-surface3: #e5e5ea;
+  --wf-inset: rgba(120, 120, 128, 0.08);
+  --wf-line: rgba(60, 60, 67, 0.29);
+  --wf-line-strong: rgba(60, 60, 67, 0.6);
 
-  /* Hues are darkened for white ground: the dark-theme amber and green
-     are tuned to glow against near-black and fail contrast on white. */
-  --wf-amber: #a25a00;
-  --wf-amber-hi: #d98407;
+  --wf-fg: #000000;
+  --wf-muted: rgba(60, 60, 67, 0.86);
+  --wf-faint: rgba(60, 60, 67, 0.74);
+
+  /* The light variants of the same system colours, darkened where Apple's
+     own value would not clear 4.5:1 as text on white. */
+  --wf-amber: #a85700;                 /* systemOrange, AA-corrected for text */
+  --wf-amber-hi: #c96a00;
   --wf-orange: #c2410c;
-  --wf-green: #16794a;
-  --wf-green-dim: #12633c;
-  --wf-red: #c62f28;
-  --wf-blue: #0369a1;
-  --wf-violet: #6d43d4;
-  --wf-slate: #64748b;
+  --wf-green: #157347;                 /* systemGreen, AA-corrected */
+  --wf-green-dim: #0f5a37;
+  --wf-red: #d70015;                   /* systemRed (light) */
+  --wf-blue: #0063d1;                  /* systemBlue, AA-corrected */
+  --wf-violet: #7a2fbf;                /* systemPurple, AA-corrected */
+  --wf-slate: #6c6c70;
 
-  /* Tints sit on white, so they need less alpha to read as a wash and
-     more on the border to stay visible. */
-  --wf-tint-soft: 10%;
-  --wf-tint-edge: 40%;
+  --wf-fill: rgba(120, 120, 128, 0.2);
+  --wf-fill-2: rgba(120, 120, 128, 0.12);
+  --wf-fill-3: rgba(120, 120, 128, 0.08);
+  --wf-seg-pill: #ffffff;
+
+  --wf-material-bar: rgba(249, 249, 249, 0.78);
+  --wf-material-thick: rgba(255, 255, 255, 0.92);
+  --wf-material-edge: rgba(255, 255, 255, 0.7);
+  --wf-scrim: rgba(0, 0, 0, 0.25);
+
+  /* Tints sit on white, so they need less alpha to read as a wash. */
+  --wf-tint-soft: 11%;
+  --wf-tint-edge: 26%;
 
   --wf-on-amber: #ffffff;
   --wf-on-green: #ffffff;
@@ -137,18 +239,43 @@ html[data-theme="light"] .wf {
   --wf-on-violet: #ffffff;
   --wf-on-accent: #ffffff;
 
-  --wf-shadow: 0 16px 34px -20px rgba(15, 23, 42, 0.34);
-  --wf-glow-amber: 0 8px 20px -10px color-mix(in srgb, var(--wf-amber) 42%, transparent);
-  --wf-glow-green: 0 8px 20px -10px color-mix(in srgb, var(--wf-green) 36%, transparent);
+  --wf-shadow: 0 8px 30px -14px rgba(0, 0, 0, 0.22);
+  --wf-shadow-raised: 0 3px 8px rgba(0, 0, 0, 0.12);
+
   --wf-tile-filter: saturate(1.02) contrast(1.02);
-  /* The tiles are already bright, so the veil lifts rather than
-     darkens, and the halo and marker ring invert to stay visible. */
-  --wf-map-veil: rgba(255, 255, 255, 0.14);
-  --wf-trail-halo: rgba(255, 255, 255, 0.7);
-  --wf-marker-ring: rgba(15, 23, 42, 0.72);
-  --wf-map-ground: #dfe6ec;
+  --wf-map-veil: rgba(255, 255, 255, 0.1);
+  --wf-trail-halo: rgba(255, 255, 255, 0.75);
+  --wf-marker-ring: rgba(255, 255, 255, 0.95);
+  --wf-map-ground: #e8edf3;
 
   color-scheme: light;
+}
+
+/* ------------------------------------------------- accessibility */
+/* Three independent signals, each with its own answer. Reduced
+   transparency is not the same request as reduced motion. */
+@media (prefers-reduced-transparency: reduce) {
+  .wf {
+    --wf-material-bar: #1c1c1e;
+    --wf-material-thick: #1c1c1e;
+    --wf-material-blur: none;
+  }
+  html[data-theme="light"] .wf {
+    --wf-material-bar: #f9f9f9;
+    --wf-material-thick: #ffffff;
+  }
+}
+@media (prefers-contrast: more) {
+  .wf {
+    --wf-muted: rgba(235, 235, 245, 0.85);
+    --wf-faint: rgba(235, 235, 245, 0.7);
+    --wf-line: rgba(255, 255, 255, 0.5);
+  }
+  html[data-theme="light"] .wf {
+    --wf-muted: rgba(0, 0, 0, 0.85);
+    --wf-faint: rgba(0, 0, 0, 0.7);
+    --wf-line: rgba(0, 0, 0, 0.5);
+  }
 }
 
 .wf ::selection {
@@ -156,151 +283,211 @@ html[data-theme="light"] .wf {
   color: var(--wf-on-accent);
 }
 
+/* ------------------------------------------------------ type scale */
+/* SF's scale, and its rule: tracking is size-specific. Large text reads
+   too loose as it grows, so it tightens; small text needs a little air to
+   stay legible. One `letter-spacing` for everything is wrong somewhere. */
+
+.wf-largetitle {
+  font-size: 2rem;              /* 34pt */
+  line-height: 1.206;
+  font-weight: 700;
+  letter-spacing: -0.024em;
+}
+
+/*
+ * The display *treatment*, not a size. 53 call sites pair this with their
+ * own Tailwind size, and workforce.css loads after the utilities layer —
+ * so setting a font-size here silently overrode every one of them and
+ * truncated the headings that had been sized to fit. Weight and tracking
+ * only; the size classes below are for surfaces that want the whole SF
+ * step, and they set size, leading and tracking together as a set.
+ */
 .wf-display {
-  font-family: var(--font-display), "Segoe UI", system-ui, sans-serif;
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  letter-spacing: -0.021em;
+}
+
+.wf-title {
+  font-size: 1.294rem;          /* 22pt — title2 */
+  line-height: 1.273;
+  font-weight: 700;
+  letter-spacing: -0.016em;
+}
+
+.wf-headline {
+  font-size: 1rem;              /* 17pt semibold */
+  line-height: 1.294;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.wf-subhead {
+  font-size: 0.882rem;          /* 15pt */
+  line-height: 1.333;
+  letter-spacing: -0.014em;
+}
+
+.wf-footnote {
+  font-size: 0.765rem;          /* 13pt */
+  line-height: 1.385;
+  letter-spacing: -0.006em;
+}
+
+.wf-caption {
+  font-size: 0.706rem;          /* 12pt */
+  line-height: 1.333;
+  letter-spacing: 0;
 }
 
 /* ---------------------------------------------------------- surfaces */
+/* iOS grouped-list cards: a filled surface with a hairline, no heavy
+   border. In dark mode the card is *lighter* than the canvas; in light
+   mode it is white on grey. Both come from the tokens. */
 
 .wf-card {
   background: var(--wf-surface);
-  border: 1px solid var(--wf-line);
   border-radius: var(--wf-radius);
+  /* A hairline, not a border: 0.5px where the display can draw it. */
+  box-shadow: 0 0 0 0.5px var(--wf-line);
 }
 
 .wf-card2 {
   background: var(--wf-surface2);
-  border: 1px solid var(--wf-line);
-  border-radius: 12px;
+  border-radius: var(--wf-radius-sm);
+  box-shadow: 0 0 0 0.5px var(--wf-line);
 }
 
 .wf-inset {
   background: var(--wf-inset);
-  border: 1px solid var(--wf-line);
-  border-radius: 12px;
+  border-radius: var(--wf-radius-sm);
 }
 
 /* ---------------------------------------------------------- buttons */
+/* Three kinds, as iOS has them: filled (the one action), tinted/grey
+   (secondary), plain (text in the tint colour). Feedback is on press —
+   `:active` fires on pointer-down, so the button dims the instant it is
+   touched rather than when it is released. */
 
 .wf-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  min-height: 48px;
-  padding: 0 1.25rem;
-  border-radius: 14px;
-  font-weight: 650;
-  font-size: 0.95rem;
-  letter-spacing: 0.01em;
+  gap: 0.4rem;
+  min-height: 44px;             /* the iOS minimum hit target */
+  padding: 0 1.1rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 1rem;              /* 17pt — iOS buttons use body size */
+  line-height: 1.2;
+  letter-spacing: -0.02em;
   cursor: pointer;
   user-select: none;
+  border: none;
+  /* Fast on press, slower on release: a press should feel immediate and
+     the recovery should not snap back at the same speed. */
   transition:
-    transform 0.12s ease,
-    background-color 0.16s ease,
-    opacity 0.16s ease,
-    box-shadow 0.16s ease;
+    transform var(--wf-dur-press) var(--wf-ease-out),
+    opacity var(--wf-dur-press) var(--wf-ease-out),
+    background-color 0.2s var(--wf-ease-out);
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
-.wf-btn:active {
-  transform: scale(0.97);
+/* iOS dims a pressed button rather than shrinking it much; a small scale
+   on top reads as physical without the bounce of a full squash. */
+.wf-btn:active:not(:disabled) {
+  opacity: 0.72;
+  transform: scale(0.98);
+  transition-duration: 60ms;
 }
-/* Disabled reads as grey, not as faint.
-   Fading the whole button to 42% washes the fill and its ink toward the page
-   together, so on a light ground the primary button became pale cream with
-   white text on it — unreadable, and it is the check-in button. Replacing
-   the fill with a neutral keeps the label legible while still saying
-   clearly that nothing will happen. */
+/* Disabled reads as grey, not as faint. Fading the whole button washes the
+   fill and its ink toward the page together — on a light ground the primary
+   button became pale cream with white text, and it is the check-in button. */
 .wf-btn:disabled {
-  background: var(--wf-surface3);
+  background: var(--wf-fill-3);
   background-image: none;
   color: var(--wf-faint);
-  border: 1px solid var(--wf-line);
   box-shadow: none;
   cursor: not-allowed;
   transform: none;
 }
 
+/* Filled — flat, not a gradient. iOS system colours are solid. */
 .wf-btn-primary {
-  background: linear-gradient(180deg, var(--wf-amber-hi), var(--wf-amber));
+  background: var(--wf-amber);
   color: var(--wf-on-amber);
-  box-shadow: var(--wf-glow-amber);
-}
-.wf-btn-primary:hover:not(:disabled) {
-  filter: brightness(1.06);
 }
 
 .wf-btn-success {
-  background: linear-gradient(180deg, var(--wf-green), var(--wf-green-dim));
+  background: var(--wf-green);
   color: var(--wf-on-green);
-  box-shadow: var(--wf-glow-green);
 }
 
 .wf-btn-danger {
-  background: linear-gradient(180deg,
-      color-mix(in srgb, var(--wf-red) 88%, white),
-      color-mix(in srgb, var(--wf-red) 78%, black));
+  background: var(--wf-red);
   color: var(--wf-on-red);
 }
 
+/* Tinted/grey — the iOS "gray" button: a system fill, label in full ink. */
 .wf-btn-ghost {
-  background: var(--wf-surface2);
-  border: 1px solid var(--wf-line);
+  background: var(--wf-fill-2);
   color: var(--wf-fg);
 }
 .wf-btn-ghost:hover:not(:disabled) {
-  background: var(--wf-surface3);
+  background: var(--wf-fill);
 }
 
+/* Plain — text only, in the tint colour, no chrome until pressed. */
 .wf-btn-quiet {
   background: transparent;
-  color: var(--wf-muted);
+  color: var(--wf-amber);
+  font-weight: 400;
 }
 .wf-btn-quiet:hover:not(:disabled) {
-  color: var(--wf-fg);
-  background: var(--wf-surface2);
+  background: var(--wf-fill-3);
 }
 
 .wf-btn-sm {
-  min-height: 38px;
-  padding: 0 0.85rem;
-  font-size: 0.83rem;
-  border-radius: 11px;
+  min-height: 34px;
+  padding: 0 0.8rem;
+  font-size: 0.882rem;          /* 15pt */
+  border-radius: 9px;
 }
 
 .wf-btn-lg {
-  min-height: 58px;
-  font-size: 1.05rem;
-  border-radius: 18px;
+  min-height: 50px;
+  font-size: 1rem;
+  border-radius: 14px;
+  font-weight: 600;
 }
 
 /* ------------------------------------------------------------ inputs */
+/* A system fill with no visible border until focus — iOS text fields are
+   a shape, not a box. */
 
 .wf-input {
   width: 100%;
-  min-height: 48px;
-  padding: 0.6rem 0.9rem;
-  border-radius: 12px;
-  background: var(--wf-surface2);
-  border: 1px solid var(--wf-line);
+  min-height: 44px;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--wf-radius-sm);
+  background: var(--wf-fill-3);
+  border: none;
+  box-shadow: 0 0 0 0.5px var(--wf-line);
   color: var(--wf-fg);
-  font-size: 0.95rem;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  font-size: 1rem;              /* 17pt — never below 16px, or iOS zooms */
+  letter-spacing: -0.02em;
+  transition: box-shadow 0.18s var(--wf-ease-out), background-color 0.18s var(--wf-ease-out);
 }
 .wf-input::placeholder {
   color: var(--wf-faint);
 }
-/* Clears a leading search icon. Defined here rather than via a Tailwind
-   `pl-*` utility: workforce.css loads after the utilities layer, so
-   `.wf-input`'s padding shorthand would win on source order. */
 .wf-input-search {
   padding-left: 2.5rem;
 }
 .wf-input:focus {
   outline: none;
-  border-color: var(--wf-amber);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--wf-amber) 26%, transparent);
+  background: var(--wf-fill-2);
+  box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--wf-amber) 30%, transparent);
 }
 textarea.wf-input {
   min-height: 84px;
@@ -314,12 +501,14 @@ select.wf-input {
   padding-right: 2.4rem;
 }
 
+/* iOS grouped-list headers: 13pt, secondary ink, sentence case. The
+   uppercase-with-wide-tracking header is an Android/Material idiom —
+   iOS reserved it for plain (non-inset) table sections years ago. */
 .wf-label {
   display: block;
-  font-size: 0.74rem;
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
+  font-size: 0.765rem;
+  font-weight: 400;
+  letter-spacing: -0.006em;
   color: var(--wf-muted);
   margin-bottom: 0.4rem;
 }
@@ -370,7 +559,23 @@ select.wf-input {
   from { transform: translateY(26px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
-.wf-sheet-in { animation: wf-slide-up 0.32s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) both; }
+/* The iOS sheet curve. Not an ease-out-expo: this is the one Apple
+   actually uses, and it is why a sheet feels like it is being placed
+   rather than thrown. A dragged sheet does not use this at all — see
+   lib/spring.ts, because a CSS transition cannot be grabbed mid-flight. */
+.wf-sheet-in { animation: wf-slide-up 0.42s var(--wf-ease-out) both; }
+
+/* The grabber. Present because it says "this can be dragged" before
+   anyone tries — the affordance, not the decoration. */
+.wf-grabber {
+  width: 36px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--wf-line-strong);
+  opacity: 0.45;
+  margin: 6px auto 0;
+  flex: none;
+}
 
 @keyframes wf-fade {
   from { opacity: 0; }
@@ -383,7 +588,112 @@ select.wf-input {
   70% { transform: scale(1.08); }
   100% { transform: scale(1); opacity: 1; }
 }
-.wf-pop-in { animation: wf-pop 0.5s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) both; }
+.wf-pop-in { animation: wf-pop 0.5s var(--wf-spring) both; }
+
+/* ------------------------------------------------ segmented control */
+/* The iOS segmented control: a filled track with a raised pill that
+   *slides* between options. The slide matters — it is what tells you the
+   two options are one control with one value, rather than two buttons. */
+.wf-seg {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  /* Equal columns while they fit, natural width once they do not. A flat
+     `1fr` divides the *container*, so five long labels were squeezed past
+     the right edge and "Settings" was simply cut off. `max-content` as the
+     floor lets the track grow instead, and the scroll below reaches it. */
+  grid-auto-columns: minmax(max-content, 1fr);
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--wf-fill-3);
+  isolation: isolate;
+  /* iOS segmented controls do not scroll — but iOS would not put five
+     multi-word options in one either. Given the labels this app needs,
+     scrolling is the honest answer; clipping is not. */
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overscroll-behavior-x: contain;
+}
+.wf-seg::-webkit-scrollbar { display: none; }
+.wf-seg-pill {
+  position: absolute;
+  z-index: 0;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 7px;
+  background: var(--wf-seg-pill);
+  box-shadow: var(--wf-shadow-raised);
+  transition: transform 0.28s var(--wf-ease-out), width 0.28s var(--wf-ease-out);
+}
+.wf-seg-item {
+  position: relative;
+  z-index: 1;
+  min-height: 28px;
+  padding: 0 0.6rem;
+  border-radius: 7px;
+  font-size: 0.765rem;          /* 13pt */
+  font-weight: 500;
+  letter-spacing: -0.006em;
+  color: var(--wf-fg);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 60ms linear, font-weight 0.2s var(--wf-ease-out);
+}
+.wf-seg-item[aria-selected="true"] { font-weight: 600; }
+.wf-seg-item:active { opacity: 0.5; }
+
+/* ------------------------------------------------------------ switch */
+/* 51×31 with a 27px knob — the real UIKit dimensions. Getting these
+   wrong is the single most recognisable "not quite iOS" tell. */
+.wf-switch {
+  position: relative;
+  width: 51px;
+  height: 31px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--wf-fill);
+  cursor: pointer;
+  transition: background-color 0.25s var(--wf-ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+.wf-switch[data-on="true"] { background: var(--wf-green); }
+.wf-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 1px 1px rgba(0, 0, 0, 0.16);
+  transition: transform 0.25s var(--wf-ease-out), width 0.25s var(--wf-ease-out);
+}
+.wf-switch[data-on="true"]::after { transform: translateX(20px); }
+/* The knob stretches under the thumb, then settles. */
+.wf-switch:active::after { width: 31px; }
+.wf-switch[data-on="true"]:active::after { transform: translateX(16px); }
+
+/* --------------------------------------------------- grouped list */
+/* Rows in a card, separated by a hairline that is inset to the leading
+   text edge — never full-bleed. The inset is what visually groups a row
+   with its neighbour instead of slicing the card into strips. */
+.wf-list > * + * {
+  box-shadow: inset 0 0.5px 0 var(--wf-line);
+}
+.wf-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0.6rem 1rem;
+  -webkit-tap-highlight-color: transparent;
+}
+a.wf-row:active, button.wf-row:active {
+  background: var(--wf-fill-3);
+  transition: none;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .wf-sheet-in, .wf-fade-in, .wf-pop-in { animation-duration: 0.001ms; }
@@ -435,28 +745,38 @@ select.wf-input {
 }
 
 /* Bottom navigation */
+/* A material, not a bar. Content scrolls *under* it, which is why the
+   blur has to be strong enough that a headline passing beneath stays
+   readable but clearly behind. The top edge is a hairline, not a border:
+   on iOS the tab bar is separated by the blur, not by a rule. */
 .wf-tabbar {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  border-top: 1px solid var(--wf-line);
-  background: color-mix(in srgb, var(--wf-bg) 92%, transparent);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  background: var(--wf-material-bar);
+  backdrop-filter: var(--wf-material-blur);
+  -webkit-backdrop-filter: var(--wf-material-blur);
+  box-shadow: inset 0 0.5px 0 var(--wf-material-edge), 0 -0.5px 0 var(--wf-line);
 }
 .wf-tab {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 0.55rem 0 0.45rem;
-  min-height: 56px;
-  font-size: 0.64rem;
-  font-weight: 650;
-  letter-spacing: 0.04em;
+  padding: 0.5rem 0 0.35rem;
+  min-height: 49px;             /* the iOS tab bar height */
+  /* 10pt, medium. Vibrancy rule: text over a material wants a touch more
+     weight than it would need on a solid ground. */
+  font-size: 0.588rem;
+  font-weight: 500;
+  letter-spacing: 0.005em;
   color: var(--wf-faint);
   cursor: pointer;
-  transition: color 0.15s ease;
+  transition: color 0.15s var(--wf-ease-out), opacity 60ms linear;
+  -webkit-tap-highlight-color: transparent;
+}
+.wf-tab:active {
+  opacity: 0.55;
 }
 .wf-tab[data-active="true"] {
   color: var(--wf-amber);
@@ -465,7 +785,26 @@ select.wf-input {
   color: var(--wf-fg);
 }
 .wf-tab[data-active="true"]:hover {
-  color: var(--wf-amber-hi);
+  color: var(--wf-amber);
+}
+
+/* ------------------------------------------------ navigation bar */
+/* The same material at the top. `wf-scroll-edge` is the iOS scroll edge
+   effect: nothing until content passes under the bar, then the material
+   appears. A permanent 1px rule under a header is the thing it replaced. */
+.wf-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: transparent;
+  transition: background-color 0.25s var(--wf-ease-out),
+              box-shadow 0.25s var(--wf-ease-out);
+}
+.wf-navbar[data-scrolled="true"] {
+  background: var(--wf-material-bar);
+  backdrop-filter: var(--wf-material-blur);
+  -webkit-backdrop-filter: var(--wf-material-blur);
+  box-shadow: 0 0.5px 0 var(--wf-line);
 }
 
 .wf :focus-visible {
