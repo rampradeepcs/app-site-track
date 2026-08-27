@@ -30,6 +30,11 @@ import {
   IUser,
   IUsers,
   ILayers,
+  IHomeFill,
+  ICalendarFill,
+  IClipboardFill,
+  IHistoryFill,
+  ILayersFill,
 } from "./WfIcons";
 
 /**
@@ -74,14 +79,30 @@ export function RoleGuard({
 /* ------------------------------------------------------------ tab bars */
 
 const EMPLOYEE_TABS = [
-  { href: "/employee", label: "Home", icon: IHome },
-  { href: "/employee/attendance", label: "Attendance", icon: ICalendar },
-  { href: "/employee/updates", label: "Updates", icon: IClipboard },
-  { href: "/employee/history", label: "History", icon: IHistory },
+  { href: "/employee", label: "Home", icon: IHome, iconActive: IHomeFill },
+  {
+    href: "/employee/attendance",
+    label: "Attendance",
+    icon: ICalendar,
+    iconActive: ICalendarFill,
+  },
+  {
+    href: "/employee/updates",
+    label: "Updates",
+    icon: IClipboard,
+    iconActive: IClipboardFill,
+  },
+  {
+    href: "/employee/history",
+    label: "History",
+    icon: IHistory,
+    iconActive: IHistoryFill,
+  },
   {
     href: "/employee/more",
     label: "More",
     icon: ILayers,
+    iconActive: ILayersFill,
     alsoActive: ["/employee/profile"],
   },
 ];
@@ -147,7 +168,8 @@ export function TabBar({ role }: { role: Role }) {
             ? pathname === base || pathname === `${base}/`
             : pathname.startsWith(t.href) ||
               owned.some((p) => pathname.startsWith(p));
-        const Icon = t.icon;
+        const Icon =
+          (active && (t as { iconActive?: typeof t.icon }).iconActive) || t.icon;
         return (
           <Link
             key={t.href}

@@ -169,6 +169,24 @@ export const IHardHat = (p: IconProps) => (
 export const IZap = (p: IconProps) => (
   <Icon {...p}><path d="M13 2.5 4.5 13.5H11L10 21.5l8.5-11H12l1-8Z" /></Icon>
 );
+/* ---- filled twins, for the active tab in the bottom navigation ---- */
+
+export const IHomeFill = (p: IconProps) => (
+  <Icon {...p}><path fill="currentColor" stroke="none" d="M12 2.4 21.8 10.6a1 1 0 0 1 .2.6V20a1.6 1.6 0 0 1-1.6 1.6h-5.2V15a.6.6 0 0 0-.6-.6h-5.2a.6.6 0 0 0-.6.6v6.6H3.6A1.6 1.6 0 0 1 2 20v-8.8a1 1 0 0 1 .2-.6L12 2.4Z" /></Icon>
+);
+export const ICalendarFill = (p: IconProps) => (
+  <Icon {...p}><path fill="currentColor" stroke="none" fillRule="evenodd" d="M8 2a1 1 0 0 1 1 1v1h6V3a1 1 0 1 1 2 0v1h1.5A2.5 2.5 0 0 1 21 6.5v12a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5v-12A2.5 2.5 0 0 1 5.5 4H7V3a1 1 0 0 1 1-1Zm-5 7.2h18v1.6H3V9.2Z" /></Icon>
+);
+export const IClipboardFill = (p: IconProps) => (
+  <Icon {...p}><path fill="currentColor" stroke="none" fillRule="evenodd" d="M9 2h6a1 1 0 0 1 1 1v1h.5A2.5 2.5 0 0 1 19 6.5v12A2.5 2.5 0 0 1 16.5 21h-9A2.5 2.5 0 0 1 5 18.5v-12A2.5 2.5 0 0 1 7.5 4H8V3a1 1 0 0 1 1-1Zm0 8.2h6v1.6H9v-1.6Zm0 4h4v1.6H9v-1.6Z" /></Icon>
+);
+export const IHistoryFill = (p: IconProps) => (
+  <Icon {...p}><path fill="currentColor" stroke="none" fillRule="evenodd" d="M12 3.2a8.8 8.8 0 1 1 0 17.6 8.8 8.8 0 0 1 0-17.6Zm-.9 4.2v5.5l4.1 2.45.9-1.5-3.4-2.05V7.4h-1.6Z" /></Icon>
+);
+export const ILayersFill = (p: IconProps) => (
+  <Icon {...p}><path fill="currentColor" stroke="none" d="m12 2.4 10 5.26a.4.4 0 0 1 0 .7L12 13.6 2 8.36a.4.4 0 0 1 0-.7L12 2.4Z" /><path d="m4 12-1.5 1L12 18l9.5-5L20 12" /></Icon>
+);
+
 export const ILayers = (p: IconProps) => (
   <Icon {...p}><path d="m12 3 9.5 5L12 13 2.5 8 12 3Z" /><path d="m4 12-1.5 1L12 18l9.5-5L20 12" /></Icon>
 );
