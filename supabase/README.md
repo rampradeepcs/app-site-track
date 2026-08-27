@@ -13,6 +13,14 @@ Eight migrations, applied in order:
 | `20260826000700_self_serve_signup.sql` | `provision_company()` — the one write that can create a tenant, because until it runs the caller belongs to none                                                                                        |
 | `20260826000800_auth_link_phone_match.sql` | Matches an identity to its worker record on the national number, so someone enrolled as `9000022222` still links when they sign in as `+91 90000 22222`                                             |
 
+## Verifying the backend
+
+`verify.sql` prints PASS or FAIL for the eighteen things the app depends on —
+the signup RPC and its grants, the phone matcher, the auth-link trigger, the
+seated owner, the plans, and RLS on every table. Run it in the SQL editor
+whenever the backend's state is in question; it is read-only and safe to run
+at any time. Rows 11–12 fail until `bootstrap.sql` has been run once.
+
 ## Self-serve signup
 
 `provision_company(payload jsonb)` is the only `SECURITY DEFINER` write in the
