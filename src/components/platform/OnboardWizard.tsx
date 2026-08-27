@@ -59,7 +59,7 @@ export function OnboardWizard({
 
   /* step 4 */
   const [appName, setAppName] = useState("Workfence");
-  const [accent, setAccent] = useState("#f6a723");
+  const [accent, setAccent] = useState("#000000");
   const [customDomain, setCustomDomain] = useState("");
   const [features, setFeatures] = useState<Partial<FeatureSet>>({});
 

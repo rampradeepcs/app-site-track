@@ -89,7 +89,7 @@ export function useSignUp() {
           billing: newBilling(draft.company, draft.admin),
           branding: {
             appName: "Workfence",
-            accent: "#f6a723",
+            accent: "#000000",
             logoText: logoText(draft.company),
           },
         },
