@@ -58,6 +58,13 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
+    <!-- The multi-select crew picker: Android has no multi-select system
+         picker, so bulk-inviting a crew means the app draws the contact list
+         itself, which requires reading it. Read only — never WRITE_CONTACTS —
+         and declining the prompt falls back to the permissionless
+         one-at-a-time system picker. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
     <!-- GPS is essential to the product; a device without it cannot check in. -->
     <uses-feature android:name="android.hardware.location.gps" android:required="true" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />

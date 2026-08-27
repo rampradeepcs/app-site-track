@@ -29,19 +29,23 @@ site placed on a map with its boundary and tracking policy, an optional office,
 and a crew invited from the phone's own contacts, or by hand.
 
 **Adding the crew** uses whichever picker the device has, and they are not
-the same. The Android app registers a small `ContactPicker` plugin that
-launches the *system* picker — one contact per tap, and no permission
-declared or requested, because Android hands back a read grant for the single
-row the user chose. A browser gets Chrome's Contact Picker API, which is
-multi-select and equally permissionless but exists on almost nothing else.
-Everywhere else, name and number are typed in — the path that always works.
+the same. The Android app registers a small `ContactPicker` plugin whose
+`list` method reads the phone-number table (behind a runtime `READ_CONTACTS`
+prompt — read only, never write) and feeds an in-app multi-select sheet with
+search; declining the prompt falls back to the plugin's `pick` method, the
+*system* picker — one contact per tap, and no permission asked, because
+Android hands back a read grant for the single row the user chose. A browser
+gets Chrome's Contact Picker API, which is multi-select and permissionless
+but exists on almost nothing else. Everywhere else, name and number are
+typed in — the path that always works.
 
-Taking the system picker over `@capacitor-community/contacts` was deliberate:
-that plugin gates every call, `pickContact` included, behind an alias grouping
-`READ_CONTACTS` **and** `WRITE_CONTACTS`, and Capacitor grants an alias only
-when every permission in it is granted. Inviting a crew would have meant
-declaring write access to the address book, and asking a worker to hand over
-their whole contact list, to read one name and one number.
+Building on our own plugin over `@capacitor-community/contacts` was
+deliberate: that plugin gates every call, `pickContact` included, behind an
+alias grouping `READ_CONTACTS` **and** `WRITE_CONTACTS`, and Capacitor grants
+an alias only when every permission in it is granted — write access to the
+address book, declared for a screen that only ever reads names and numbers.
+Here the bulk sheet costs read permission alone, and refusing it costs the
+bulk shortcut, never the feature.
 
 It collects what makes attendance work on day one and nothing more. Billing,
 tax details and branding are asked for later, by the screens that need them —

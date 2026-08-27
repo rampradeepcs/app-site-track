@@ -13,11 +13,127 @@
  * asks for the smallest thing that makes check-in work today.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SiteMap } from "../SiteMap";
 import { Field } from "../ui";
-import { ICrosshair } from "../WfIcons";
+import { ICrosshair, IMapPin, ISearch } from "../WfIcons";
 import type { Geofence, LatLng } from "@/lib/types";
+
+interface PlaceHit {
+  id: string;
+  label: string;
+  at: LatLng;
+}
+
+/**
+ * Free-text place search over Nominatim — OpenStreetMap's geocoder, the same
+ * project whose tiles the map draws, and equally key-free. A result only
+ * jumps the map; the boundary is still placed by tapping, so losing the
+ * network (or the service) costs the shortcut, not the step.
+ */
+function LocationSearch({ onPick }: { onPick: (hit: PlaceHit) => void }) {
+  const [q, setQ] = useState("");
+  const [hits, setHits] = useState<PlaceHit[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  /* One live request at a time: a stale response must never repaint. */
+  const seq = useRef(0);
+
+  useEffect(() => {
+    const query = q.trim();
+    const id = ++seq.current;
+    setFailed(false);
+    if (query.length < 3) {
+      setHits(null);
+      setBusy(false);
+      return;
+    }
+    setBusy(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=" +
+            encodeURIComponent(query),
+          { headers: { Accept: "application/json" } },
+        );
+        if (!res.ok) throw new Error(String(res.status));
+        const rows: Array<{
+          place_id: number;
+          display_name: string;
+          lat: string;
+          lon: string;
+        }> = await res.json();
+        if (seq.current !== id) return;
+        setHits(
+          rows.map((r) => ({
+            id: String(r.place_id),
+            label: r.display_name,
+            at: { lat: Number(r.lat), lng: Number(r.lon) },
+          })),
+        );
+        setBusy(false);
+      } catch {
+        if (seq.current !== id) return;
+        setHits(null);
+        setFailed(true);
+        setBusy(false);
+      }
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [q]);
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <ISearch
+          size={15}
+          className="absolute top-1/2 left-3 -translate-y-1/2 text-[var(--wf-faint)]"
+        />
+        <input
+          className="wf-input wf-input-search"
+          type="search"
+          placeholder="Search a place or address"
+          aria-label="Search a place or address"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+      </div>
+      {hits && hits.length > 0 ? (
+        <ul className="absolute z-20 mt-1.5 max-h-60 w-full overflow-y-auto rounded-xl border border-[var(--wf-line)] bg-[var(--wf-surface2)] py-1 shadow-xl">
+          {hits.map((h) => (
+            <li key={h.id}>
+              <button
+                className="flex w-full cursor-pointer items-start gap-2.5 px-3 py-2.5 text-left text-[0.82rem] leading-snug hover:bg-[var(--wf-fill-3)]"
+                onClick={() => {
+                  onPick(h);
+                  setQ("");
+                  setHits(null);
+                }}
+              >
+                <IMapPin
+                  size={14}
+                  className="mt-0.5 shrink-0 text-[var(--wf-amber)]"
+                />
+                <span>{h.label}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {busy ? (
+        <p className="mt-1.5 text-[0.78rem] text-[var(--wf-muted)]">Searching…</p>
+      ) : hits && hits.length === 0 ? (
+        <p className="mt-1.5 text-[0.78rem] text-[var(--wf-muted)]">
+          No places found — try a broader name, or tap the map.
+        </p>
+      ) : failed ? (
+        <p className="mt-1.5 text-[0.78rem] text-[var(--wf-amber)]">
+          Search is unreachable right now — drop the pin on the map instead.
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 export interface PremiseFields {
   name: string;
@@ -39,6 +155,14 @@ export function PremiseStep({
 }) {
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState<string | null>(null);
+  /*
+   * Where the map should jump: set on a search pick or a geolocation fix,
+   * never on a tap. A tap already happens inside the current view, and
+   * recentring under someone's finger while they fine-tune reads as the map
+   * fighting them. A fresh object each time, because `follow` recentres on
+   * reference change.
+   */
+  const [focus, setFocus] = useState<LatLng | null>(null);
 
   const fence: Geofence = {
     kind: "circle",
@@ -58,10 +182,9 @@ export function PremiseStep({
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
-        onChange({
-          ...value,
-          location: { lat: pos.coords.latitude, lng: pos.coords.longitude },
-        });
+        const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setFocus(here);
+        onChange({ ...value, location: here });
       },
       (err) => {
         setLocating(false);
@@ -95,6 +218,22 @@ export function PremiseStep({
         />
       </Field>
 
+      <Field
+        label="Find on the map"
+        hint="Jumps the map to a place — then fine-tune by tapping."
+      >
+        <LocationSearch
+          onPick={(hit) => {
+            setFocus(hit.at);
+            onChange({
+              ...value,
+              location: hit.at,
+              address: value.address.trim() ? value.address : hit.label,
+            });
+          }}
+        />
+      </Field>
+
       <button
         className="wf-btn wf-btn-ghost wf-btn-sm w-fit"
         onClick={useMyPosition}
@@ -109,6 +248,7 @@ export function PremiseStep({
 
       <SiteMap
         fence={fence}
+        follow={focus}
         heightClass="h-[260px]"
         onMapClick={(p: LatLng) => onChange({ ...value, location: p })}
         onCenterDrag={(p: LatLng) => onChange({ ...value, location: p })}

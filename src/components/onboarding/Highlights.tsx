@@ -25,16 +25,21 @@ interface Slide {
   ink: string;
   title: string;
   body: string;
+  /** Full-bleed background video; the copy drops to the bottom over a scrim. */
+  video?: string;
 }
+
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 const SLIDES: Slide[] = [
   {
-    key: "checkin",
-    icon: <IHardHat size={34} />,
-    tint: "var(--wf-amber-soft)",
-    ink: "var(--wf-amber)",
-    title: "The gate is the clock",
-    body: "A shift starts with a selfie, inside the site boundary. No paper register, no one signing in for a mate who is still on the bus.",
+    key: "record",
+    icon: <ICheckCircle size={34} />,
+    tint: "var(--wf-green-soft)",
+    ink: "var(--wf-green)",
+    title: "Attendance writes itself",
+    body: "Hours, lateness, the day's route and the work logged against it — recorded as it happens, exportable when payroll asks.",
+    video: "/onboarding/record.mp4",
   },
   {
     key: "live",
@@ -43,14 +48,7 @@ const SLIDES: Slide[] = [
     ink: "var(--wf-blue)",
     title: "See the whole site live",
     body: "Every crew member on one map while their shift is open — who is on site, who left the boundary, and how long ago.",
-  },
-  {
-    key: "record",
-    icon: <ICheckCircle size={34} />,
-    tint: "var(--wf-green-soft)",
-    ink: "var(--wf-green)",
-    title: "Attendance writes itself",
-    body: "Hours, lateness, the day's route and the work logged against it — recorded as it happens, exportable when payroll asks.",
+    video: "/onboarding/live.mp4",
   },
   {
     key: "policy",
@@ -59,6 +57,16 @@ const SLIDES: Slide[] = [
     ink: "var(--wf-violet)",
     title: "Track what matters, not everything",
     body: "Per site, choose whether on-site movement is recorded at all. Turn it off and only trips away from the boundary are — material runs, client visits, nothing else.",
+    video: "/onboarding/policy.mp4",
+  },
+  {
+    key: "checkin",
+    icon: <IHardHat size={34} />,
+    tint: "var(--wf-amber-soft)",
+    ink: "var(--wf-amber)",
+    title: "The gate is the clock",
+    body: "A shift starts with a selfie, inside the site boundary. No paper register, no one signing in for a mate who is still on the bus.",
+    video: "/onboarding/checkin.mp4",
   },
 ];
 
@@ -115,19 +123,53 @@ export function Highlights({
             key={s.key}
             aria-roledescription="slide"
             aria-label={`${i + 1} of ${SLIDES.length}: ${s.title}`}
-            className="flex w-full shrink-0 snap-start flex-col items-center justify-center gap-6 text-center"
+            className={
+              s.video
+                ? "relative flex w-full shrink-0 snap-start flex-col items-center justify-end gap-4 overflow-hidden rounded-3xl pb-7 text-center"
+                : "flex w-full shrink-0 snap-start flex-col items-center justify-center gap-6 text-center"
+            }
           >
+            {s.video ? (
+              <>
+                <video
+                  className="absolute inset-0 h-full w-full object-cover"
+                  src={`${BASE}${s.video}`}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  aria-hidden
+                />
+                {/* Scrim so the copy stays legible over whatever frame is up. */}
+                <div
+                  className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent"
+                  aria-hidden
+                />
+              </>
+            ) : null}
             <span
-              className="grid h-20 w-20 place-items-center rounded-[1.6rem]"
+              className={`grid place-items-center ${
+                s.video
+                  ? "relative z-10 h-16 w-16 rounded-[1.3rem]"
+                  : "h-20 w-20 rounded-[1.6rem]"
+              }`}
               style={{ background: s.tint, color: s.ink }}
             >
               {s.icon}
             </span>
-            <div className="max-w-sm">
-              <h2 className="wf-display text-[1.65rem] leading-tight font-bold">
+            <div className={s.video ? "relative z-10 max-w-sm px-5" : "max-w-sm"}>
+              <h2
+                className={`wf-display text-[1.65rem] leading-tight font-bold ${
+                  s.video ? "text-white" : ""
+                }`}
+              >
                 {s.title}
               </h2>
-              <p className="mt-3 text-[0.92rem] leading-relaxed text-[var(--wf-muted)]">
+              <p
+                className={`mt-3 text-[0.92rem] leading-relaxed ${
+                  s.video ? "text-white/85" : "text-[var(--wf-muted)]"
+                }`}
+              >
                 {s.body}
               </p>
             </div>

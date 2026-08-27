@@ -58,8 +58,19 @@ interface NativePick {
   phone?: string;
 }
 
+interface NativeList {
+  denied: boolean;
+  contacts?: Array<{ name?: string; phone?: string }>;
+}
+
+interface NativeContactPicker {
+  pick?: () => Promise<NativePick>;
+  /** Absent on app binaries built before the multi-select sheet existed. */
+  list?: () => Promise<NativeList>;
+}
+
 interface CapacitorGlobal {
-  Plugins?: { ContactPicker?: { pick?: () => Promise<NativePick> } };
+  Plugins?: { ContactPicker?: NativeContactPicker };
 }
 
 /**
@@ -78,13 +89,11 @@ interface CapacitorGlobal {
  * something else in the bundle imported the runtime. Asking for the function
  * we are about to call has no such ambiguity.
  */
-function nativePicker(): { pick: () => Promise<NativePick> } | null {
+function nativePicker(): NativeContactPicker | null {
   if (typeof window === "undefined") return null;
   const cap = (window as unknown as { Capacitor?: CapacitorGlobal }).Capacitor;
   const plugin = cap?.Plugins?.ContactPicker;
-  return typeof plugin?.pick === "function"
-    ? (plugin as { pick: () => Promise<NativePick> })
-    : null;
+  return typeof plugin?.pick === "function" ? plugin : null;
 }
 
 /* -------------------------------------------------------------- exports */
@@ -97,7 +106,48 @@ export function contactSource(): ContactSource {
 
 /** Whether a source returns several people at once, or one per tap. */
 export function isMultiSelect(source: ContactSource): boolean {
-  return source === "web";
+  return source === "web" || (source === "native" && canListContacts());
+}
+
+/**
+ * Whether the native shell can hand over the whole contact list for the
+ * in-app multi-select sheet. False on web (Chrome's picker is its own
+ * multi-select) and on app binaries older than the `list` method.
+ */
+export function canListContacts(): boolean {
+  return typeof nativePicker()?.list === "function";
+}
+
+export interface ListOutcome {
+  /** The person declined READ_CONTACTS — fall back to the single picker. */
+  denied: boolean;
+  contacts: CrewInvite[];
+  error?: string;
+}
+
+/** Every contact with a phone number, for the multi-select sheet. */
+export async function listDeviceContacts(): Promise<ListOutcome> {
+  const plugin = nativePicker();
+  if (typeof plugin?.list !== "function") {
+    return { denied: false, contacts: [], error: "This build can't list contacts." };
+  }
+  try {
+    const out = await plugin.list();
+    if (out.denied) return { denied: true, contacts: [] };
+    return {
+      denied: false,
+      contacts: (out.contacts ?? []).map((c) => ({
+        name: (c.name ?? "").trim(),
+        phone: (c.phone ?? "").trim(),
+      })),
+    };
+  } catch (e) {
+    return {
+      denied: false,
+      contacts: [],
+      error: e instanceof Error ? e.message : "Couldn't read the contact list.",
+    };
+  }
 }
 
 export async function pickContacts(): Promise<PickOutcome> {
@@ -105,7 +155,7 @@ export async function pickContacts(): Promise<PickOutcome> {
 
   if (source === "native") {
     try {
-      const picked = await nativePicker()!.pick();
+      const picked = await nativePicker()!.pick!();
       // Cancelled, or a contact with no name to show on a crew list.
       if (picked.cancelled || !picked.name?.trim()) return { contacts: [] };
       return {
