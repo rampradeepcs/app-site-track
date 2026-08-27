@@ -17,3 +17,4 @@ next-env.d.ts
 /android/app/src/main/assets/public/
 /android/local.properties
 /android/capacitor-cordova-android-plugins/build/
+.vercel

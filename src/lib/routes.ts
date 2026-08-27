@@ -99,3 +99,32 @@ export function takeDestination(role: Role): string | null {
 export function landingFor(role: Role): string {
   return takeDestination(role) ?? homeFor(role);
 }
+
+/* ------------------------------------------------- back to the sign-in */
+
+const SIGNIN_KEY = "workfence.straight-to-signin";
+
+/**
+ * The signed-out gate normally plays its whole sequence — splash, then the
+ * product highlights, then sign-in. Someone backing out of the signup
+ * wizard has already sat through both this visit, so the wizard sets this
+ * intent and the gate consumes it to open directly on the sign-in step.
+ * Session storage on purpose: the shortcut belongs to this visit only.
+ */
+export function requestSignInDirect(): void {
+  try {
+    sessionStorage.setItem(SIGNIN_KEY, "1");
+  } catch {
+    /* private mode — they replay the intro, which is harmless */
+  }
+}
+
+export function consumeSignInDirect(): boolean {
+  try {
+    const v = sessionStorage.getItem(SIGNIN_KEY) === "1";
+    sessionStorage.removeItem(SIGNIN_KEY);
+    return v;
+  } catch {
+    return false;
+  }
+}

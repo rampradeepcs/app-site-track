@@ -37,6 +37,7 @@ import {
 } from "@/components/WfIcons";
 import { useWorkforce, type CompanyDraft, type CrewInvite } from "@/lib/store";
 import { useSignUp } from "@/lib/onboarding";
+import { requestSignInDirect } from "@/lib/routes";
 import { isLiveBackend } from "@/lib/supabase/client";
 import { sendOtp, verifyOtp, currentAppUser } from "@/lib/supabase/auth";
 import { provisionCompanyRemote } from "@/lib/supabase/repository";
@@ -112,6 +113,14 @@ export default function StartPage() {
 
   const back = () => {
     setError(null);
+    // The first form step backs out of the wizard entirely — straight to
+    // sign-in, which is where the person came from. Not to the gate's
+    // intro: they sat through the splash and highlights this visit.
+    if (step === "identity" || step === "highlights") {
+      requestSignInDirect();
+      router.replace("/");
+      return;
+    }
     setStep((s) => {
       switch (s) {
         case "verify":
@@ -125,7 +134,7 @@ export default function StartPage() {
         case "crew":
           return wantOffice ? "office" : "site";
         default:
-          return "highlights";
+          return "identity";
       }
     });
   };
@@ -347,7 +356,10 @@ export default function StartPage() {
           </button>
           <button
             className="cursor-pointer text-center text-[0.8rem] font-semibold text-[var(--wf-muted)] hover:text-[var(--wf-fg)]"
-            onClick={() => router.replace("/")}
+            onClick={() => {
+              requestSignInDirect();
+              router.replace("/");
+            }}
           >
             Already invited to a company? Sign in
           </button>

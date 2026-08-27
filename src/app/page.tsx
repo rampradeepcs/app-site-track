@@ -19,7 +19,7 @@ import { useRouter } from "next/navigation";
 import { useWorkforce } from "@/lib/store";
 import { Field } from "@/components/ui";
 import { IAlert, IArrowR, IChevronL, ILock, IShield } from "@/components/WfIcons";
-import { landingFor } from "@/lib/routes";
+import { consumeSignInDirect, landingFor } from "@/lib/routes";
 import { isLiveBackend } from "@/lib/supabase/client";
 import LiveGate from "@/components/LiveGate";
 import { WorkfenceMark, WorkfenceSplash } from "@/components/Brand";
@@ -27,7 +27,6 @@ import { NewCompanyLink } from "@/components/onboarding/NewCompanyLink";
 import {
   Highlights,
   markHighlightsSeen,
-  seenHighlights,
 } from "@/components/onboarding/Highlights";
 import { phoneKey } from "@/components/onboarding/InviteCrew";
 
@@ -73,8 +72,13 @@ function LocalGate() {
     router.replace(landingFor(state.session.role));
   }, [state.session, router]);
 
-  /** Nobody has signed up on this device yet. */
-  const empty = state.users.length === 0;
+  /* Backing out of the signup wizard skips the intro — they just sat
+     through it. Post-mount so the server markup and hydration agree. */
+  useEffect(() => {
+    if (!state.session && consumeSignInDirect()) setStep("identify");
+    // On-mount check only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const match = useMemo(() => {
     const raw = identifier.trim();
@@ -113,11 +117,10 @@ function LocalGate() {
     login(match.role, match.id);
   };
 
-  /* Splash → highlights on the first run of this device, straight to
-     sign-in ever after. Read post-splash rather than in the initializer,
-     so the server markup and the first client render agree. */
-  const afterSplash = () =>
-    setStep(seenHighlights() ? "identify" : "highlights");
+  /* The signed-out sequence, every time: splash → highlights → sign-in.
+     Marking them seen doesn't skip them here — it keeps the signup wizard
+     from replaying them to someone who just watched. */
+  const afterSplash = () => setStep("highlights");
 
   const finishHighlights = () => {
     markHighlightsSeen();
@@ -156,92 +159,76 @@ function LocalGate() {
             <WorkfenceMark size={62} />
             <div>
               <h1 className="wf-display text-2xl font-bold">
-                {empty ? "Welcome to Workfence" : "Sign in to Workfence"}
+                Sign in to Workfence
               </h1>
               <p className="mt-1 text-sm text-[var(--wf-muted)]">
-                {empty
-                  ? "Geofenced attendance and live site tracking for construction crews."
-                  : "Enter the mobile number your company added you with."}
+                Enter the mobile number your company added you with.
               </p>
             </div>
           </div>
 
-          {empty ? (
-            <>
-              {/* Nothing exists yet, so signing in cannot work. Say that
-                  plainly and offer the only door that does. */}
-              <p className="wf-card2 p-4 text-[0.82rem] leading-relaxed text-[var(--wf-muted)]">
-                No company has been set up on this device yet. Create one — it
-                takes a minute, and you can invite your crew as you go.
-              </p>
-              <button
-                className="wf-btn wf-btn-primary wf-btn-lg"
-                onClick={() => router.push("/start")}
-              >
-                Create your company <IArrowR size={17} />
-              </button>
-            </>
-          ) : (
-            <>
-              <Field label="Mobile number">
-                {/* Focused on arrival so the phone's keypad is already up —
-                    the whole screen asks for one number, so the first tap
-                    should be a digit, not the field. `numeric` keeps that
-                    keypad digits-only; email sign-in still works from a
-                    hardware keyboard, it just isn't advertised. */}
-                <input
-                  className="wf-input"
-                  autoFocus
-                  inputMode="numeric"
-                  autoComplete="tel"
-                  placeholder="90000 00000"
-                  value={identifier}
-                  onChange={(e) => {
-                    // Digits only, ten of them — an Indian mobile number.
-                    // An eleventh keystroke on a full number is a stray tap
-                    // and is ignored; a multi-character jump is a paste, and
-                    // keeps the *last* ten (the same rule phoneKey applies),
-                    // so "+91 90000 00001" lands on the number, not the
-                    // country code.
-                    let d = e.target.value.replace(/\D/g, "");
-                    // A pasted number arrives dressed up — "+91 90000 00001"
-                    // or "090000 00001" — so shed the country code or trunk
-                    // zero before capping at ten digits.
-                    if (d.length === 12 && d.startsWith("91")) d = d.slice(2);
-                    if (d.length === 11 && d.startsWith("0")) d = d.slice(1);
-                    d = d.slice(0, 10);
-                    // Write the DOM too: when the state doesn't change
-                    // (a keystroke past the cap), React bails out of
-                    // re-rendering and would leave the raw text in the field.
-                    e.target.value = d;
-                    setIdentifier(d);
-                    setError(null);
-                  }}
-                  onKeyDown={(e) => e.key === "Enter" && requestCode()}
-                />
-              </Field>
+          {/* The form shows even on a device with no records yet: the
+              highlights land here, and the door should look the same on
+              every device. Requesting a code on an empty store names the
+              failure and points at creating a company — the link below is
+              the same door. */}
+          <Field label="Mobile number">
+            {/* Focused on arrival so the phone's keypad is already up —
+                the whole screen asks for one number, so the first tap
+                should be a digit, not the field. `numeric` keeps that
+                keypad digits-only; email sign-in still works from a
+                hardware keyboard, it just isn't advertised. */}
+            <input
+              className="wf-input"
+              autoFocus
+              inputMode="numeric"
+              autoComplete="tel"
+              placeholder="90000 00000"
+              value={identifier}
+              onChange={(e) => {
+                // Digits only, ten of them — an Indian mobile number.
+                // An eleventh keystroke on a full number is a stray tap
+                // and is ignored; a multi-character jump is a paste, and
+                // keeps the *last* ten (the same rule phoneKey applies),
+                // so "+91 90000 00001" lands on the number, not the
+                // country code.
+                let d = e.target.value.replace(/\D/g, "");
+                // A pasted number arrives dressed up — "+91 90000 00001"
+                // or "090000 00001" — so shed the country code or trunk
+                // zero before capping at ten digits.
+                if (d.length === 12 && d.startsWith("91")) d = d.slice(2);
+                if (d.length === 11 && d.startsWith("0")) d = d.slice(1);
+                d = d.slice(0, 10);
+                // Write the DOM too: when the state doesn't change
+                // (a keystroke past the cap), React bails out of
+                // re-rendering and would leave the raw text in the field.
+                e.target.value = d;
+                setIdentifier(d);
+                setError(null);
+              }}
+              onKeyDown={(e) => e.key === "Enter" && requestCode()}
+            />
+          </Field>
 
-              {error ? (
-                <p
-                  role="alert"
-                  className="flex items-start gap-2 rounded-xl bg-[var(--wf-red-soft)] px-3 py-2 text-[0.8rem] text-[var(--wf-red)]"
-                >
-                  <IAlert size={15} className="mt-0.5 shrink-0" />
-                  <span className="min-w-0">{error}</span>
-                </p>
-              ) : null}
+          {error ? (
+            <p
+              role="alert"
+              className="flex items-start gap-2 rounded-xl bg-[var(--wf-red-soft)] px-3 py-2 text-[0.8rem] text-[var(--wf-red)]"
+            >
+              <IAlert size={15} className="mt-0.5 shrink-0" />
+              <span className="min-w-0">{error}</span>
+            </p>
+          ) : null}
 
-              <button
-                className="wf-btn wf-btn-primary wf-btn-lg"
-                disabled={identifier.length !== 10}
-                onClick={requestCode}
-              >
-                Send code <IArrowR size={17} />
-              </button>
+          <button
+            className="wf-btn wf-btn-primary wf-btn-lg"
+            disabled={identifier.length !== 10}
+            onClick={requestCode}
+          >
+            Send code <IArrowR size={17} />
+          </button>
 
-              <NewCompanyLink />
-            </>
-          )}
+          <NewCompanyLink />
 
           <p className="flex items-center justify-center gap-1.5 text-center text-[0.7rem] text-[var(--wf-faint)]">
             <IShield size={13} /> Location is tracked only during an active shift

@@ -16,14 +16,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkforce } from "@/lib/store";
 import { currentAppUser, sendOtp, signOut, verifyOtp } from "@/lib/supabase/auth";
-import { landingFor } from "@/lib/routes";
+import { consumeSignInDirect, landingFor } from "@/lib/routes";
 import { Field } from "@/components/ui";
 import { WorkfenceMark } from "@/components/Brand";
 import { NewCompanyLink } from "@/components/onboarding/NewCompanyLink";
 import {
   Highlights,
   markHighlightsSeen,
-  seenHighlights,
 } from "@/components/onboarding/Highlights";
 import { IAlert, IArrowR, IChevronL, ILock, IShield } from "@/components/WfIcons";
 
@@ -69,12 +68,12 @@ export default function LiveGate() {
   }, [state.session, router]);
 
   /* An unexpired token means this device is already signed in. Anyone else
-     gets the product highlights first, once per device, then sign-in. */
+     gets the signed-out sequence: highlights, then sign-in. */
   useEffect(() => {
     let cancelled = false;
     if (state.session) return; // the effect above is already taking them in
     const arrive = () =>
-      setStep(seenHighlights() ? "identity" : "highlights");
+      setStep(consumeSignInDirect() ? "identity" : "highlights");
     enter()
       .then((ok) => {
         if (!cancelled && !ok) arrive();
