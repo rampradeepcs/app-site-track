@@ -67,6 +67,15 @@ export default function AdminOverview() {
           <KpiCard label="Avg hours" value={fmtDuration(stats.avgWorkedMinutes)} sub="per closed shift today" />
         </div>
 
+        <div className="grid grid-cols-2 gap-2.5">
+          <Link href="/manager/shifts" className="wf-btn wf-btn-ghost">
+            Shifts & breaks
+          </Link>
+          <Link href="/manager/payroll" className="wf-btn wf-btn-ghost">
+            Payroll
+          </Link>
+        </div>
+
         {/* portfolio health */}
         <div>
           <SectionTitle>Projects & their managers</SectionTitle>

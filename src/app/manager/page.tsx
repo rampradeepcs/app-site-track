@@ -26,6 +26,8 @@ import {
   needsAttention,
 } from "@/lib/metrics";
 import { useWorkforce } from "@/lib/store";
+import { fmtINR, todayShiftKpis } from "@/lib/payroll";
+import { useFeature } from "@/components/FeatureGate";
 import {
   IAlert,
   IArrowR,
@@ -42,6 +44,8 @@ export default function ManagerDashboard() {
   const { state, currentUser } = useWorkforce();
   const now = useNowTick(15);
   const stats = useMemo(() => dashboardStats(state, now), [state, now]);
+  const payrollOn = useFeature("payroll");
+  const shiftKpis = useMemo(() => todayShiftKpis(state, now), [state, now]);
   const board = useMemo(() => liveBoard(state, undefined, now), [state, now]);
   const trend = useMemo(() => attendanceTrend(state, 10, undefined, now), [state, now]);
   const attention = useMemo(() => needsAttention(state, now), [state, now]);
@@ -87,6 +91,47 @@ export default function ManagerDashboard() {
           <KpiCard label="Missing checkout" value={stats.missingCheckout} tone={stats.missingCheckout ? "red" : "neutral"} sub="all time" />
           <KpiCard label="Early outs" value={stats.earlyOutToday} sub="today" />
           <KpiCard label="Work updates" value={stats.updatesToday} tone="blue" sub="today" />
+        </div>
+
+        {/* shift & payroll KPIs — the workforce as money, live */}
+        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+          <KpiCard
+            label="On break"
+            value={shiftKpis.onBreak}
+            tone={shiftKpis.onBreak ? "amber" : "neutral"}
+            sub="right now"
+          />
+          <KpiCard
+            label="In overtime"
+            value={shiftKpis.inOvertime}
+            tone={shiftKpis.inOvertime ? "blue" : "neutral"}
+            sub={`${fmtDuration(shiftKpis.otMinutesToday)} OT today`}
+          />
+          <KpiCard
+            label="Pending OT approvals"
+            value={shiftKpis.pendingApprovals}
+            tone={shiftKpis.pendingApprovals ? "amber" : "neutral"}
+            sub="awaiting decision"
+          />
+          {payrollOn ? (
+            <KpiCard
+              label="Today's labour cost"
+              value={fmtINR(shiftKpis.labourCostToday)}
+              tone="green"
+              sub={`est · OT ${fmtINR(shiftKpis.otCostToday)}`}
+            />
+          ) : (
+            <KpiCard label="OT hours today" value={fmtDuration(shiftKpis.otMinutesToday)} />
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <Link href="/manager/shifts" className="wf-btn wf-btn-ghost">
+            <IClock size={16} /> Manage shifts
+          </Link>
+          <Link href="/manager/payroll" className="wf-btn wf-btn-ghost">
+            <IChart size={16} /> Payroll
+          </Link>
         </div>
 
         {/* live map + working list */}

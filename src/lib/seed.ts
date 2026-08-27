@@ -16,6 +16,7 @@
  * platform owner so the first sign-in resolves to somebody.
  */
 
+import { DEFAULT_PAY_POLICY } from "./payroll";
 import type { WorkforceState } from "./types";
 
 /**
@@ -64,6 +65,11 @@ export function buildSeedState(): WorkforceState {
     notifications: [],
     audit: [],
     outbox: [],
+    shifts: [],
+    shiftAssignments: [],
+    comp: [],
+    payPolicy: { ...DEFAULT_PAY_POLICY },
+    payrollRuns: [],
     permissions: {
       location: "prompt",
       backgroundLocation: "prompt",

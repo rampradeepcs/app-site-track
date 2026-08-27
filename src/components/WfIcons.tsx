@@ -175,6 +175,12 @@ export const ILayers = (p: IconProps) => (
 export const ITarget = (p: IconProps) => (
   <Icon {...p}><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.8" /><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" /></Icon>
 );
+export const ICoffee = (p: IconProps) => (
+  <Icon {...p}><path d="M4 9h12v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9Z" /><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16" /><path d="M8 3.5c0 1 1 1 1 2M12 3.5c0 1 1 1 1 2" /></Icon>
+);
+export const IWallet = (p: IconProps) => (
+  <Icon {...p}><rect x="3" y="6" width="18" height="14" rx="2.5" /><path d="M16.5 3.5H6a3 3 0 0 0-3 3" /><circle cx="16.5" cy="13" r="1.2" fill="currentColor" stroke="none" /></Icon>
+);
 export const IMic = (p: IconProps) => (
   <Icon {...p}><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5" /></Icon>
 );

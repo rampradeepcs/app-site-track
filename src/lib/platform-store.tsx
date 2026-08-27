@@ -123,12 +123,27 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
 
   /* hydrate */
   useEffect(() => {
-    let next = seedPlatform();
+    const seed = seedPlatform();
+    let next = seed;
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as PlatformState & { v?: number };
-        if (parsed.organizations?.length && parsed.plans?.length) next = parsed;
+        if (parsed.organizations?.length && parsed.plans?.length) {
+          // Feature keys added after a plan was persisted: fill from the
+          // shipped plan of the same id (or false), so a stored blob never
+          // hides a capability the product has since grown.
+          next = {
+            ...parsed,
+            plans: parsed.plans.map((plan) => {
+              const shipped = seed.plans.find((p) => p.id === plan.id);
+              return {
+                ...plan,
+                features: { ...(shipped?.features ?? {}), ...plan.features },
+              };
+            }),
+          };
+        }
       }
     } catch {
       /* corrupt or unavailable storage → fall back to a fresh seed */
@@ -397,6 +412,12 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
             liveTracking: true,
             routePlayback: false,
             workUpdates: false,
+            shifts: true,
+            breaks: true,
+            overtime: false,
+            salary: false,
+            payroll: false,
+            voiceNotes: true,
             performance: false,
             advancedReports: false,
             dataExport: false,

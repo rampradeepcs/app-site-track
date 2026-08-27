@@ -16,6 +16,12 @@ export interface FeatureSet {
   liveTracking: boolean;
   routePlayback: boolean;
   workUpdates: boolean;
+  shifts: boolean;
+  breaks: boolean;
+  overtime: boolean;
+  salary: boolean;
+  payroll: boolean;
+  voiceNotes: boolean;
   performance: boolean;
   advancedReports: boolean;
   dataExport: boolean;
@@ -31,6 +37,12 @@ export const FEATURE_LABELS: Record<keyof FeatureSet, string> = {
   liveTracking: "Live GPS tracking",
   routePlayback: "Route playback",
   workUpdates: "Work updates",
+  shifts: "Shift management",
+  breaks: "Break tracking",
+  overtime: "Overtime & bonus",
+  salary: "Salary management",
+  payroll: "Payroll",
+  voiceNotes: "Checkout voice notes",
   performance: "Performance analytics",
   advancedReports: "Advanced reports",
   dataExport: "Export (CSV / PDF)",

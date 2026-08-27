@@ -38,6 +38,14 @@ import { fmtDistance, todayISO } from "./format";
 import { setActor } from "./actor";
 import { assignedPremises, nearestPremise, premiseAt } from "./premises";
 import { SEED_VERSION, buildSeedState, makeSelfie } from "./seed";
+import {
+  DEFAULT_OVERTIME,
+  DEFAULT_PAY_POLICY,
+  dayMetrics,
+  fmtHM,
+  monthLocked,
+  shiftFor,
+} from "./payroll";
 import { isLiveBackend } from "./supabase/client";
 import { onAuthChange, signOut as authSignOut } from "./supabase/auth";
 import {
@@ -55,15 +63,24 @@ import type {
   AppNotification,
   Attendance,
   AttendanceMark,
+  BreakEntry,
+  CompRecord,
   LatLng,
   LocationPoint,
   OutboxItem,
+  OvertimeStatus,
+  PayPolicy,
+  PayrollRun,
+  PayrollStatus,
   Project,
   Role,
   Settings,
+  ShiftAssignment,
+  ShiftDef,
   ShiftEvent,
   TrackingMode,
   User,
+  VoiceNote,
   WorkUpdate,
   WorkforceState,
 } from "./types";
@@ -163,6 +180,10 @@ function scopeToTenant(s: WorkforceState): WorkforceState {
     points: s.points.filter((pt) => userIds.has(pt.employeeId)),
     updates: s.updates.filter((u) => userIds.has(u.employeeId)),
     notifications: s.notifications.filter((n) => !n.userId || userIds.has(n.userId)),
+    shifts: (s.shifts ?? []).filter((x) => x.orgId === orgId),
+    shiftAssignments: (s.shiftAssignments ?? []).filter((x) => userIds.has(x.employeeId)),
+    comp: (s.comp ?? []).filter((x) => userIds.has(x.employeeId)),
+    payrollRuns: (s.payrollRuns ?? []).filter((x) => x.orgId === orgId),
   };
 }
 
@@ -239,8 +260,37 @@ interface StoreApi {
   /* attendance */
   openShift: Attendance | null;
   checkIn: (selfie: string | null) => { ok: boolean; reason?: string };
-  checkOut: (selfie: string | null) => { ok: boolean; reason?: string };
+  checkOut: (
+    selfie: string | null,
+    extras?: { voiceNote?: Omit<VoiceNote, "at" | "coords" | "place"> },
+  ) => { ok: boolean; reason?: string };
   liveTrail: LocationPoint[];
+
+  /* breaks */
+  startBreak: () => { ok: boolean; reason?: string };
+  endBreak: () => { ok: boolean; reason?: string };
+
+  /* shift → payroll pipeline */
+  saveShift: (patch: Partial<ShiftDef> & { name: string }, id?: string) => ShiftDef;
+  archiveShift: (shiftId: string) => void;
+  assignShift: (employeeIds: string[], shiftId: string, effectiveFrom: string) => void;
+  saveComp: (
+    rec: Omit<CompRecord, "id" | "setBy" | "at">,
+  ) => { ok: boolean; reason?: string };
+  updatePayPolicy: (patch: Partial<PayPolicy>) => void;
+  decideOvertime: (
+    attendanceId: string,
+    decision: Extract<OvertimeStatus, "approved" | "rejected">,
+    approvedMinutes?: number,
+    note?: string,
+  ) => void;
+  setPayrollStatus: (month: string, status: PayrollStatus) => void;
+  addPayrollAdjustment: (
+    month: string,
+    employeeId: string,
+    amount: number,
+    note: string,
+  ) => void;
 
   /* mutations */
   submitWorkUpdate: (u: Partial<WorkUpdate> & { description: string }) => void;
@@ -313,7 +363,19 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as WorkforceState;
-        if (parsed.version === SEED_VERSION) next = parsed;
+        // Fields added after this blob was written are filled with their
+        // defaults rather than discarding the company (shift → payroll
+        // pipeline arrived after v6 shipped).
+        if (parsed.version === SEED_VERSION) {
+          next = {
+            ...parsed,
+            shifts: parsed.shifts ?? [],
+            shiftAssignments: parsed.shiftAssignments ?? [],
+            comp: parsed.comp ?? [],
+            payPolicy: { ...DEFAULT_PAY_POLICY, ...(parsed.payPolicy ?? {}) },
+            payrollRuns: parsed.payrollRuns ?? [],
+          };
+        }
       }
     } catch {
       /* corrupted storage → reseed */
@@ -955,10 +1017,18 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         insideGeofence: true,
         syncedAt: isOffline ? undefined : Date.now(),
       };
+      // Lateness is judged against the person's assigned shift; the project
+      // rules stand in only when no shift has ever been configured.
+      const shiftDef = shiftFor(s, user.id, today);
+      const lateAfter =
+        shiftDef && shiftDef.kind !== "flexible"
+          ? shiftDef.startMinute + shiftDef.graceMinutes
+          : shiftDef?.kind === "flexible"
+            ? null
+            : project.rules.shiftStart + project.rules.lateGraceMinutes;
       const late =
-        mark.at >
-        new Date(`${today}T00:00:00`).getTime() +
-          (project.rules.shiftStart + project.rules.lateGraceMinutes) * 60000;
+        lateAfter !== null &&
+        mark.at > new Date(`${today}T00:00:00`).getTime() + lateAfter * 60000;
 
       const att: Attendance = {
         id: uid(),
@@ -969,6 +1039,8 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         distanceMeters: 0,
         status: late ? "late" : "present",
         events: [],
+        breaks: [],
+        shiftId: shiftDef?.id,
       };
       lastRecordedRef.current = 0;
       recordingRef.current = false;
@@ -1022,7 +1094,10 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
   );
 
   const checkOut = useCallback(
-    (selfie: string | null): { ok: boolean; reason?: string } => {
+    (
+      selfie: string | null,
+      extras?: { voiceNote?: Omit<VoiceNote, "at" | "coords" | "place"> },
+    ): { ok: boolean; reason?: string } => {
       const s = stateRef.current;
       const f = fixRef.current;
       if (!s?.session || !f) return { ok: false, reason: "Waiting for a GPS fix." };
@@ -1074,7 +1149,44 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         insideGeofence: checkGeofence(f.coords, project.geofence).inside,
         syncedAt: isOffline ? undefined : at,
       };
-      const worked = Math.round((at - shift.checkIn!.at) / 60000);
+      // A break that was never ended closes itself at checkout — the walk to
+      // the gate ends both.
+      const closedBreaks: BreakEntry[] = (shift.breaks ?? []).map((b) =>
+        b.end ? b : { ...b, end: at, coordsEnd: f.coords },
+      );
+
+      // Measure the day against the assigned shift: net working time, and
+      // overtime past the configured grace. The record carries the numbers'
+      // approval state; the payroll engine prices them later.
+      const shiftDef =
+        (s.shifts ?? []).find((x) => x.id === shift.shiftId) ??
+        shiftFor(s, user.id, today);
+      const closed: Attendance = { ...shift, breaks: closedBreaks, checkOut: mark };
+      const metrics = shiftDef ? dayMetrics(closed, shiftDef, at) : null;
+      const worked = metrics
+        ? Math.round(metrics.netMinutes)
+        : Math.round((at - shift.checkIn!.at) / 60000);
+      const otMinutes = Math.round(metrics?.overtimeMinutes ?? 0);
+      const otApproval = shiftDef?.overtime.approval ?? "auto";
+      const overtime =
+        otMinutes > 0
+          ? {
+              minutes: otMinutes,
+              status: (otApproval === "auto"
+                ? "auto-approved"
+                : "pending") as OvertimeStatus,
+            }
+          : undefined;
+
+      const voiceNote: VoiceNote | undefined = extras?.voiceNote
+        ? {
+            ...extras.voiceNote,
+            at,
+            coords: f.coords,
+            place: mark.place,
+          }
+        : undefined;
+
       const early =
         at <
         new Date(`${today}T00:00:00`).getTime() +
@@ -1088,7 +1200,15 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         attendance: prev.attendance.map((a) =>
           a.id === shift.id
-            ? { ...a, checkOut: mark, workedMinutes: worked, status }
+            ? {
+                ...a,
+                checkOut: mark,
+                workedMinutes: worked,
+                status,
+                breaks: closedBreaks,
+                overtime,
+                voiceNote,
+              }
             : a,
         ),
         outbox: isOffline
@@ -1113,12 +1233,403 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         audience: "manager",
         kind: "check-out",
         title: `${user.name} checked out`,
-        body: `${project.name} · ${Math.floor(worked / 60)}h ${worked % 60}m worked`,
+        body: `${project.name} · ${fmtHM(worked)} worked${voiceNote ? " · voice note attached" : ""}`,
         severity: early ? "warning" : "info",
       });
+      if (overtime?.status === "pending") {
+        pushNotification({
+          audience: "manager",
+          kind: "check-out",
+          title: `Overtime pending approval — ${user.name}`,
+          body: `${fmtHM(otMinutes)} past shift end at ${project.name}`,
+          severity: "warning",
+        });
+      }
       return { ok: true };
     },
     [mutate, pushNotification],
+  );
+
+  /* ------------------------------------------------------------- breaks */
+
+  const startBreak = useCallback((): { ok: boolean; reason?: string } => {
+    const s = stateRef.current;
+    const f = fixRef.current;
+    if (!s?.session) return { ok: false, reason: "Not signed in." };
+    const user = s.users.find((u) => u.id === s.session!.userId);
+    if (!user) return { ok: false, reason: "No signed-in employee." };
+    const today = todayISO();
+    const shift = s.attendance.find(
+      (a) => a.employeeId === user.id && a.date === today && a.checkIn && !a.checkOut && !a.autoClosed,
+    );
+    if (!shift) return { ok: false, reason: "No active shift." };
+    const breaks = shift.breaks ?? [];
+    if (breaks.some((b) => !b.end)) return { ok: false, reason: "A break is already running." };
+    const def = (s.shifts ?? []).find((x) => x.id === shift.shiftId) ?? shiftFor(s, user.id, today);
+    if (def && !def.employeeBreaksAllowed) {
+      return { ok: false, reason: "Breaks on this shift are started by your manager." };
+    }
+    if (def && breaks.length >= def.maxBreaksPerShift) {
+      return {
+        ok: false,
+        reason: `This shift allows ${def.maxBreaksPerShift} break${def.maxBreaksPerShift === 1 ? "" : "s"} — you've taken them.`,
+      };
+    }
+    const entry: BreakEntry = {
+      id: rid("brk"),
+      start: Date.now(),
+      coordsStart: f?.coords,
+    };
+    mutate((prev) => ({
+      ...prev,
+      attendance: prev.attendance.map((a) =>
+        a.id === shift.id ? { ...a, breaks: [...(a.breaks ?? []), entry] } : a,
+      ),
+    }));
+    return { ok: true };
+  }, [mutate]);
+
+  const endBreak = useCallback((): { ok: boolean; reason?: string } => {
+    const s = stateRef.current;
+    const f = fixRef.current;
+    if (!s?.session) return { ok: false, reason: "Not signed in." };
+    const user = s.users.find((u) => u.id === s.session!.userId);
+    if (!user) return { ok: false, reason: "No signed-in employee." };
+    const today = todayISO();
+    const shift = s.attendance.find(
+      (a) => a.employeeId === user.id && a.date === today && a.checkIn && !a.checkOut && !a.autoClosed,
+    );
+    const open = shift?.breaks?.find((b) => !b.end);
+    if (!shift || !open) return { ok: false, reason: "No break is running." };
+    const at = Date.now();
+    mutate((prev) => ({
+      ...prev,
+      attendance: prev.attendance.map((a) =>
+        a.id === shift.id
+          ? {
+              ...a,
+              breaks: (a.breaks ?? []).map((b) =>
+                b.id === open.id ? { ...b, end: at, coordsEnd: f?.coords } : b,
+              ),
+            }
+          : a,
+      ),
+    }));
+    return { ok: true };
+  }, [mutate]);
+
+  /* ------------------------------------------- shift → payroll pipeline */
+
+  /** One audit line for a sensitive action. Appended, never rewritten. */
+  const auditLine = (
+    s: WorkforceState,
+    action: string,
+    target: string,
+    detail: string,
+  ) => ({
+    id: rid("aud"),
+    at: Date.now(),
+    actorId: s.session?.userId ?? "system",
+    action,
+    target,
+    detail,
+  });
+
+  const saveShift = useCallback(
+    (patch: Partial<ShiftDef> & { name: string }, id?: string): ShiftDef => {
+      let saved: ShiftDef | null = null;
+      mutate((s) => {
+        if (id) {
+          const shifts = (s.shifts ?? []).map((x) => {
+            if (x.id !== id) return x;
+            saved = { ...x, ...patch, id };
+            return saved;
+          });
+          return {
+            ...s,
+            shifts,
+            audit: [
+              auditLine(s, "shift.update", id, `${patch.name} modified`),
+              ...s.audit,
+            ].slice(0, 200),
+          };
+        }
+        const created: ShiftDef = {
+          id: uid(),
+          orgId: patch.orgId ?? currentOrgId(s),
+          name: patch.name,
+          code: patch.code ?? `SH-${((s.shifts ?? []).length + 1).toString().padStart(2, "0")}`,
+          kind: patch.kind ?? "fixed",
+          startMinute: patch.startMinute ?? 8 * 60 + 30,
+          endMinute: patch.endMinute ?? 17 * 60 + 30,
+          requiredMinutes: patch.requiredMinutes ?? 8 * 60,
+          graceMinutes: patch.graceMinutes ?? 15,
+          breakRules: patch.breakRules ?? [
+            { id: rid("brl"), name: "Lunch", startMinute: 13 * 60, endMinute: 13 * 60 + 45, durationMinutes: 45, paid: false },
+          ],
+          maxBreaksPerShift: patch.maxBreaksPerShift ?? 3,
+          minBreakMinutes: patch.minBreakMinutes ?? 5,
+          maxBreakMinutes: patch.maxBreakMinutes ?? 90,
+          employeeBreaksAllowed: patch.employeeBreaksAllowed ?? true,
+          breakApprovalRequired: patch.breakApprovalRequired ?? false,
+          overtime: patch.overtime ?? { ...DEFAULT_OVERTIME },
+          workingDays: patch.workingDays ?? [1, 2, 3, 4, 5, 6],
+          projectIds: patch.projectIds ?? [],
+          status: patch.status ?? "active",
+          createdAt: Date.now(),
+        };
+        saved = created;
+        return {
+          ...s,
+          shifts: [...(s.shifts ?? []), created],
+          audit: [
+            auditLine(s, "shift.create", created.id, created.name),
+            ...s.audit,
+          ].slice(0, 200),
+        };
+      });
+      return saved!;
+    },
+    [mutate],
+  );
+
+  const archiveShift = useCallback(
+    (shiftId: string) => {
+      mutate((s) => ({
+        ...s,
+        shifts: (s.shifts ?? []).map((x) =>
+          x.id === shiftId ? { ...x, status: "archived" } : x,
+        ),
+        audit: [
+          auditLine(s, "shift.archive", shiftId, ""),
+          ...s.audit,
+        ].slice(0, 200),
+      }));
+    },
+    [mutate],
+  );
+
+  const assignShift = useCallback(
+    (employeeIds: string[], shiftId: string, effectiveFrom: string) => {
+      mutate((s) => {
+        const name = (s.shifts ?? []).find((x) => x.id === shiftId)?.name ?? shiftId;
+        const rows: ShiftAssignment[] = employeeIds.map((employeeId) => ({
+          id: rid("sha"),
+          employeeId,
+          shiftId,
+          effectiveFrom,
+          assignedBy: s.session?.userId ?? "system",
+          at: Date.now(),
+        }));
+        return {
+          ...s,
+          shiftAssignments: [...(s.shiftAssignments ?? []), ...rows],
+          audit: [
+            auditLine(
+              s,
+              "shift.assign",
+              shiftId,
+              `${name} → ${employeeIds.length} people, effective ${effectiveFrom}`,
+            ),
+            ...s.audit,
+          ].slice(0, 200),
+        };
+      });
+    },
+    [mutate],
+  );
+
+  const saveComp = useCallback(
+    (rec: Omit<CompRecord, "id" | "setBy" | "at">): { ok: boolean; reason?: string } => {
+      const st = stateRef.current;
+      if (!st) return { ok: false, reason: "Not ready." };
+      // Salary history is append-only: a change is a new revision on its own
+      // effective date, and the payroll engine reads whichever was in force.
+      const prev = (st.comp ?? [])
+        .filter((c) => c.employeeId === rec.employeeId)
+        .sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? -1 : 1))
+        .pop();
+      mutate((s) => ({
+        ...s,
+        comp: [
+          ...(s.comp ?? []),
+          {
+            ...rec,
+            id: rid("cmp"),
+            setBy: s.session?.userId ?? "system",
+            at: Date.now(),
+          },
+        ],
+        audit: [
+          auditLine(
+            s,
+            prev ? "salary.update" : "salary.create",
+            rec.employeeId,
+            `${prev ? `₹${prev.amount}/${prev.type} → ` : ""}₹${rec.amount}/${rec.type}, effective ${rec.effectiveFrom}${rec.note ? ` — ${rec.note}` : ""}`,
+          ),
+          ...s.audit,
+        ].slice(0, 200),
+      }));
+      return { ok: true };
+    },
+    [mutate],
+  );
+
+  const updatePayPolicy = useCallback(
+    (patch: Partial<PayPolicy>) => {
+      mutate((s) => ({
+        ...s,
+        payPolicy: { ...(s.payPolicy ?? DEFAULT_PAY_POLICY), ...patch },
+        audit: [
+          auditLine(s, "paypolicy.update", "org", Object.keys(patch).join(", ")),
+          ...s.audit,
+        ].slice(0, 200),
+      }));
+    },
+    [mutate],
+  );
+
+  const decideOvertime = useCallback(
+    (
+      attendanceId: string,
+      decision: Extract<OvertimeStatus, "approved" | "rejected">,
+      approvedMinutes?: number,
+      note?: string,
+    ) => {
+      const st = stateRef.current;
+      const att = st?.attendance.find((a) => a.id === attendanceId);
+      if (!att?.overtime) return;
+      const worker = st?.users.find((u) => u.id === att.employeeId);
+      mutate((s) => ({
+        ...s,
+        attendance: s.attendance.map((a) =>
+          a.id === attendanceId && a.overtime
+            ? {
+                ...a,
+                overtime: {
+                  ...a.overtime,
+                  status: decision,
+                  approvedMinutes:
+                    decision === "approved"
+                      ? Math.round(approvedMinutes ?? a.overtime.minutes)
+                      : 0,
+                  decidedBy: s.session?.userId,
+                  decidedAt: Date.now(),
+                  note,
+                },
+              }
+            : a,
+        ),
+        audit: [
+          auditLine(
+            s,
+            `overtime.${decision}`,
+            attendanceId,
+            `${worker?.name ?? att.employeeId} · ${fmtHM(att.overtime!.minutes)}${
+              decision === "approved" && approvedMinutes != null && Math.round(approvedMinutes) !== att.overtime!.minutes
+                ? ` → ${fmtHM(approvedMinutes)}`
+                : ""
+            }${note ? ` — ${note}` : ""}`,
+          ),
+          ...s.audit,
+        ].slice(0, 200),
+      }));
+      if (worker) {
+        pushNotification({
+          audience: "employee",
+          userId: worker.id,
+          kind: "check-out",
+          title: decision === "approved" ? "Overtime approved" : "Overtime not approved",
+          body: `${fmtHM(approvedMinutes ?? att.overtime.minutes)} on ${att.date}${note ? ` — ${note}` : ""}`,
+          severity: decision === "approved" ? "success" : "warning",
+        });
+      }
+    },
+    [mutate, pushNotification],
+  );
+
+  const setPayrollStatus = useCallback(
+    (month: string, status: PayrollStatus) => {
+      mutate((s) => {
+        const orgId = currentOrgId(s);
+        const existing = (s.payrollRuns ?? []).find(
+          (r) => r.month === month && r.orgId === orgId,
+        );
+        const now = Date.now();
+        const run: PayrollRun = existing
+          ? {
+              ...existing,
+              status,
+              approvedBy:
+                status === "approved" ? s.session?.userId : existing.approvedBy,
+              approvedAt: status === "approved" ? now : existing.approvedAt,
+              lockedAt: status === "locked" ? now : existing.lockedAt,
+            }
+          : {
+              id: rid("prl"),
+              orgId,
+              month,
+              status,
+              adjustments: [],
+              approvedBy: status === "approved" ? s.session?.userId : undefined,
+              approvedAt: status === "approved" ? now : undefined,
+              lockedAt: status === "locked" ? now : undefined,
+            };
+        return {
+          ...s,
+          payrollRuns: existing
+            ? (s.payrollRuns ?? []).map((r) => (r.id === existing.id ? run : r))
+            : [...(s.payrollRuns ?? []), run],
+          audit: [
+            auditLine(s, `payroll.${status}`, month, ""),
+            ...s.audit,
+          ].slice(0, 200),
+        };
+      });
+    },
+    [mutate],
+  );
+
+  const addPayrollAdjustment = useCallback(
+    (month: string, employeeId: string, amount: number, note: string) => {
+      mutate((s) => {
+        const orgId = currentOrgId(s);
+        let run = (s.payrollRuns ?? []).find(
+          (r) => r.month === month && r.orgId === orgId,
+        );
+        const adjustment = {
+          id: rid("adj"),
+          employeeId,
+          amount,
+          note,
+          by: s.session?.userId ?? "system",
+          at: Date.now(),
+        };
+        // A locked month is never silently corrected — the adjustment IS the
+        // correction record, on the run, in the audit trail (spec §18).
+        if (!run) {
+          run = { id: rid("prl"), orgId, month, status: "draft", adjustments: [] };
+        }
+        const next = { ...run, adjustments: [...run.adjustments, adjustment] };
+        const worker = s.users.find((u) => u.id === employeeId);
+        return {
+          ...s,
+          payrollRuns: (s.payrollRuns ?? []).some((r) => r.id === next.id)
+            ? (s.payrollRuns ?? []).map((r) => (r.id === next.id ? next : r))
+            : [...(s.payrollRuns ?? []), next],
+          audit: [
+            auditLine(
+              s,
+              "payroll.adjust",
+              month,
+              `${worker?.name ?? employeeId}: ${amount >= 0 ? "+" : ""}₹${amount} — ${note}${monthLocked(s, month) ? " (after lock)" : ""}`,
+            ),
+            ...s.audit,
+          ].slice(0, 200),
+        };
+      });
+    },
+    [mutate],
   );
 
   const submitWorkUpdate = useCallback(
@@ -1570,6 +2081,49 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           )
         : null;
 
+      // Day one comes with a working shift: contracted hours, a lunch break,
+      // and auto-approved overtime — everything the manager can reshape later
+      // from Shifts. Assigned to the whole crew from today.
+      const generalShift: ShiftDef = {
+        id: uid(),
+        orgId,
+        name: "General Shift",
+        code: "SH-01",
+        kind: "fixed",
+        startMinute: DEFAULT_SHIFT.start,
+        endMinute: DEFAULT_SHIFT.end,
+        requiredMinutes: DEFAULT_SHIFT.end - DEFAULT_SHIFT.start - 60,
+        graceMinutes: 15,
+        breakRules: [
+          {
+            id: rid("brl"),
+            name: "Lunch",
+            startMinute: 13 * 60,
+            endMinute: 13 * 60 + 45,
+            durationMinutes: 45,
+            paid: false,
+          },
+        ],
+        maxBreaksPerShift: 3,
+        minBreakMinutes: 5,
+        maxBreakMinutes: 90,
+        employeeBreaksAllowed: true,
+        breakApprovalRequired: false,
+        overtime: { ...DEFAULT_OVERTIME },
+        workingDays: [1, 2, 3, 4, 5, 6],
+        projectIds: premiseIds,
+        status: "active",
+        createdAt: now,
+      };
+      const shiftAssignments: ShiftAssignment[] = roster.map((employeeId) => ({
+        id: rid("sha"),
+        employeeId,
+        shiftId: generalShift.id,
+        effectiveFrom: todayISO(),
+        assignedBy: adminId,
+        at: now,
+      }));
+
       mutate((s) => {
         // Idempotent: React may invoke an updater twice, and provisioning a
         // company twice would double the whole tenant.
@@ -1578,6 +2132,8 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ...s,
           users: [...s.users, admin, ...crew],
           projects: [...s.projects, site, ...(office ? [office] : [])],
+          shifts: [...(s.shifts ?? []), generalShift],
+          shiftAssignments: [...(s.shiftAssignments ?? []), ...shiftAssignments],
           audit: [
             {
               id: rid("aud"),
@@ -1639,6 +2195,16 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     checkIn,
     checkOut,
     liveTrail,
+    startBreak,
+    endBreak,
+    saveShift,
+    archiveShift,
+    assignShift,
+    saveComp,
+    updatePayPolicy,
+    decideOvertime,
+    setPayrollStatus,
+    addPayrollAdjustment,
     submitWorkUpdate,
     saveEmployee,
     setUserRole,

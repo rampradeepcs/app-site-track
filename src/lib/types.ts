@@ -137,6 +137,172 @@ export interface Project {
   createdAt: number;
 }
 
+/* ----------------------------------------------------------------- shifts */
+
+/**
+ * How a shift's clock works.
+ *  - `fixed`     — a start and an end on the same calendar day.
+ *  - `flexible`  — a required number of minutes; no fixed start/end.
+ *  - `overnight` — the end lands on the following calendar day; attendance
+ *                  stays filed under the check-in date.
+ *  - `custom`    — same mechanics as fixed, named so managers can mark the
+ *                  odd one out.
+ */
+export type ShiftKind = "fixed" | "flexible" | "overnight" | "custom";
+
+/** A named, scheduled break inside a shift — a lunch window, a tea break. */
+export interface BreakRule {
+  id: string;
+  name: string;
+  /** Scheduled window, minutes from midnight. Optional — ad-hoc allowances have none. */
+  startMinute?: number;
+  endMinute?: number;
+  durationMinutes: number;
+  paid: boolean;
+}
+
+/** One overtime pay tier: from `afterHours` of OT onward, this multiplier. */
+export interface OvertimeTier {
+  afterHours: number;
+  multiplier: number;
+}
+
+export interface OvertimeConfig {
+  enabled: boolean;
+  /** Minutes past shift end that count as nothing before OT begins. */
+  graceMinutes: number;
+  approval: "auto" | "manager";
+  /** How the OT hour is priced. */
+  method: "fixed-hourly" | "salary-multiplier";
+  /** ₹ per OT hour when method is fixed-hourly. */
+  hourlyRate: number;
+  /** Multiplier tiers when method is salary-multiplier, sorted by afterHours. */
+  tiers: OvertimeTier[];
+  /** Flat bonus once OT crosses a threshold; null = no bonus rule. */
+  bonusAfterHours: number | null;
+  bonusAmount: number;
+}
+
+/**
+ * A reusable shift definition. Assignments point at it; the payroll engine
+ * reads it; nothing about pay is hard-coded here beyond structure.
+ */
+export interface ShiftDef {
+  id: string;
+  orgId: string;
+  name: string;
+  code: string;
+  kind: ShiftKind;
+  /** Minutes from midnight. For overnight shifts end < start. */
+  startMinute: number;
+  endMinute: number;
+  /** Required minutes for flexible shifts; expected minutes otherwise. */
+  requiredMinutes: number;
+  /** Late grace after startMinute. */
+  graceMinutes: number;
+  breakRules: BreakRule[];
+  maxBreaksPerShift: number;
+  minBreakMinutes: number;
+  maxBreakMinutes: number;
+  /** Whether workers may start breaks themselves from the app. */
+  employeeBreaksAllowed: boolean;
+  breakApprovalRequired: boolean;
+  overtime: OvertimeConfig;
+  /** Working days, 0 = Sunday … 6 = Saturday. */
+  workingDays: number[];
+  projectIds: string[];
+  status: "active" | "archived";
+  createdAt: number;
+}
+
+/** Who is on which shift, from when. The latest effective one wins. */
+export interface ShiftAssignment {
+  id: string;
+  employeeId: string;
+  shiftId: string;
+  /** ISO date this assignment starts applying. */
+  effectiveFrom: string;
+  assignedBy: string;
+  at: number;
+}
+
+/* ----------------------------------------------------------- compensation */
+
+export type SalaryType = "monthly" | "daily" | "hourly";
+
+/**
+ * One salary revision. History is the list of these — a change appends a new
+ * record, it never rewrites an old one.
+ */
+export interface CompRecord {
+  id: string;
+  employeeId: string;
+  type: SalaryType;
+  /** ₹ per month / day / hour according to `type`. */
+  amount: number;
+  effectiveFrom: string;
+  /** Working days per month, for deriving a daily rate from monthly pay. */
+  workingDaysPerMonth: number;
+  /** Standard paid minutes in a working day, for deriving an hourly rate. */
+  standardDayMinutes: number;
+  note?: string;
+  setBy: string;
+  at: number;
+}
+
+/** Org-wide payroll rules. Configuration, never code. */
+export interface PayPolicy {
+  lateDeduction: "none" | "per-minute" | "fixed";
+  /** ₹ per late minute beyond grace (per-minute mode). */
+  latePerMinuteRate: number;
+  /** ₹ once per late day beyond grace (fixed mode). */
+  lateFixedAmount: number;
+  earlyOutDeduction: "none" | "per-minute" | "fixed";
+  earlyPerMinuteRate: number;
+  earlyFixedAmount: number;
+  absenceDeduction: "full-day" | "none";
+  /** Deduct break time beyond the shift's paid allowance. */
+  excessBreakUnpaid: boolean;
+  /** Whether managers may see salary figures (admins always can). */
+  managerSeesSalary: boolean;
+}
+
+/* ---------------------------------------------------------------- payroll */
+
+export type PayrollStatus =
+  | "draft"
+  | "calculated"
+  | "review"
+  | "approved"
+  | "locked";
+
+export interface PayrollAdjustment {
+  id: string;
+  employeeId: string;
+  /** Signed ₹ — positive adds, negative deducts. */
+  amount: number;
+  note: string;
+  by: string;
+  at: number;
+}
+
+/**
+ * One month's payroll for one org. The figures themselves are recomputed
+ * from attendance + rules on demand; the run holds the workflow state and
+ * the human decisions (adjustments, approval, lock).
+ */
+export interface PayrollRun {
+  id: string;
+  orgId: string;
+  /** YYYY-MM */
+  month: string;
+  status: PayrollStatus;
+  adjustments: PayrollAdjustment[];
+  approvedBy?: string;
+  approvedAt?: number;
+  lockedAt?: number;
+}
+
 /* ------------------------------------------------------------- attendance */
 
 export type AttendanceStatus =
@@ -161,6 +327,40 @@ export interface AttendanceMark {
   syncedAt?: number;
 }
 
+/** One break inside a shift. Open while `end` is unset. */
+export interface BreakEntry {
+  id: string;
+  start: number;
+  end?: number;
+  coordsStart?: LatLng;
+  coordsEnd?: LatLng;
+  /** Which scheduled break this was taken against, if any. */
+  ruleId?: string;
+}
+
+/** The optional checkout voice note, recorded on the device. */
+export interface VoiceNote {
+  /** data-URL of the audio (webm/ogg/mp4 per browser). */
+  dataUrl: string;
+  seconds: number;
+  at: number;
+  coords?: LatLng;
+  place?: string;
+}
+
+export type OvertimeStatus = "auto-approved" | "pending" | "approved" | "rejected";
+
+/** Overtime worked on one attendance day, and what became of it. */
+export interface OvertimeRecord {
+  minutes: number;
+  status: OvertimeStatus;
+  /** Manager may trim the minutes on approval; original kept for the trail. */
+  approvedMinutes?: number;
+  decidedBy?: string;
+  decidedAt?: number;
+  note?: string;
+}
+
 export interface Attendance {
   id: string;
   employeeId: string;
@@ -174,6 +374,14 @@ export interface Attendance {
   status: AttendanceStatus;
   /** Geofence exit/return events recorded during the shift. */
   events: ShiftEvent[];
+  /** Breaks taken during this shift, in order. Absent on old records. */
+  breaks?: BreakEntry[];
+  /** Shift definition in force when the day opened. */
+  shiftId?: string;
+  /** Overtime detected at checkout, with its approval state. */
+  overtime?: OvertimeRecord;
+  /** Optional voice note captured at checkout. */
+  voiceNote?: VoiceNote;
   autoClosed?: boolean;
   note?: string;
 }
@@ -363,6 +571,12 @@ export interface WorkforceState {
   notifications: AppNotification[];
   audit: AuditEntry[];
   outbox: OutboxItem[];
+  /* shift → payroll pipeline */
+  shifts: ShiftDef[];
+  shiftAssignments: ShiftAssignment[];
+  comp: CompRecord[];
+  payPolicy: PayPolicy;
+  payrollRuns: PayrollRun[];
   permissions: Permissions;
   settings: Settings;
   session: Session | null;

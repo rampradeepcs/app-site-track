@@ -19,6 +19,7 @@ import {
   useNowTick,
 } from "@/components/ui";
 import { EmployeeEditor } from "@/components/EmployeeEditor";
+import { SalaryAndShiftSection } from "@/components/SalarySection";
 import {
   fmtDateLong,
   fmtDistance,
@@ -169,6 +170,9 @@ function EmployeeInner() {
             />
           </div>
         </div>
+
+        {/* shift + salary — visibility enforced inside the component */}
+        <SalaryAndShiftSection user={user} />
 
         {/* attendance history */}
         <div className="wf-card overflow-hidden">

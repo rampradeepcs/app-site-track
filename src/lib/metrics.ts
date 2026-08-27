@@ -159,7 +159,7 @@ export interface TimelineEntry {
   end?: number;
   label: string;
   detail?: string;
-  kind: "check-in" | "check-out" | "dwell" | "move" | "event" | "update";
+  kind: "check-in" | "check-out" | "dwell" | "move" | "event" | "update" | "break";
   coords?: { lat: number; lng: number };
 }
 
@@ -191,6 +191,23 @@ export function buildTimeline(
   }
   for (const ev of att.events) {
     entries.push({ at: ev.at, label: ev.detail, kind: "event" });
+  }
+  for (const b of att.breaks ?? []) {
+    entries.push({
+      at: b.start,
+      label: "Break started",
+      kind: "break",
+      coords: b.coordsStart,
+    });
+    if (b.end) {
+      entries.push({
+        at: b.end,
+        label: "Break ended",
+        detail: `${Math.round((b.end - b.start) / 60000)} min`,
+        kind: "break",
+        coords: b.coordsEnd,
+      });
+    }
   }
   for (const u of updates.filter((x) => x.attendanceId === att.id && x.kind === "shift")) {
     entries.push({

@@ -12,13 +12,14 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { SiteMap, type MapMarker } from "@/components/SiteMap";
 import { SelfieCapture } from "@/components/SelfieCapture";
+import { VoiceRecorder, type RecordedNote } from "@/components/VoiceRecorder";
 import { WorkUpdateForm } from "@/components/WorkUpdateForm";
+import { useFeature } from "@/components/FeatureGate";
 import { AccountMenu, NotificationBell } from "@/components/shell";
 import {
   Avatar,
   BottomSheet,
   Chip,
-  LiveDuration,
   Segmented,
   StatusChip,
   useNowTick,
@@ -31,6 +32,7 @@ import {
   initialsOf,
   todayISO,
 } from "@/lib/format";
+import { dayMetrics, shiftFor } from "@/lib/payroll";
 import { resolvePlace } from "@/lib/geo";
 import {
   assignedPremises,
@@ -44,6 +46,8 @@ import {
   ICamera,
   ICheckCircle,
   IClipboard,
+  IClock,
+  ICoffee,
   ICrosshair,
   IMapPin,
   INav,
@@ -56,6 +60,7 @@ type Flow =
   | null
   | { step: "validating"; dir: "in" | "out" }
   | { step: "selfie"; dir: "in" | "out" }
+  | { step: "review"; selfie: string }
   | { step: "done-in"; at: number }
   | { step: "done-out"; at: number; summary: { inAt: number; outAt: number; minutes: number; distance: number } }
   | { step: "daily-update" }
@@ -72,13 +77,19 @@ export default function EmployeeHome() {
     liveTrail,
     checkIn,
     checkOut,
+    startBreak,
+    endBreak,
     simScenario,
     setSimScenario,
     setActiveProject,
   } = wf;
   const [flow, setFlow] = useState<Flow>(null);
   const [updateSheet, setUpdateSheet] = useState(false);
-  const now = useNowTick(30);
+  const [voiceNote, setVoiceNote] = useState<RecordedNote | null>(null);
+  const [breakError, setBreakError] = useState<string | null>(null);
+  const now = useNowTick(5);
+  const breaksEnabled = useFeature("breaks");
+  const voiceEnabled = useFeature("voiceNotes");
 
   const project = useMemo(() => {
     const pid = state.activeProjectId ?? currentUser?.projectIds[0];
@@ -94,6 +105,17 @@ export default function EmployeeHome() {
     if (!fix || !project) return "Locating…";
     return resolvePlace(fix.coords, project.zones, project.location);
   }, [fix, project]);
+
+  /* The assigned shift and today's live measurements against it. */
+  const shiftDef = useMemo(
+    () => (currentUser ? shiftFor(state, currentUser.id, todayISO(now)) : null),
+    [state, currentUser, now],
+  );
+  const liveMetrics = useMemo(
+    () => (openShift && shiftDef ? dayMetrics(openShift, shiftDef, now) : null),
+    [openShift, shiftDef, now],
+  );
+  const openBreak = openShift?.breaks?.find((b) => !b.end) ?? null;
 
   if (!currentUser || !project) {
     return (
@@ -171,25 +193,33 @@ export default function EmployeeHome() {
       }
       setFlow({ step: "done-in", at: Date.now() });
     } else {
-      const inAt = openShift?.checkIn?.at ?? Date.now();
-      const dist = openShift?.distanceMeters ?? 0;
-      const res = checkOut(dataUrl);
-      if (!res.ok) {
-        setFlow({ step: "blocked", reason: res.reason ?? "Checkout failed." });
-        return;
-      }
-      const outAt = Date.now();
-      setFlow({
-        step: "done-out",
-        at: outAt,
-        summary: {
-          inAt,
-          outAt,
-          minutes: Math.round((outAt - inAt) / 60000),
-          distance: dist,
-        },
-      });
+      // The selfie is captured first, then the day is reviewed — summary,
+      // optional voice note — and only "Check Out" on that sheet closes it.
+      setVoiceNote(null);
+      setFlow({ step: "review", selfie: dataUrl });
     }
+  };
+
+  const confirmCheckOut = (selfie: string) => {
+    const inAt = openShift?.checkIn?.at ?? Date.now();
+    const dist = openShift?.distanceMeters ?? 0;
+    const res = checkOut(selfie, voiceNote ? { voiceNote } : undefined);
+    if (!res.ok) {
+      setFlow({ step: "blocked", reason: res.reason ?? "Checkout failed." });
+      return;
+    }
+    const outAt = Date.now();
+    setVoiceNote(null);
+    setFlow({
+      step: "done-out",
+      at: outAt,
+      summary: {
+        inAt,
+        outAt,
+        minutes: Math.round((outAt - inAt) / 60000),
+        distance: dist,
+      },
+    });
   };
 
   const markers: MapMarker[] = [];
@@ -216,14 +246,28 @@ export default function EmployeeHome() {
 
   /* ------------------------------------------------------- active shift */
   if (openShift?.checkIn) {
+    const onBreak = !!openBreak;
+    const breakMinutes = liveMetrics?.breaks.totalMinutes ?? 0;
+    const workingMinutes = liveMetrics
+      ? liveMetrics.netMinutes
+      : (now - openShift.checkIn.at) / 60000;
+    const otMinutes = liveMetrics?.overtimeMinutes ?? 0;
     return (
       <div className="flex flex-col gap-4 px-4 pt-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <Avatar name={currentUser.name} hue={currentUser.avatarHue} size={42} ring="green" />
+            <Avatar
+              name={currentUser.name}
+              hue={currentUser.avatarHue}
+              size={42}
+              ring={onBreak ? "amber" : "green"}
+            />
             <div>
-              <p className="text-[0.72rem] font-bold uppercase tracking-wider text-[var(--wf-green)]">
-                Currently working
+              <p
+                className="text-[0.72rem] font-bold uppercase tracking-wider"
+                style={{ color: onBreak ? "var(--wf-amber)" : "var(--wf-green)" }}
+              >
+                {onBreak ? "On break" : "Shift active"}
               </p>
               <h1 className="wf-display text-lg font-bold leading-tight">
                 {project.name}
@@ -233,6 +277,41 @@ export default function EmployeeHome() {
           <NotificationBell role="employee" />
           <AccountMenu />
         </div>
+
+        {/* the shift this day is measured against */}
+        {shiftDef ? (
+          <div className="wf-card2 flex items-center justify-between px-4 py-3">
+            <div>
+              <p className="text-[0.64rem] font-bold uppercase tracking-[0.09em] text-[var(--wf-muted)]">
+                {shiftDef.name}
+              </p>
+              <p className="text-[0.95rem] font-semibold tabular-nums">
+                {shiftDef.kind === "flexible"
+                  ? `${Math.round(shiftDef.requiredMinutes / 60)} working hours`
+                  : `${fmtShiftTime(shiftDef.startMinute)} – ${fmtShiftTime(shiftDef.endMinute)}`}
+              </p>
+            </div>
+            {onBreak ? (
+              <div className="text-right">
+                <p className="text-[0.64rem] font-bold uppercase tracking-wider text-[var(--wf-amber)]">
+                  Break
+                </p>
+                <p className="text-[0.95rem] font-semibold tabular-nums">
+                  Started {fmtTime(openBreak!.start)}
+                </p>
+              </div>
+            ) : (
+              <div className="text-right">
+                <p className="text-[0.64rem] font-bold uppercase tracking-wider text-[var(--wf-muted)]">
+                  Checked in
+                </p>
+                <p className="text-[0.95rem] font-semibold tabular-nums">
+                  {fmtTime(openShift.checkIn.at)}
+                </p>
+              </div>
+            )}
+          </div>
+        ) : null}
 
         <SiteMap
           project={project}
@@ -245,19 +324,19 @@ export default function EmployeeHome() {
 
         <div className="grid grid-cols-3 gap-2.5">
           <ShiftStat
-            label="Working time"
-            value={<LiveDuration since={openShift.checkIn.at} />}
+            label="Working"
+            value={fmtDuration(workingMinutes)}
             tone="var(--wf-green)"
           />
           <ShiftStat
-            label={offsiteOnly ? "Off-site" : "Distance"}
-            value={fmtDistance(openShift.distanceMeters)}
-            tone="var(--wf-blue)"
+            label="Break"
+            value={fmtDuration(breakMinutes)}
+            tone={onBreak ? "var(--wf-amber)" : "var(--wf-fg)"}
           />
           <ShiftStat
-            label="Checked in"
-            value={fmtTime(openShift.checkIn.at)}
-            tone="var(--wf-amber)"
+            label="Overtime"
+            value={otMinutes > 0 ? fmtDuration(otMinutes) : "—"}
+            tone={otMinutes > 0 ? "var(--wf-blue)" : "var(--wf-faint)"}
           />
         </div>
 
@@ -300,23 +379,65 @@ export default function EmployeeHome() {
 
         <SimulatedLocationControls value={simScenario} onChange={setSimScenario} onShift />
 
-        <div className="grid grid-cols-3 gap-2.5">
-          <Link href="/employee/history" className="wf-btn wf-btn-ghost flex-col gap-1 py-3 text-[0.72rem]">
-            <IRoute size={19} /> View route
-          </Link>
+        {breakError ? (
+          <p
+            role="alert"
+            className="rounded-xl bg-[var(--wf-red-soft)] px-3 py-2 text-[0.78rem] text-[var(--wf-red)]"
+          >
+            {breakError}
+          </p>
+        ) : null}
+
+        <div className="grid grid-cols-2 gap-2.5">
+          {breaksEnabled ? (
+            onBreak ? (
+              <button
+                className="wf-btn wf-btn-success flex-col gap-1 py-3 text-[0.72rem]"
+                onClick={() => {
+                  setBreakError(null);
+                  const res = endBreak();
+                  if (!res.ok) setBreakError(res.reason ?? "Couldn't end the break.");
+                }}
+              >
+                <IClock size={19} /> End break
+              </button>
+            ) : (
+              <button
+                className="wf-btn wf-btn-ghost flex-col gap-1 py-3 text-[0.72rem]"
+                onClick={() => {
+                  setBreakError(null);
+                  const res = startBreak();
+                  if (!res.ok) setBreakError(res.reason ?? "Couldn't start a break.");
+                }}
+              >
+                <ICoffee size={19} /> Start break
+              </button>
+            )
+          ) : (
+            <Link href="/employee/history" className="wf-btn wf-btn-ghost flex-col gap-1 py-3 text-[0.72rem]">
+              <IRoute size={19} /> View route
+            </Link>
+          )}
           <button
             className="wf-btn wf-btn-ghost flex-col gap-1 py-3 text-[0.72rem]"
             onClick={() => setUpdateSheet(true)}
           >
             <IClipboard size={19} /> Work update
           </button>
+          {breaksEnabled ? (
+            <Link href="/employee/history" className="wf-btn wf-btn-ghost flex-col gap-1 py-3 text-[0.72rem]">
+              <IRoute size={19} /> View shift
+            </Link>
+          ) : null}
           <button
-            className="wf-btn wf-btn-danger flex-col gap-1 py-3 text-[0.72rem]"
-            disabled={!canCheckOut}
+            className={`wf-btn wf-btn-danger flex-col gap-1 py-3 text-[0.72rem] ${breaksEnabled ? "" : "col-span-2"}`}
+            disabled={!canCheckOut || onBreak}
             title={
-              canCheckOut
-                ? undefined
-                : "Checkout is only accepted at one of your sites or the office"
+              onBreak
+                ? "End your break before checking out"
+                : canCheckOut
+                  ? undefined
+                  : "Checkout is only accepted at one of your sites or the office"
             }
             onClick={startCheckOut}
           >
@@ -330,6 +451,76 @@ export default function EmployeeHome() {
           onSelfie={completeSelfie}
           projectName={project.name}
         />
+
+        {/* checkout review: summary → optional voice note → Check Out */}
+        <BottomSheet
+          open={flow?.step === "review"}
+          onClose={() => setFlow(null)}
+          title="Today's Shift Summary"
+          tall
+        >
+          {flow?.step === "review" && (
+            <div className="flex flex-col gap-4">
+              <div className="wf-card2 divide-y divide-[var(--wf-line)]">
+                {(
+                  [
+                    [
+                      "Shift",
+                      shiftDef
+                        ? shiftDef.kind === "flexible"
+                          ? `${Math.round(shiftDef.requiredMinutes / 60)} working hours`
+                          : `${fmtShiftTime(shiftDef.startMinute)} – ${fmtShiftTime(shiftDef.endMinute)}`
+                        : "—",
+                    ],
+                    ["Check-in", fmtTime(openShift.checkIn.at)],
+                    ["Check-out", fmtTime(now)],
+                    ["Break", fmtDuration(breakMinutes)],
+                    ["Working", fmtDuration(workingMinutes)],
+                    ["Overtime", otMinutes > 0 ? fmtDuration(otMinutes) : "—"],
+                    [
+                      "Work updates",
+                      String(
+                        state.updates.filter((u) => u.attendanceId === openShift.id)
+                          .length,
+                      ),
+                    ],
+                    ["Distance", fmtDistance(openShift.distanceMeters)],
+                  ] as Array<[string, string]>
+                ).map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="flex items-center justify-between px-4 py-2.5"
+                  >
+                    <span className="text-[0.8rem] text-[var(--wf-muted)]">{label}</span>
+                    <span className="text-[0.88rem] font-semibold tabular-nums">
+                      {value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {voiceEnabled ? (
+                <div>
+                  <p className="mb-2 text-[0.86rem] font-semibold">
+                    Anything to add about today&apos;s work?
+                  </p>
+                  <VoiceRecorder value={voiceNote} onChange={setVoiceNote} />
+                </div>
+              ) : null}
+
+              <button
+                className="wf-btn wf-btn-primary wf-btn-lg"
+                onClick={() => confirmCheckOut(flow.selfie)}
+              >
+                Check Out
+              </button>
+              <p className="text-center text-[0.72rem] text-[var(--wf-muted)]">
+                You&apos;ll be asked for a short work summary after checkout.
+              </p>
+            </div>
+          )}
+        </BottomSheet>
+
         <BottomSheet open={updateSheet} onClose={() => setUpdateSheet(false)} title="Add work update" tall>
           <WorkUpdateForm kind="shift" onDone={() => setUpdateSheet(false)} />
         </BottomSheet>

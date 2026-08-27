@@ -16,6 +16,8 @@ import {
   type TimelineEntry,
 } from "@/lib/metrics";
 import { useWorkforce } from "@/lib/store";
+import { dayMetrics, shiftFor } from "@/lib/payroll";
+import { VoiceNotePlayer } from "./VoiceRecorder";
 import {
   fmtDistance,
   fmtDuration,
@@ -27,6 +29,7 @@ import { downloadCSV, movementCSV } from "@/lib/reports";
 import {
   ICheckCircle,
   IClipboard,
+  ICoffee,
   IDownload,
   IMapPin,
   IPause,
@@ -57,6 +60,15 @@ export function RouteReview({
     () => buildTimeline(attendance, trail, project, state.updates),
     [attendance, trail, project, state.updates],
   );
+
+  /* The day measured against its shift: shift duration vs break vs net
+     working time are deliberately three numbers, never one (spec §3, §26). */
+  const metrics = useMemo(() => {
+    const def =
+      state.shifts.find((x) => x.id === attendance.shiftId) ??
+      shiftFor(state, attendance.employeeId, attendance.date);
+    return def && attendance.checkIn ? dayMetrics(attendance, def) : null;
+  }, [state, attendance]);
 
   const start = attendance.checkIn?.at ?? trail[0]?.at ?? 0;
   const end =
@@ -221,19 +233,48 @@ export function RouteReview({
       )}
       </FeatureGate>
 
-      {/* stats strip */}
+      {/* stats strip — shift duration, break and net working are distinct */}
       <div className="grid grid-cols-3 gap-2.5">
         <MiniStat
-          label="Duration"
+          label="Total shift"
+          value={metrics ? fmtDuration(metrics.grossMinutes) : "—"}
+        />
+        <MiniStat
+          label="Total break"
+          value={metrics ? fmtDuration(metrics.breaks.totalMinutes) : "—"}
+        />
+        <MiniStat
+          label="Net working"
           value={
-            attendance.workedMinutes != null
-              ? fmtDuration(attendance.workedMinutes)
+            metrics
+              ? fmtDuration(metrics.netMinutes)
+              : attendance.workedMinutes != null
+                ? fmtDuration(attendance.workedMinutes)
+                : "—"
+          }
+        />
+      </div>
+      <div className="grid grid-cols-3 gap-2.5">
+        <MiniStat
+          label="Overtime"
+          value={
+            metrics && metrics.overtimeMinutes > 0.5
+              ? fmtDuration(metrics.overtimeMinutes)
               : "—"
           }
         />
         <MiniStat label="Distance" value={fmtDistance(attendance.distanceMeters)} />
         <MiniStat label="GPS points" value={String(trail.length)} />
       </div>
+
+      {/* checkout voice note — streamed in place, never downloaded */}
+      {attendance.voiceNote ? (
+        <VoiceNotePlayer
+          dataUrl={attendance.voiceNote.dataUrl}
+          seconds={attendance.voiceNote.seconds}
+          meta={`${user.name} · ${project.name} · recorded ${fmtTime(attendance.voiceNote.at)}`}
+        />
+      ) : null}
 
       {/* selfies */}
       <div className="grid grid-cols-2 gap-2.5">
@@ -356,7 +397,7 @@ export function Timeline({
             ? "var(--wf-green)"
             : e.kind === "check-out"
               ? "var(--wf-red)"
-              : e.kind === "event"
+              : e.kind === "event" || e.kind === "break"
                 ? "var(--wf-amber)"
                 : e.kind === "update"
                   ? "var(--wf-violet)"
@@ -368,6 +409,8 @@ export function Timeline({
             <IClipboard size={13} />
           ) : e.kind === "event" ? (
             <IAlert size={13} />
+          ) : e.kind === "break" ? (
+            <ICoffee size={13} />
           ) : (
             <IRoute size={13} />
           );

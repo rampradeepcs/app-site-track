@@ -24,6 +24,7 @@ import {
   pct,
 } from "@/lib/format";
 import { performanceFor, PERFORMANCE_WEIGHTS } from "@/lib/metrics";
+import { SalaryAndShiftSection } from "@/components/SalarySection";
 import { useWorkforce } from "@/lib/store";
 import type { Permissions } from "@/lib/types";
 import { ERASE_DEVICE, confirmDestructive } from "@/lib/confirm";
@@ -112,6 +113,10 @@ function ProfileInner() {
                 </p>
               </div>
             </div>
+
+            {/* the shift this person is measured against; salary stays
+                hidden here — an employee sees time, not money (spec §24) */}
+            <SalaryAndShiftSection user={currentUser} />
 
             <div className="wf-card flex items-center gap-5 p-4">
               <ProgressRing value={perf.overall} label={`Performance score ${Math.round(perf.overall)}`} />
