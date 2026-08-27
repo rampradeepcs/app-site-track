@@ -92,17 +92,56 @@ Postgres. Anything captured offline queues in an outbox and uploads on
 reconnect; a write that fails says so on screen rather than leaving a manager
 looking at a project that exists only on their phone.
 
-## Run
+## Run it locally
+
+**Node 22 or newer.** Next needs 20.9+, but the Capacitor CLI that builds the
+Android app needs 22, so that is the floor `package.json` declares. `nvm use
+22` if you have nvm.
 
 ```bash
-npm install
-npm run dev     # → http://localhost:3000
-npm run build   # production build
-npm start       # serve the production build
+git clone https://github.com/rampradeepcs/app-site-track.git
+cd app-site-track
+npm ci            # `ci` not `install` — installs exactly the locked versions
+npm run dev       # → http://localhost:3000
 ```
 
-All routes prerender statically; `STATIC_EXPORT=true npm run build` emits a
-static `out/` directory for any static host.
+That is the whole setup. No database, no API keys, no services: the app runs
+against the on-device store, starting from an empty install. Open it, create a
+company, invite a crew, work a shift.
+
+**Open `localhost`, not `127.0.0.1`.** Next's dev server treats `127.0.0.1` as
+a cross-origin host and blocks the requests the client bundle needs, so the app
+hangs on its loading screen with nothing useful in the console. The two names
+point at the same machine; only one of them works here.
+
+```bash
+npm run build     # production build
+npm start         # serve it
+npm run lint
+npx tsc --noEmit  # typecheck
+```
+
+`STATIC_EXPORT=true npm run build` emits a static `out/` directory for any
+static host — that is also what the Android app bundles.
+
+### Against a real backend
+
+Optional, and the app is complete without it. Copy `.env.example` to
+`.env.local`, paste your Supabase anon key, and apply the migrations — see
+[`supabase/README.md`](supabase/README.md). With those two variables set the
+same build reads and writes Postgres instead of the device.
+
+### The Android app
+
+Needs JDK 21 and the Android SDK on top of Node 22:
+
+```bash
+STATIC_EXPORT=true npm run build
+npx cap sync android
+cd android && ./gradlew assembleDebug
+```
+
+No Android toolchain? Push to `main` and CI builds it — see **Android** below.
 
 ## Backend
 
