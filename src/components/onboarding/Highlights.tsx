@@ -99,11 +99,11 @@ const SLIDES: Slide[] = [
 export function Highlights({
   onDone,
   onSkip,
-  doneLabel = "Create your company",
+  doneLabel = "Get Started",
 }: {
   onDone: () => void;
   onSkip: () => void;
-  /** Last slide's CTA — the wizard creates a company, the gate signs in. */
+  /** Last slide's CTA. */
   doneLabel?: string;
 }) {
   const scroller = useRef<HTMLDivElement>(null);

@@ -155,7 +155,6 @@ export default function LiveGate() {
         <Highlights
           onDone={finishHighlights}
           onSkip={finishHighlights}
-          doneLabel="Get started"
         />
       ) : step === "unlinked" ? (
         <div className="wf-fade-in flex flex-col gap-5 text-center">

@@ -149,7 +149,6 @@ function LocalGate() {
         <Highlights
           onDone={finishHighlights}
           onSkip={finishHighlights}
-          doneLabel="Get started"
         />
       ) : step === "identify" ? (
         <div className="wf-fade-in flex flex-col gap-6">
