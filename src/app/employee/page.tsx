@@ -639,10 +639,14 @@ export default function EmployeeHome() {
       <div className="wf-card2 flex items-center justify-between px-4 py-3">
         <div>
           <p className="text-[0.66rem] font-bold uppercase tracking-wider text-[var(--wf-muted)]">
-            Today&apos;s shift
+            {shiftDef ? shiftDef.name : "Today's shift"}
           </p>
           <p className="text-[0.95rem] font-semibold tabular-nums">
-            {fmtShiftTime(project.rules.shiftStart)} — {fmtShiftTime(project.rules.shiftEnd)}
+            {shiftDef
+              ? shiftDef.kind === "flexible"
+                ? `${Math.round(shiftDef.requiredMinutes / 60)} working hours`
+                : `${fmtShiftTime(shiftDef.startMinute)} — ${fmtShiftTime(shiftDef.endMinute)}`
+              : `${fmtShiftTime(project.rules.shiftStart)} — ${fmtShiftTime(project.rules.shiftEnd)}`}
           </p>
         </div>
         {todayRec?.checkIn ? (

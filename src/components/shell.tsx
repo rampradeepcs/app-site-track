@@ -29,6 +29,7 @@ import {
   IShield,
   IUser,
   IUsers,
+  ILayers,
 } from "./WfIcons";
 
 /**
@@ -77,7 +78,12 @@ const EMPLOYEE_TABS = [
   { href: "/employee/attendance", label: "Attendance", icon: ICalendar },
   { href: "/employee/updates", label: "Updates", icon: IClipboard },
   { href: "/employee/history", label: "History", icon: IHistory },
-  { href: "/employee/profile", label: "Profile", icon: IUser },
+  {
+    href: "/employee/more",
+    label: "More",
+    icon: ILayers,
+    alsoActive: ["/employee/profile"],
+  },
 ];
 
 const MANAGER_TABS = [
@@ -85,7 +91,12 @@ const MANAGER_TABS = [
   { href: "/manager/projects", label: "Projects", icon: IHardHat },
   { href: "/manager/workforce", label: "Workforce", icon: IUsers },
   { href: "/manager/attendance", label: "Attendance", icon: ICalendar },
-  { href: "/manager/more", label: "More", icon: IMap },
+  {
+    href: "/manager/more",
+    label: "More",
+    icon: ILayers,
+    alsoActive: ["/manager/shifts", "/manager/payroll", "/manager/live"],
+  },
 ];
 
 const ADMIN_TABS = [
@@ -93,7 +104,18 @@ const ADMIN_TABS = [
   { href: "/manager/projects", label: "Projects", icon: IHardHat },
   { href: "/admin/team", label: "Team & Roles", icon: IUsers },
   { href: "/manager/attendance", label: "Attendance", icon: ICalendar },
-  { href: "/admin/governance", label: "Governance", icon: IShield },
+  {
+    href: "/admin/more",
+    label: "More",
+    icon: ILayers,
+    alsoActive: [
+      "/manager/shifts",
+      "/manager/payroll",
+      "/manager/live",
+      "/manager/more",
+      "/admin/governance",
+    ],
+  },
 ];
 
 export function TabBar({ role }: { role: Role }) {
@@ -119,10 +141,12 @@ export function TabBar({ role }: { role: Role }) {
       className="wf-tabbar wf-safe-bottom sticky bottom-0 z-40"
     >
       {tabs.map((t) => {
+        const owned = (t as { alsoActive?: string[] }).alsoActive ?? [];
         const active =
           t.href === base
             ? pathname === base || pathname === `${base}/`
-            : pathname.startsWith(t.href);
+            : pathname.startsWith(t.href) ||
+              owned.some((p) => pathname.startsWith(p));
         const Icon = t.icon;
         return (
           <Link
@@ -249,11 +273,13 @@ export function ScreenHeader({
         </button>
       ) : null}
       <div className="min-w-0 flex-1">
-        <h1 className="wf-display truncate text-[1.28rem] font-bold leading-tight">
+        <h1 className="wf-display truncate text-[1.35rem] leading-tight">
           {title}
         </h1>
         {sub ? (
-          <p className="truncate text-[0.78rem] text-[var(--wf-muted)]">{sub}</p>
+          <p className="mt-0.5 truncate text-[0.76rem] text-[var(--wf-muted)]">
+            {sub}
+          </p>
         ) : null}
       </div>
       {action}

@@ -82,7 +82,7 @@ function ProfileInner() {
 
   return (
     <div>
-      <ScreenHeader title="Profile" />
+      <ScreenHeader title="Profile" back="/employee/more" />
       <div className="flex flex-col gap-4 px-4">
         <div className="px-0">
           <Segmented<Tab>

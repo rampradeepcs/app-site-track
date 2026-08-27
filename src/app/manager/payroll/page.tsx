@@ -16,6 +16,7 @@ import { Avatar, BottomSheet, Chip, Field, KpiCard } from "@/components/ui";
 import {
   fmtDateLong,
   fmtDuration,
+  fmtShiftTime,
   fmtTime,
 } from "@/lib/format";
 import {
@@ -630,7 +631,7 @@ function DayDetail({ att }: { att: Attendance }) {
       "Shift",
       m.shift.kind === "flexible"
         ? `${Math.round(m.shift.requiredMinutes / 60)}h flexible`
-        : `${fmtHMLabel(m.shift.startMinute)} – ${fmtHMLabel(m.shift.endMinute)}`,
+        : `${fmtShiftTime(m.shift.startMinute)} – ${fmtShiftTime(m.shift.endMinute)}`,
     ],
     ["Check-in", att.checkIn ? fmtTime(att.checkIn.at) : "—"],
     ["Check-out", att.checkOut ? fmtTime(att.checkOut.at) : "still open"],
@@ -694,14 +695,6 @@ function DayDetail({ att }: { att: Attendance }) {
     </div>
   );
 }
-
-const fmtHMLabel = (m: number) => {
-  const h = Math.floor(m / 60) % 24;
-  const mm = String(m % 60).padStart(2, "0");
-  const am = h < 12;
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${String(h12).padStart(2, "0")}:${mm} ${am ? "AM" : "PM"}`;
-};
 
 /* ----------------------------------------------------------- adjustment */
 

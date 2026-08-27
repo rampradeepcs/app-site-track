@@ -143,14 +143,14 @@ export default function AdminGovernance() {
         </div>
 
         {/* data export */}
-        <div className="wf-card flex flex-wrap items-center gap-3 p-4">
-          <div className="min-w-0 flex-1">
+        <div className="wf-card flex flex-col gap-3 p-4">
+          <div>
             <p className="font-semibold">Organisation data</p>
-            <p className="text-[0.76rem] text-[var(--wf-muted)]">
+            <p className="mt-0.5 text-[0.76rem] text-[var(--wf-muted)]">
               Full JSON snapshot, or the audit trail as CSV.
             </p>
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex flex-wrap gap-2">
             <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={exportEverything}>
               <IFile size={14} /> Export JSON
             </button>

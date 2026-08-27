@@ -53,6 +53,9 @@ import {
   IMapPin,
   IRefresh,
   IShield,
+  IChevronR,
+  IWallet,
+  IClock,
 } from "@/components/WfIcons";
 
 type Tab = "reports" | "performance" | "updates" | "alerts" | "settings";
@@ -89,6 +92,8 @@ function MoreInner() {
   const trend = useMemo(() => attendanceTrend(state, 14, undefined, now), [state, now]);
   const alerts = state.notifications.filter((n) => n.audience === "manager");
   const canExport = useFeature("dataExport");
+  const shiftsOn = useFeature("shifts");
+  const payrollOn = useFeature("payroll");
   const canAdvancedReports = useFeature("advancedReports");
 
   const setTab = (t: Tab) => {
@@ -139,8 +144,52 @@ function MoreInner() {
 
   return (
     <div>
-      <ScreenHeader title="More" sub="Reports · performance · alerts · settings" />
+      <ScreenHeader title="More" sub="Modules · reports · performance · settings" />
       <div className="flex flex-col gap-4 px-4">
+        {/* modules that don't earn a permanent tab, per plan and role */}
+        <div className="wf-card wf-list overflow-hidden">
+          {shiftsOn && (
+            <Link href="/manager/shifts" className="wf-row">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--wf-fill-2)]">
+                <IClock size={18} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[0.92rem] font-semibold">Shifts & breaks</span>
+                <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
+                  Definitions, break rules, overtime, assignment
+                </span>
+              </span>
+              <IChevronR size={16} className="shrink-0 text-[var(--wf-faint)]" />
+            </Link>
+          )}
+          {payrollOn && (
+            <Link href="/manager/payroll" className="wf-row">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--wf-fill-2)]">
+                <IWallet size={18} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[0.92rem] font-semibold">Payroll</span>
+                <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
+                  Monthly runs, OT approvals, exports
+                </span>
+              </span>
+              <IChevronR size={16} className="shrink-0 text-[var(--wf-faint)]" />
+            </Link>
+          )}
+          <Link href="/manager/live" className="wf-row">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--wf-fill-2)]">
+              <IMapPin size={18} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[0.92rem] font-semibold">Live map</span>
+              <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
+                Everyone on shift, right now
+              </span>
+            </span>
+            <IChevronR size={16} className="shrink-0 text-[var(--wf-faint)]" />
+          </Link>
+        </div>
+
         <Segmented<Tab>
           ariaLabel="More sections"
           value={tab}

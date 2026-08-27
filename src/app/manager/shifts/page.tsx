@@ -404,7 +404,7 @@ function ShiftEditor({ base, onDone }: { base: ShiftDef | null; onDone: () => vo
           {breaks.map((b, i) => (
             <div key={b.id} className="flex items-center gap-2">
               <input
-                className="wf-input min-w-0 flex-1"
+                className="wf-input min-w-[6.5rem] flex-1"
                 placeholder="Name"
                 value={b.name}
                 onChange={(e) =>

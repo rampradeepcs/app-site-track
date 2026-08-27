@@ -84,9 +84,9 @@
   /* ---- materials ----
      Translucent chrome. Content scrolls *under* these, which is why the
      blur has to be strong enough to keep text on top legible. */
-  --wf-material-bar: rgba(10, 10, 10, 0.76);
+  --wf-material-bar: rgba(10, 10, 10, 0.55);
   --wf-material-thick: rgba(10, 10, 10, 0.90);
-  --wf-material-blur: saturate(140%) blur(20px);
+  --wf-material-blur: saturate(160%) blur(24px);
   /* The bright top edge is light catching the near edge of the glass. */
   --wf-material-edge: rgba(255, 255, 255, 0.08);
   --wf-scrim: rgba(0, 0, 0, 0.45);
@@ -214,7 +214,7 @@ html[data-theme="light"] .wf {
   --wf-fill-3: rgba(0, 0, 0, 0.045);
   --wf-seg-pill: #ffffff;
 
-  --wf-material-bar: rgba(255, 255, 255, 0.80);
+  --wf-material-bar: rgba(255, 255, 255, 0.60);
   --wf-material-thick: rgba(255, 255, 255, 0.94);
   --wf-material-edge: rgba(255, 255, 255, 0.7);
   --wf-scrim: rgba(0, 0, 0, 0.30);
