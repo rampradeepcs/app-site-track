@@ -183,6 +183,15 @@ export const IClipboardFill = (p: IconProps) => (
 export const IHistoryFill = (p: IconProps) => (
   <Icon {...p}><path fill="currentColor" stroke="none" fillRule="evenodd" d="M12 3.2a8.8 8.8 0 1 1 0 17.6 8.8 8.8 0 0 1 0-17.6Zm-.9 4.2v5.5l4.1 2.45.9-1.5-3.4-2.05V7.4h-1.6Z" /></Icon>
 );
+export const IGridFill = (p: IconProps) => (
+  <Icon {...p}><path fill="currentColor" stroke="none" d="M5.3 2.7h3.4a2.6 2.6 0 0 1 2.6 2.6v3.4a2.6 2.6 0 0 1-2.6 2.6H5.3a2.6 2.6 0 0 1-2.6-2.6V5.3a2.6 2.6 0 0 1 2.6-2.6Zm10 0h3.4a2.6 2.6 0 0 1 2.6 2.6v3.4a2.6 2.6 0 0 1-2.6 2.6h-3.4a2.6 2.6 0 0 1-2.6-2.6V5.3a2.6 2.6 0 0 1 2.6-2.6Zm-10 10h3.4a2.6 2.6 0 0 1 2.6 2.6v3.4a2.6 2.6 0 0 1-2.6 2.6H5.3a2.6 2.6 0 0 1-2.6-2.6v-3.4a2.6 2.6 0 0 1 2.6-2.6Zm10 0h3.4a2.6 2.6 0 0 1 2.6 2.6v3.4a2.6 2.6 0 0 1-2.6 2.6h-3.4a2.6 2.6 0 0 1-2.6-2.6v-3.4a2.6 2.6 0 0 1 2.6-2.6Z" /></Icon>
+);
+export const IHardHatFill = (p: IconProps) => (
+  <Icon {...p}><path fill="currentColor" stroke="none" d="M4 16a8 8 0 0 1 5-7.4V6.8A1.8 1.8 0 0 1 10.8 5h2.4A1.8 1.8 0 0 1 15 6.8v1.8a8 8 0 0 1 5 7.4H4Z" /><path fill="currentColor" stroke="none" d="M2.5 16.5A1.5 1.5 0 0 1 4 15h16a1.5 1.5 0 0 1 1.5 1.5v.5c0 1-1 2-2.2 2H4.7c-1.2 0-2.2-1-2.2-2v-.5Z" /></Icon>
+);
+export const IUsersFill = (p: IconProps) => (
+  <Icon {...p}><circle fill="currentColor" stroke="none" cx="9" cy="8.5" r="3.9" /><path fill="currentColor" stroke="none" d="M9 15c-3.1 0-5.7 1.7-6.9 5-.2.5.2 1 .7 1h12.4c.5 0 .9-.5.7-1-1.2-3.3-3.8-5-6.9-5Z" /><path d="M16 5.6a3.5 3.5 0 0 1 0 5.8M18.5 15.9c1.4.7 2.4 2 3 3.8" /></Icon>
+);
 export const ILayersFill = (p: IconProps) => (
   <Icon {...p}><path fill="currentColor" stroke="none" d="m12 2.4 10 5.26a.4.4 0 0 1 0 .7L12 13.6 2 8.36a.4.4 0 0 1 0-.7L12 2.4Z" /><path d="m4 12-1.5 1L12 18l9.5-5L20 12" /></Icon>
 );

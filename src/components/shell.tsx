@@ -35,6 +35,9 @@ import {
   IClipboardFill,
   IHistoryFill,
   ILayersFill,
+  IGridFill,
+  IHardHatFill,
+  IUsersFill,
 } from "./WfIcons";
 
 /**
@@ -108,27 +111,59 @@ const EMPLOYEE_TABS = [
 ];
 
 const MANAGER_TABS = [
-  { href: "/manager", label: "Dashboard", icon: IGrid },
-  { href: "/manager/projects", label: "Projects", icon: IHardHat },
-  { href: "/manager/workforce", label: "Workforce", icon: IUsers },
-  { href: "/manager/attendance", label: "Attendance", icon: ICalendar },
+  { href: "/manager", label: "Dashboard", icon: IGrid, iconActive: IGridFill },
+  {
+    href: "/manager/projects",
+    label: "Projects",
+    icon: IHardHat,
+    iconActive: IHardHatFill,
+  },
+  {
+    href: "/manager/workforce",
+    label: "Workforce",
+    icon: IUsers,
+    iconActive: IUsersFill,
+  },
+  {
+    href: "/manager/attendance",
+    label: "Attendance",
+    icon: ICalendar,
+    iconActive: ICalendarFill,
+  },
   {
     href: "/manager/more",
     label: "More",
     icon: ILayers,
+    iconActive: ILayersFill,
     alsoActive: ["/manager/shifts", "/manager/payroll", "/manager/live"],
   },
 ];
 
 const ADMIN_TABS = [
-  { href: "/admin", label: "Overview", icon: IGrid },
-  { href: "/manager/projects", label: "Projects", icon: IHardHat },
-  { href: "/admin/team", label: "Team & Roles", icon: IUsers },
-  { href: "/manager/attendance", label: "Attendance", icon: ICalendar },
+  { href: "/admin", label: "Overview", icon: IGrid, iconActive: IGridFill },
+  {
+    href: "/manager/projects",
+    label: "Projects",
+    icon: IHardHat,
+    iconActive: IHardHatFill,
+  },
+  {
+    href: "/admin/team",
+    label: "Team & Roles",
+    icon: IUsers,
+    iconActive: IUsersFill,
+  },
+  {
+    href: "/manager/attendance",
+    label: "Attendance",
+    icon: ICalendar,
+    iconActive: ICalendarFill,
+  },
   {
     href: "/admin/more",
     label: "More",
     icon: ILayers,
+    iconActive: ILayersFill,
     alsoActive: [
       "/manager/shifts",
       "/manager/payroll",
