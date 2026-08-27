@@ -23,11 +23,12 @@ import {
   fmtINR,
   monthSummary,
   payrollCSV,
+  payrollTable,
   runFor,
   shiftFor,
   type MonthSummary,
 } from "@/lib/payroll";
-import { downloadCSV } from "@/lib/reports";
+import { downloadCSV, downloadExcel, printReport } from "@/lib/reports";
 import { useWorkforce } from "@/lib/store";
 import type { Attendance, PayrollStatus, User } from "@/lib/types";
 import {
@@ -117,23 +118,66 @@ export default function ManagerPayroll() {
 
   const nextStatus = STATUS_FLOW[STATUS_FLOW.indexOf(status) + 1];
 
+  /* Export — three formats off the same table, each logged (spec §25). */
+  const employeeIds = rows.map((r) => r.user.id);
+  const exportCSV = () => {
+    downloadCSV(`payroll-${month}.csv`, payrollCSV(state, month, employeeIds));
+    wf.logAudit("payroll.export", month, "CSV");
+  };
+  const exportExcel = () => {
+    const t = payrollTable(state, month, employeeIds);
+    downloadExcel(`payroll-${month}.xls`, `Payroll ${month}`, t.headers, t.rows);
+    wf.logAudit("payroll.export", month, "Excel");
+  };
+  const exportPDF = () => {
+    const t = payrollTable(state, month, employeeIds);
+    const kpi = (label: string, value: string) =>
+      `<div class="kpi"><b>${value}</b><span>${label}</span></div>`;
+    printReport(
+      `Payroll — ${monthLabel}`,
+      `<div class="kpis">
+        ${kpi("Net payroll", fmtINR(totals.net))}
+        ${kpi("Overtime hours", fmtDuration(totals.otMinutes))}
+        ${kpi("Overtime cost", fmtINR(totals.ot))}
+        ${kpi("Deductions", fmtINR(totals.deductions))}
+        ${kpi("Status", STATUS_LABEL[status])}
+      </div>
+      <table><tr>${t.headers.map((h) => `<th>${h}</th>`).join("")}</tr>
+      ${t.rows
+        .map(
+          (r) =>
+            `<tr>${r
+              .map(
+                (c, i) =>
+                  `<td style="${typeof c === "number" ? "text-align:right;font-variant-numeric:tabular-nums" : ""}">${
+                    typeof c === "number" && i >= 12 ? fmtINR(c) : String(c)
+                  }</td>`,
+              )
+              .join("")}</tr>`,
+        )
+        .join("")}
+      </table>`,
+    );
+    wf.logAudit("payroll.export", month, "PDF");
+  };
+
   return (
     <div>
       <ScreenHeader
         title="Payroll"
         sub={`${monthLabel} · ${STATUS_LABEL[status]}`}
         action={
-          <button
-            className="wf-btn wf-btn-ghost wf-btn-sm"
-            onClick={() =>
-              downloadCSV(
-                `payroll-${month}.csv`,
-                payrollCSV(state, month, rows.map((r) => r.user.id)),
-              )
-            }
-          >
-            <IDownload size={14} /> Export
-          </button>
+          <div className="flex gap-1.5">
+            <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={exportCSV}>
+              <IDownload size={14} /> CSV
+            </button>
+            <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={exportExcel}>
+              Excel
+            </button>
+            <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={exportPDF}>
+              PDF
+            </button>
+          </div>
         }
       />
 

@@ -285,6 +285,8 @@ interface StoreApi {
     note?: string,
   ) => void;
   setPayrollStatus: (month: string, status: PayrollStatus) => void;
+  /** Append one audit line for a sensitive action a screen performed. */
+  logAudit: (action: string, target: string, detail?: string) => void;
   addPayrollAdjustment: (
     month: string,
     employeeId: string,
@@ -1548,6 +1550,18 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     [mutate, pushNotification],
   );
 
+  const logAudit = useCallback(
+    (action: string, target: string, detail?: string) => {
+      mutate((s) => ({
+        ...s,
+        audit: [auditLine(s, action, target, detail ?? ""), ...s.audit].slice(0, 200),
+      }));
+    },
+    // auditLine is a plain helper defined above; it never changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mutate],
+  );
+
   const setPayrollStatus = useCallback(
     (month: string, status: PayrollStatus) => {
       mutate((s) => {
@@ -2205,6 +2219,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     decideOvertime,
     setPayrollStatus,
     addPayrollAdjustment,
+    logAudit,
     submitWorkUpdate,
     saveEmployee,
     setUserRole,

@@ -672,8 +672,10 @@ export function todayShiftKpis(
 
 /* ----------------------------------------------------------------- export */
 
-/** The payroll CSV, one row per employee (spec §19). */
-export function payrollCSV(
+/** The payroll export table, one row per employee (spec §19). The same
+    headers and rows feed CSV, Excel and the printed PDF, so the three
+    formats can never disagree. */
+export function payrollTable(
   s: Pick<
     WorkforceState,
     | "attendance"
@@ -687,8 +689,8 @@ export function payrollCSV(
   >,
   month: string,
   employeeIds: string[],
-): string {
-  const head = [
+): { headers: string[]; rows: Array<Array<string | number>> } {
+  const headers = [
     "Employee ID",
     "Employee Name",
     "Project",
@@ -735,7 +737,16 @@ export function payrollCSV(
       m.netPay,
     ];
   });
-  return [head, ...rows]
+  return { headers, rows };
+}
+
+export function payrollCSV(
+  s: Parameters<typeof payrollTable>[0],
+  month: string,
+  employeeIds: string[],
+): string {
+  const { headers, rows } = payrollTable(s, month, employeeIds);
+  return [headers, ...rows]
     .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
     .join("\n");
 }

@@ -67,6 +67,47 @@ export function movementCSV(s: WorkforceState, attendanceId: string): string {
   return toCSV(["Timestamp", "Latitude", "Longitude", "Accuracy (m)", "Speed (m/s)", "Heading"], rows);
 }
 
+/**
+ * Excel export without a spreadsheet library: an HTML table stamped with
+ * Excel's ProgID, which Excel, Numbers and Sheets all open natively. The
+ * cells carry mso number formats so amounts stay numeric, not text.
+ */
+export function downloadExcel(
+  filename: string,
+  sheetName: string,
+  headers: string[],
+  rows: Array<Array<string | number>>,
+) {
+  const esc = (v: string | number) =>
+    String(v)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  const cell = (v: string | number) =>
+    typeof v === "number"
+      ? `<td style="mso-number-format:'0.00'">${v}</td>`
+      : `<td style="mso-number-format:'\\@'">${esc(v)}</td>`;
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+<head><meta charset="utf-8" />
+<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+<x:Name>${esc(sheetName)}</x:Name>
+<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+</head><body><table border="1">
+<tr>${headers.map((h) => `<th>${esc(h)}</th>`).join("")}</tr>
+${rows.map((r) => `<tr>${r.map(cell).join("")}</tr>`).join("\n")}
+</table></body></html>`;
+  const blob = new Blob(["\ufeff" + html], {
+    type: "application/vnd.ms-excel;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
 /** Open a print window with a styled report; user saves as PDF natively. */
 export function printReport(title: string, bodyHtml: string) {
   const w = window.open("", "_blank", "width=900,height=700");
