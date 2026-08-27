@@ -310,7 +310,7 @@ export function AccountMenu() {
 /**
  * Which backend this build is talking to.
  *
- * Worth showing rather than inferring: the demo and live builds are visually
+ * Worth showing rather than inferring: the local and live builds are visually
  * identical, so without this the only way to tell a deployment that reached
  * Postgres from one quietly serving seed data is to open the console.
  */
@@ -324,7 +324,9 @@ function BackendModeNote() {
           background: isLiveBackend ? "var(--wf-green)" : "var(--wf-faint)",
         }}
       />
-      {isLiveBackend ? "Connected to Supabase" : "Demo mode — seeded sample data"}
+      {isLiveBackend
+        ? "Connected to Supabase"
+        : "Local only — this device holds the only copy"}
     </p>
   );
 }

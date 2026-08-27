@@ -4,13 +4,14 @@
  * Supabase client + backend-mode switch.
  *
  * Workfence runs in one of two modes:
- *   • demo   — no credentials configured; the seeded localStorage store drives
+ *   • local  — no credentials configured; the localStorage store drives
  *              everything, so the product is fully explorable with no backend.
  *   • live   — NEXT_PUBLIC_SUPABASE_URL/ANON_KEY are set; reads and writes go
  *              to Postgres, and row-level security enforces tenant isolation.
  *
- * Keeping both is deliberate: the demo is how the app is shown, and the live
- * path is how it runs. Nothing in the UI layer needs to know which is active.
+ * Keeping both is deliberate: local mode is a working product with no server
+ * to run, and live mode is how it runs for a company. Nothing in the UI layer
+ * needs to know which is active.
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -25,7 +26,7 @@ export const isLiveBackend = Boolean(URL && ANON);
 let cached: SupabaseClient<Database> | null = null;
 
 /**
- * The browser client, or null in demo mode. Callers must handle null rather
+ * The browser client, or null in local mode. Callers must handle null rather
  * than assume a backend — that is what keeps the demo path honest.
  */
 export function supabase(): SupabaseClient<Database> | null {
@@ -38,7 +39,7 @@ export function supabase(): SupabaseClient<Database> | null {
   return cached;
 }
 
-/** Throws when called in demo mode — use at call sites that require a backend. */
+/** Throws in local mode — use at call sites that require a backend. */
 export function requireSupabase(): SupabaseClient<Database> {
   const c = supabase();
   if (!c) {

@@ -8,9 +8,9 @@
  * returns nothing. Data hydration and auth are not independent features —
  * live mode needs both or it silently shows empty screens.
  *
- * The demo path keeps its mock OTP (any 4 digits) so the product stays
- * explorable with no backend; these functions are only reached when
- * credentials are configured.
+ * The local gate keeps a mock code (any 4 digits) so the product works with
+ * no backend at all; these functions are only reached when credentials are
+ * configured.
  */
 
 import { requireSupabase, supabase } from "./client";
@@ -112,7 +112,7 @@ function describe(e: unknown): string {
   return msg;
 }
 
-/** Defaults to India's country code, matching the seeded workforce. */
+/** Defaults to India's country code; a number typed with one is left alone. */
 function normalisePhone(raw: string): string {
   const digits = raw.replace(/[^\d+]/g, "");
   if (digits.startsWith("+")) return digits;

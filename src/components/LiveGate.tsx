@@ -3,8 +3,8 @@
 /**
  * Sign-in against a real Supabase backend.
  *
- * The demo gate lets you pick a person from a seeded list; that cannot work
- * here. Every row this product reads is behind a row-level security policy
+ * The local gate matches the number you type against this device's records.
+ * That cannot work here: every row this product reads sits behind a policy
  * keyed on `auth.uid()`, so identity has to be established with Supabase
  * before there is anything to show — and the role comes back from the user's
  * database record rather than being chosen at the door.

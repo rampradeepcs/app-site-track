@@ -24,7 +24,12 @@ import {
   IUsers,
 } from "@/components/WfIcons";
 
-/** Demo geocoder — a handful of Coimbatore-area anchors for the search box. */
+/**
+ * A local gazetteer, not a geocoder: a handful of Coimbatore-area anchors so
+ * the search box can jump the map somewhere recognisable. A real deployment
+ * elsewhere wants a geocoding service here — the map still works without one,
+ * because the boundary is placed by tapping.
+ */
 const PLACES: Array<{ name: string; at: LatLng }> = [
   { name: "Peelamedu, Coimbatore", at: { lat: 11.0273, lng: 77.0037 } },
   { name: "Saravanampatti, Coimbatore", at: { lat: 11.0794, lng: 76.9997 } },

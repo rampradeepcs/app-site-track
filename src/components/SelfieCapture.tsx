@@ -2,8 +2,9 @@
 
 /**
  * Selfie capture for check-in/checkout. Uses the front camera when the user
- * grants permission; falls back to a generated placeholder so the demo flow
- * never dead-ends on a denied permission.
+ * grants permission; falls back to a generated placeholder so a shift never
+ * dead-ends on a denied one. The photo is evidence, not a gate: a worker who
+ * declines the camera has still turned up, and the record says so.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -108,7 +109,7 @@ export function SelfieCapture({
             <p className="text-sm font-semibold">Camera unavailable</p>
             <p className="text-xs text-[var(--wf-muted)]">
               Permission was denied or no camera was found. You can continue
-              with a placeholder photo for this demo.
+              with a placeholder, and the shift is recorded either way.
             </p>
           </div>
         ) : (

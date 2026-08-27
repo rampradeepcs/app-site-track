@@ -305,8 +305,8 @@ function ClientInner() {
             {orgUsers.length === 0 ? (
               <p className="px-4 py-10 text-center text-sm text-[var(--wf-muted)]">
                 <IUsers size={24} className="mx-auto mb-2" />
-                This tenant&apos;s workforce lives in their own workspace. Only
-                the demo client ships with seeded people.
+                Nobody has been added to this tenant yet — their admin
+                invites their crew from inside their own workspace.
               </p>
             ) : (
               <div className="wf-scroll-x">

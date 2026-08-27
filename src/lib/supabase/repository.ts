@@ -2,7 +2,7 @@
 
 /**
  * Repository layer — maps Postgres rows to the domain types the UI already
- * speaks, so screens are unchanged whether data comes from the seeded demo
+ * speaks, so screens are unchanged whether data comes from the local
  * store or from Supabase.
  *
  * Note what is deliberately absent: no `org_id` filters. Row-level security

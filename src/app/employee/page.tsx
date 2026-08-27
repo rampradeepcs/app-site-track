@@ -298,7 +298,7 @@ export default function EmployeeHome() {
           </div>
         ) : null}
 
-        <DemoLocationControls value={simScenario} onChange={setSimScenario} onShift />
+        <SimulatedLocationControls value={simScenario} onChange={setSimScenario} onShift />
 
         <div className="grid grid-cols-3 gap-2.5">
           <Link href="/employee/history" className="wf-btn wf-btn-ghost flex-col gap-1 py-3 text-[0.72rem]">
@@ -468,7 +468,7 @@ export default function EmployeeHome() {
         )}
       </div>
 
-      <DemoLocationControls value={simScenario} onChange={setSimScenario} />
+      <SimulatedLocationControls value={simScenario} onChange={setSimScenario} />
 
       <button
         className="wf-btn wf-btn-lg wf-btn-primary sticky bottom-3 shadow-2xl"
@@ -564,8 +564,13 @@ function ShiftStat({
   );
 }
 
-/** Demo-only GPS scenario switcher — stands in for physically walking. */
-function DemoLocationControls({
+/**
+ * The simulator's controls, shown only while Settings has GPS set to
+ * simulated. It is not a demo prop: a foreman setting the app up from an
+ * office, or a worker checking the boundary is drawn where they think it is,
+ * needs to move without driving to the site.
+ */
+function SimulatedLocationControls({
   value,
   onChange,
   onShift,
@@ -579,7 +584,7 @@ function DemoLocationControls({
   return (
     <div className="wf-inset px-3.5 py-3">
       <p className="mb-2 flex items-center gap-1.5 text-[0.66rem] font-bold uppercase tracking-wider text-[var(--wf-faint)]">
-        <ICrosshair size={12} /> Demo GPS — simulate walking
+        <ICrosshair size={12} /> Simulated GPS — walk around your site
       </p>
       <Segmented
         size="sm"

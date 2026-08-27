@@ -4,14 +4,17 @@
  * Workfence client store.
  *
  * A single React context that owns the whole workforce dataset:
- *  - hydrates from localStorage (falling back to the generated seed),
- *  - persists every mutation,
- *  - runs the live-tracking engine (simulated GPS walk or real
- *    `navigator.geolocation` fixes) while a shift is open,
- *  - models offline capture via an outbox that syncs on reconnect.
+ *  - hydrates from localStorage, and from Postgres when there is a backend,
+ *  - persists every mutation locally and then pushes it,
+ *  - runs the live-tracking engine (real `navigator.geolocation` fixes, or a
+ *    simulated walk) while a shift is open,
+ *  - queues what was captured offline and uploads it on reconnect.
  *
- * There is intentionally no backend: this is a self-contained product demo
- * whose data layer mirrors the API the real service would expose.
+ * Local first, always. A mutation lands here before it goes anywhere, so the
+ * app is instant and keeps working with no signal — which is the condition it
+ * is actually used in. The push is the second half of that bargain: ids are
+ * minted here so a record has one identity in both places, and a write that
+ * fails is reported rather than swallowed. See `supabase/sync.ts`.
  */
 
 import {
@@ -321,7 +324,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setState(next);
 
-    // Live mode: replace the seeded people/projects/attendance with the
+    // Live mode: replace the local people/projects/attendance with the
     // signed-in tenant's real rows. Settings, permissions and the session
     // stay local — they are device preferences, not tenant data. A failure
     // here is non-fatal: the app keeps running on what it already has rather

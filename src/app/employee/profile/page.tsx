@@ -2,7 +2,7 @@
 
 /**
  * Employee profile — identity card, performance snapshot, permission &
- * privacy management, notification feed and demo/device settings.
+ * privacy management, notification feed and location/device settings.
  */
 
 import { Suspense, useMemo } from "react";
@@ -258,7 +258,7 @@ function ProfileInner() {
         {tab === "settings" && (
           <>
             <div className="wf-card flex flex-col gap-4 p-4">
-              <Field label="Location source" hint="Simulated GPS keeps the demo usable anywhere; device GPS uses your real position.">
+              <Field label="Location source" hint="Device GPS uses your real position. Simulated walks you around your site instead, for trying the app away from it.">
                 <Segmented
                   ariaLabel="Location source"
                   value={state.settings.locationSource}

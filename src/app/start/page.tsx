@@ -342,7 +342,8 @@ export default function StartPage() {
             </p>
             {!isLiveBackend ? (
               <p className="mt-1 text-[0.72rem] text-[var(--wf-faint)]">
-                (demo: any {OTP_LENGTH} digits work)
+                No backend is configured, so no code was sent — any{" "}
+                {OTP_LENGTH} digits work.
               </p>
             ) : null}
           </header>
