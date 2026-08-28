@@ -29,7 +29,7 @@ export default function SubscriptionsPage() {
           </button>
         }
       />
-      <div className="grid gap-4 px-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 px-5 lg:grid-cols-3">
         {platform.plans.map((p) => (
           <div key={p.id} className={`wf-card flex flex-col p-4 ${p.archived ? "opacity-60" : ""}`}>
             <div className="flex items-start justify-between gap-2">

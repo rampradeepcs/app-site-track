@@ -29,6 +29,8 @@ import {
   markHighlightsSeen,
 } from "@/components/onboarding/Highlights";
 import { phoneKey } from "@/components/onboarding/InviteCrew";
+import { DEMO_PHONE } from "@/lib/demo/mode";
+import { PersonaChooser } from "@/components/demo/PersonaPicker";
 
 export default function WorkforceGate() {
   // Fixed for the lifetime of a build: NEXT_PUBLIC_* is inlined at compile
@@ -38,7 +40,7 @@ export default function WorkforceGate() {
   return isLiveBackend ? <LiveGate /> : <LocalGate />;
 }
 
-type Step = "splash" | "highlights" | "identify" | "code";
+type Step = "splash" | "highlights" | "identify" | "code" | "persona";
 
 function LocalGate() {
   const { state, login } = useWorkforce();
@@ -96,6 +98,16 @@ function LocalGate() {
 
   const requestCode = () => {
     if (!identifier.trim()) return;
+    // One number opens the demonstration, and it is checked before the
+    // device's own records: the demo has to work on a phone that has never
+    // seen this app (spec §33).
+    if (phoneKey(identifier) === phoneKey(DEMO_PHONE)) {
+      setError(null);
+      setCode("");
+      setStep("code");
+      window.setTimeout(() => codeRef.current?.focus(), 60);
+      return;
+    }
     if (!match) {
       // Naming the failure beats a generic "invalid": on this device the
       // records are right here, so "no such number" is a fact, not a guess.
@@ -111,7 +123,12 @@ function LocalGate() {
   };
 
   const submitCode = () => {
-    if (code.length < 4 || !match) return;
+    if (code.length < 4) return;
+    if (phoneKey(identifier) === phoneKey(DEMO_PHONE)) {
+      setStep("persona");
+      return;
+    }
+    if (!match) return;
     // Setting the session is the whole job; the effect above does the
     // navigating, so the destination is chosen in exactly one place.
     login(match.role, match.id);
@@ -153,6 +170,8 @@ function LocalGate() {
           onDone={finishHighlights}
           onSkip={finishHighlights}
         />
+      ) : step === "persona" ? (
+        <PersonaChooser />
       ) : step === "identify" ? (
         <div className="wf-fade-in flex flex-col gap-6">
           <div className="flex flex-col items-center gap-3 text-center">

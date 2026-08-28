@@ -95,6 +95,21 @@ export function takeDestination(role: Role): string | null {
   return section && canEnter(role, section) ? path : null;
 }
 
+/**
+ * Drop a parked destination without acting on it.
+ *
+ * Choosing a demo persona is an explicit "show me this seat", so it has to
+ * beat a path parked earlier in the visit — otherwise picking the Super
+ * Admin lands on whatever screen the previous browsing left behind.
+ */
+export function clearDestination(): void {
+  try {
+    sessionStorage.removeItem(PENDING_KEY);
+  } catch {
+    /* nothing parked, or storage disabled */
+  }
+}
+
 /** Where to send someone who has just signed in as `role`. */
 export function landingFor(role: Role): string {
   return takeDestination(role) ?? homeFor(role);

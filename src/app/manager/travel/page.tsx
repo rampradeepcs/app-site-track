@@ -100,13 +100,19 @@ export default function ManagerTravel() {
               label="Est. allowance"
               value={fmtINR(kpis.amount)}
               tone="green"
-              sub="payable today"
+              sub="approved today"
             />
             <KpiCard
               label="Pending approvals"
               value={kpis.pendingApprovals}
               tone={kpis.pendingApprovals ? "amber" : "neutral"}
-              sub={kpis.flagged ? `${kpis.flagged} flagged` : "all clean"}
+              sub={
+                kpis.flagged
+                  ? `${kpis.flagged} flagged`
+                  : kpis.pendingApprovals
+                    ? "GPS clean"
+                    : "nothing waiting"
+              }
             />
           </div>
 
@@ -174,6 +180,9 @@ function ApprovalsTab({
             onClick={() => onReview(trip)}
           >
             {user ? <Avatar name={user.name} hue={user.avatarHue} size={36} /> : null}
+            {/* Who and how much own the top line; the route and the GPS
+                verdict sit under it, so a full name never has to compete
+                with a chip for the same 110 pixels. */}
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[0.9rem] font-semibold">
                 {user?.name} · {trip.session.purpose}
@@ -182,12 +191,17 @@ function ApprovalsTab({
                 {fmtDateLong(trip.session.date)} · {trip.session.start.name} →{" "}
                 {trip.session.end?.name ?? "…"} · {fmtKmLabel(trip.meters)}
               </span>
+              <span className="mt-1.5 flex">
+                {trip.session.flags.length > 0 ? (
+                  <Chip tone="amber">
+                    {trip.session.flags.length} flag
+                    {trip.session.flags.length === 1 ? "" : "s"}
+                  </Chip>
+                ) : (
+                  <Chip tone="green">GPS clean</Chip>
+                )}
+              </span>
             </span>
-            {trip.session.flags.length > 0 ? (
-              <Chip tone="amber">{trip.session.flags.length} flag{trip.session.flags.length === 1 ? "" : "s"}</Chip>
-            ) : (
-              <Chip tone="green">GPS clean</Chip>
-            )}
             <span className="shrink-0 font-bold tabular-nums">{fmtINR(trip.amount)}</span>
           </button>
         );

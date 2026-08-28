@@ -22,6 +22,8 @@ import {
 } from "react";
 import { currentActor } from "./actor";
 import { seedPlatform } from "./saas-seed";
+import { demoActive, platformKey } from "./demo/mode";
+import { buildDemoData } from "./demo/seed";
 import { isLiveBackend } from "./supabase/client";
 import { onAuthChange } from "./supabase/auth";
 import { fetchPlatform } from "./supabase/repository";
@@ -123,10 +125,10 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
 
   /* hydrate */
   useEffect(() => {
-    const seed = seedPlatform();
+    const seed = demoActive() ? buildDemoData().platform : seedPlatform();
     let next = seed;
     try {
-      const raw = localStorage.getItem(KEY);
+      const raw = localStorage.getItem(platformKey());
       if (raw) {
         const parsed = JSON.parse(raw) as PlatformState & { v?: number };
         if (parsed.organizations?.length && parsed.plans?.length) {
@@ -158,7 +160,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
     // answers an unauthenticated caller with nothing; and never let an empty
     // result overwrite, because "no organisations" reads as a broken product
     // when the real cause is an unauthorised read.
-    if (isLiveBackend) {
+    if (isLiveBackend && !demoActive()) {
       let cancelled = false;
       const hydrate = () => {
         fetchPlatform()
@@ -203,7 +205,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!platform) return;
     try {
-      localStorage.setItem(KEY, JSON.stringify(platform));
+      localStorage.setItem(platformKey(), JSON.stringify(platform));
     } catch {
       /* quota exceeded — the in-memory state stays authoritative */
     }
@@ -708,7 +710,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
 
   const resetPlatform = useCallback(() => {
     try {
-      localStorage.removeItem(KEY);
+      localStorage.removeItem(platformKey());
     } catch {
       /* ignore */
     }

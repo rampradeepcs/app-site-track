@@ -55,7 +55,7 @@ export default function ManagerProjects() {
           </button>
         }
       />
-      <div className="grid gap-3 px-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 px-4 md:grid-cols-2">
         {state.projects.map((p) => {
           const onsite = board.filter((b) => b.state === "working" && b.project?.id === p.id).length;
           return (

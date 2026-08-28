@@ -135,7 +135,7 @@ export default function ManagerDashboard() {
         </div>
 
         {/* live map + working list */}
-        <div className="grid gap-4 md:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
           <div className="md:col-span-3">
             <SectionTitle
               action={
@@ -183,7 +183,7 @@ export default function ManagerDashboard() {
         </div>
 
         {/* charts row */}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="wf-card p-4 md:col-span-2">
             <SectionTitle>Attendance trend — last 10 working days</SectionTitle>
             <BarTrend
@@ -216,7 +216,7 @@ export default function ManagerDashboard() {
         </div>
 
         {/* alerts + attention + updates */}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
             <SectionTitle>Alerts</SectionTitle>
             <div className="flex flex-col gap-2">

@@ -145,7 +145,9 @@ export default function ClientsPage() {
                 )}
                 {rows.map(({ org, sub, ent, usage, health, unpaid }) => (
                   <tr key={org.id}>
-                    <td>
+                    {/* The table scrolls sideways, so a long legal name reads
+                        better on one line than stacked four deep. */}
+                    <td className="whitespace-nowrap">
                       <Link
                         href={`/platform/client?id=${org.id}`}
                         className="inline-block py-1.5 font-semibold hover:text-[var(--wf-violet)]"

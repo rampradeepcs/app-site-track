@@ -185,7 +185,7 @@ function ClientInner() {
               <MetricCard label="Health" value={health.score} sub={health.band} tone={health.score >= 65 ? "green" : "amber"} />
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               <div className="wf-card p-4">
                 <SectionTitle>Health signals</SectionTitle>
                 <ul className="flex flex-col gap-1.5">
@@ -231,7 +231,7 @@ function ClientInner() {
 
         {/* -------------------------------------------------- organisation */}
         {tab === "organization" && (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="wf-card p-4">
               <SectionTitle>Company</SectionTitle>
               <div className="flex flex-col gap-3">
@@ -338,7 +338,7 @@ function ClientInner() {
 
         {/* ------------------------------------------------------- projects */}
         {tab === "projects" && (
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {orgProjects.length === 0 && (
               <p className="wf-card px-4 py-10 text-center text-sm text-[var(--wf-muted)] lg:col-span-2">
                 No projects visible for this tenant.
@@ -427,7 +427,7 @@ function ClientInner() {
           <>
             <div className="wf-card p-4">
               <SectionTitle>Limit utilisation</SectionTitle>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
                 <UsageMeter label="Employees" state={util.employees} />
                 <UsageMeter label="Managers" state={util.managers} />
                 <UsageMeter label="Projects" state={util.projects} />
@@ -435,7 +435,7 @@ function ClientInner() {
                 <UsageMeter label="API calls" state={util.api} />
               </div>
             </div>
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <div className="wf-card p-4">
                 <SectionTitle>Monthly check-ins</SectionTitle>
                 <BarTrend
@@ -500,7 +500,7 @@ function ClientInner() {
 
         {/* -------------------------------------------------- configuration */}
         {tab === "configuration" && (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="wf-card p-4">
               <SectionTitle>Branding</SectionTitle>
               <div className="flex flex-col gap-3">

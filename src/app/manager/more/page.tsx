@@ -11,6 +11,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { BarTrend, ScoreBars } from "@/components/charts";
 import { FeatureGate, UpgradeNotice, useFeature } from "@/components/FeatureGate";
 import { AccountPanel, ScreenHeader } from "@/components/shell";
+import { PersonaMenuEntry } from "@/components/demo/PersonaMenuEntry";
 import { ThemeControl } from "@/components/ThemeControl";
 import {
   Avatar,
@@ -528,6 +529,7 @@ function MoreInner() {
               </div>
             </div>
 
+            <PersonaMenuEntry />
             <AccountPanel />
 
             <button

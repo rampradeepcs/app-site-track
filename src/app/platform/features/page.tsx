@@ -156,7 +156,7 @@ export default function FeaturesPage() {
               whose plan omits it — it never revokes something a plan grants, and
               never overrides an explicit per-client setting.
             </p>
-            <div className="grid gap-x-6 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
               {KEYS.map((k) => (
                 <div key={k} className="flex items-center justify-between gap-3 border-b border-[var(--wf-line)] py-2.5">
                   <span className="text-[0.84rem] font-semibold">{FEATURE_LABELS[k]}</span>

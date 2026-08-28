@@ -710,6 +710,11 @@ a.wf-row:active, button.wf-row:active {
 .wf-scroll-x {
   overflow-x: auto;
   scrollbar-width: thin;
+  /* A flex or grid child sizes to its content by default, so a wide table
+     pushes the whole page sideways instead of scrolling inside its own
+     box. These two lines are what make `overflow-x` actually bite. */
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* --------------------------------------------------------- phone frame */
@@ -924,4 +929,57 @@ a.wf-row:active, button.wf-row:active {
 }
 .wf-steps > span[data-on="true"] {
   background: var(--wf-amber);
+}
+
+/* ------------------------------------------------------------ demo mode */
+/* Small, fixed, and out of the way: the presenter needs to know at a glance
+   that this is demonstration data, and the audience needs to be looking at
+   the product rather than at a banner. It sits above the tab bar so it
+   never covers the thing being demonstrated. */
+
+.wf-demo-chip {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom) + 62px);
+  z-index: 45;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.34rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  color: var(--wf-fg);
+  background: var(--wf-material-thick);
+  backdrop-filter: var(--wf-material-blur);
+  -webkit-backdrop-filter: var(--wf-material-blur);
+  box-shadow:
+    0 0 0 0.5px var(--wf-line-strong),
+    var(--wf-shadow);
+  -webkit-tap-highlight-color: transparent;
+}
+.wf-demo-chip:active { opacity: 0.7; }
+.wf-demo-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--wf-amber);
+  animation: wf-blink 2.4s ease-in-out infinite;
+}
+.wf-demo-persona {
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 0.68rem;
+  color: var(--wf-muted);
+  max-width: 42vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wf-demo-dot { animation: none; }
 }

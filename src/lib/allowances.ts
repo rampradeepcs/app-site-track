@@ -525,15 +525,18 @@ export function travelKpis(
     );
   }
   const all = [...byEmployee.values()].flat();
+  const pending = (s.travelSessions ?? []).filter((t) => t.status === "pending");
   return {
     travelling: sessions.filter((t) => t.status === "active").length,
     trips: sessions.length,
     meters: all.reduce((t, a) => t + a.meters, 0),
     eligibleMeters: all.reduce((t, a) => t + a.eligibleMeters, 0),
     amount: round2(all.filter((a) => a.payable).reduce((t, a) => t + a.amount, 0)),
-    pendingApprovals: (s.travelSessions ?? []).filter((t) => t.status === "pending")
-      .length,
-    flagged: sessions.filter((t) => t.flags.length > 0).length,
+    // The approvals queue spans days, so what is flagged is counted over the
+    // same set — saying "all clean" about today while yesterday's flagged
+    // trip still waits is worse than showing no sub-label at all.
+    pendingApprovals: pending.length,
+    flagged: pending.filter((t) => t.flags.length > 0).length,
   };
 }
 

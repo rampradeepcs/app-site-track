@@ -38,6 +38,7 @@ import { fmtDistance, todayISO } from "./format";
 import { setActor } from "./actor";
 import { assignedPremises, nearestPremise, premiseAt } from "./premises";
 import { SEED_VERSION, buildSeedState, makeSelfie } from "./seed";
+import { clearDestination, homeFor } from "./routes";
 import {
   DEFAULT_OVERTIME,
   DEFAULT_PAY_POLICY,
@@ -47,6 +48,17 @@ import {
   shiftFor,
 } from "./payroll";
 import { fmtKmLabel, sanitiseTrack, travelPoints, vehicleOf } from "./allowances";
+import {
+  DEMO_PHONE,
+  clearDemoData,
+  currentPersonaId,
+  demoActive,
+  personaById,
+  setCurrentPersona,
+  setDemoActive,
+  workforceKey,
+} from "./demo/mode";
+import { buildDemoData } from "./demo/seed";
 import { isLiveBackend } from "./supabase/client";
 import { onAuthChange, signOut as authSignOut } from "./supabase/auth";
 import {
@@ -105,6 +117,8 @@ import type {
 
 // Derived, not written by hand: the key said v3 while the shape was at v5,
 // which is the same drift that silently discarded sessions once already.
+// `workforceKey()` swaps in the demo namespace while demo mode is on, which
+// is what keeps demonstration data and real data from ever meeting.
 const STORAGE_KEY = `workfence.v${SEED_VERSION}`;
 // Must match the version stamped by buildSeedState() in seed.ts.
 
@@ -312,6 +326,17 @@ interface StoreApi {
   /** Append one audit line for a sensitive action a screen performed. */
   logAudit: (action: string, target: string, detail?: string) => void;
 
+  /* demo mode */
+  isDemo: boolean;
+  /** Seed the demo namespace and sign in as a persona. */
+  enterDemo: (personaId: string) => void;
+  /** Change seat without signing in again. */
+  switchPersona: (personaId: string) => void;
+  /** Restore the demonstration to its original state. */
+  resetDemo: () => void;
+  /** Leave demo mode; real data is exactly as it was left. */
+  exitDemo: () => void;
+
   /* travel & allowances */
   activeTravel: TravelSession | null;
   startTravel: (
@@ -413,7 +438,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let next: WorkforceState | null = null;
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(workforceKey());
       if (raw) {
         const parsed = JSON.parse(raw) as WorkforceState;
         // Fields added after this blob was written are filled with their
@@ -437,7 +462,11 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     } catch {
       /* corrupted storage → reseed */
     }
-    if (!next) next = buildSeedState();
+    if (!next) {
+      // In demo mode an empty namespace means "seed the demonstration"; in
+      // real mode it means a fresh install with nothing in it.
+      next = demoActive() ? buildDemoData().workforce : buildSeedState();
+    }
     // One-time client hydration: localStorage isn't available during SSR,
     // so the initial state has to land in an effect.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -460,7 +489,9 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     //     empty" — the signed-in person is themselves a row. Blanking the
     //     app on that reading is the worst possible failure, so it is
     //     treated as no answer at all.
-    if (isLiveBackend) {
+    // Demo mode is local by construction: it never reads or writes a real
+    // tenant's rows, whatever backend this build is pointed at.
+    if (isLiveBackend && !demoActive()) {
       let cancelled = false;
       const hydrate = () => {
         fetchWorkforce()
@@ -534,12 +565,12 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!state) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(workforceKey(), JSON.stringify(state));
     } catch {
       /* quota exceeded — drop oldest trail points and retry once */
       try {
         const slim = { ...state, points: state.points.slice(-4000) };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(slim));
+        localStorage.setItem(workforceKey(), JSON.stringify(slim));
       } catch {
         /* give up quietly; app keeps working in memory */
       }
@@ -2789,9 +2820,79 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     [mutate],
   );
 
+  /* ------------------------------------------------------------ demo mode */
+
+  /**
+   * Enter demo mode as a persona.
+   *
+   * The data is seeded into the demo namespace and the page is reloaded
+   * rather than swapped in place: both stores choose their storage key at
+   * hydration, and a reload is the honest way to make every provider agree
+   * on which world it is in.
+   */
+  const enterDemo = useCallback((personaId: string) => {
+    const persona = personaById(personaId);
+    if (!persona) return;
+    const data = buildDemoData();
+    data.workforce.session = {
+      userId: persona.userId,
+      role: persona.role,
+      at: Date.now(),
+    };
+    setDemoActive(true);
+    setCurrentPersona(persona.id);
+    try {
+      localStorage.setItem(workforceKey(), JSON.stringify(data.workforce));
+      localStorage.setItem(
+        workforceKey().replace(".v", ".platform.v"),
+        JSON.stringify(data.platform),
+      );
+    } catch {
+      /* storage full — the demo still runs from memory this session */
+    }
+    // Land on the persona's own home, not wherever the visit had been
+    // heading before the demo was chosen.
+    clearDestination();
+    window.location.href = homeFor(persona.role);
+  }, []);
+
+  const switchPersona = useCallback(
+    (personaId: string) => {
+      const persona = personaById(personaId);
+      if (!persona) return;
+      setCurrentPersona(persona.id);
+      clearDestination();
+      mutate((s) => {
+        const user = s.users.find((u) => u.id === persona.userId);
+        return {
+          ...s,
+          session: {
+            userId: persona.userId,
+            role: persona.role,
+            at: Date.now(),
+          },
+          activeProjectId: user?.projectIds[0] ?? s.activeProjectId,
+        };
+      });
+      setFix(null);
+    },
+    [mutate],
+  );
+
+  const resetDemo = useCallback(() => {
+    const persona = personaById(currentPersonaId());
+    clearDemoData();
+    enterDemo(persona?.id ?? "owner");
+  }, [enterDemo]);
+
+  const exitDemo = useCallback(() => {
+    setDemoActive(false);
+    window.location.href = "/";
+  }, []);
+
   const eraseLocalData = useCallback(() => {
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(workforceKey());
     } catch {
       /* private mode, or storage already gone — the reset below still holds */
     }
@@ -2833,6 +2934,11 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     setPayrollStatus,
     addPayrollAdjustment,
     logAudit,
+    isDemo: demoActive(),
+    enterDemo,
+    switchPersona,
+    resetDemo,
+    exitDemo,
     activeTravel,
     startTravel,
     endTravel,

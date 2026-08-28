@@ -32,6 +32,20 @@ export default function PlatformDashboard() {
   const growth = useMemo(() => clientGrowth(platform, 8, now), [platform, now]);
   const byPlan = useMemo(() => revenueByPlan(platform), [platform]);
 
+  // A dashboard is a summary, not a directory: the biggest accounts by
+  // headcount earn the space, and the full book is one tap away.
+  const topClients = useMemo(
+    () =>
+      [...platform.organizations]
+        .sort(
+          (a, b) =>
+            (latestUsage(platform, b.id)?.employees ?? 0) -
+            (latestUsage(platform, a.id)?.employees ?? 0),
+        )
+        .slice(0, 8),
+    [platform],
+  );
+
   // Clients whose health has slipped, or who are near a hard limit.
   const atRisk = useMemo(
     () =>
@@ -91,7 +105,7 @@ export default function PlatformDashboard() {
         </div>
 
         {/* growth + revenue mix */}
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="wf-card p-4 lg:col-span-2">
             <SectionTitle>Client growth — last 8 months</SectionTitle>
             <BarTrend
@@ -144,7 +158,7 @@ export default function PlatformDashboard() {
         </div>
 
         {/* attention lists */}
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div>
             <SectionTitle
               action={
@@ -240,9 +254,9 @@ export default function PlatformDashboard() {
         {/* clients table */}
         <div className="wf-card overflow-hidden">
           <div className="flex items-center justify-between px-4 pt-4">
-            <SectionTitle>All clients</SectionTitle>
+            <SectionTitle>Largest clients</SectionTitle>
             <Link href="/platform/clients" className="wf-btn wf-btn-quiet wf-btn-sm">
-              Manage <IArrowR size={13} />
+              All {platform.organizations.length} <IArrowR size={13} />
             </Link>
           </div>
           <div className="wf-scroll-x">
@@ -259,7 +273,7 @@ export default function PlatformDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {platform.organizations.map((o) => {
+                {topClients.map((o) => {
                   const ent = entitlementsFor(platform, o.id);
                   const u = latestUsage(platform, o.id);
                   const h = clientHealth(platform, o.id, now);
@@ -267,7 +281,9 @@ export default function PlatformDashboard() {
                   const plan = platform.plans.find((p) => p.id === sub?.planId);
                   return (
                     <tr key={o.id}>
-                      <td>
+                      {/* The table scrolls sideways, so a long legal name
+                          reads better on one line than stacked three deep. */}
+                      <td className="whitespace-nowrap">
                         <Link
                           href={`/platform/client?id=${o.id}`}
                           className="inline-block py-1.5 font-semibold hover:text-[var(--wf-violet)]"

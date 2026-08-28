@@ -245,7 +245,7 @@ export function SubscriptionPanel({ orgId }: { orgId: string }) {
       {/* feature entitlements */}
       <div className="wf-card p-4">
         <SectionTitle>Feature entitlements</SectionTitle>
-        <div className="grid gap-x-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
           {(Object.keys(FEATURE_LABELS) as Array<keyof FeatureSet>).map((k) => {
             const base = plan.features[k];
             const effective = ent.features[k];

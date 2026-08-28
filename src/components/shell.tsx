@@ -348,6 +348,18 @@ export function ScreenHeader({
  * Signed-in identity + sign out, reachable from the header of every screen
  * so leaving a session never means hunting through settings tabs.
  */
+/** In demo mode the account panel names the persona, not just the person. */
+function DemoPersonaNote() {
+  const { isDemo } = useWorkforce();
+  if (!isDemo) return null;
+  return (
+    <p className="rounded-xl bg-[var(--wf-fill-3)] px-3 py-2 text-center text-[0.72rem] leading-relaxed text-[var(--wf-muted)]">
+      Demonstration persona. Tap <span className="font-semibold">DEMO</span> above
+      the tab bar to switch persona, reset or leave.
+    </p>
+  );
+}
+
 export function AccountPanel({
   /** Hide the identity row on screens that already show who this is. */
   identity = true,
@@ -393,6 +405,7 @@ export function AccountPanel({
       >
         <ILogout size={17} /> Sign out
       </button>
+      <DemoPersonaNote />
       <p className="text-center text-[0.7rem] leading-relaxed text-[var(--wf-faint)]">
         Signing out stops any location tracking and returns to the sign-in
         screen. Your records stay on this device.

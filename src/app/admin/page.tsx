@@ -79,7 +79,7 @@ export default function AdminOverview() {
         {/* portfolio health */}
         <div>
           <SectionTitle>Projects & their managers</SectionTitle>
-          <div className="grid gap-2.5 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
             {state.projects.map((p) => {
               const mgr = state.users.find((u) => u.id === p.managerId);
               const onsite = board.filter((b) => b.state === "working" && b.project?.id === p.id).length;
@@ -113,7 +113,7 @@ export default function AdminOverview() {
         </div>
 
         {/* trend + role mix */}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="wf-card p-4 md:col-span-2">
             <SectionTitle>Org attendance — last 14 working days</SectionTitle>
             <BarTrend
@@ -144,7 +144,7 @@ export default function AdminOverview() {
         </div>
 
         {/* alerts + attention */}
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <SectionTitle>Operational alerts</SectionTitle>
             <div className="flex flex-col gap-2">

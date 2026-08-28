@@ -140,7 +140,7 @@ function EmployeeInner() {
         </div>
 
         {/* performance */}
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="wf-card flex items-center gap-5 p-4">
             <ProgressRing value={perf.overall} size={92} label={`Overall score ${Math.round(perf.overall)}`} />
             <div>

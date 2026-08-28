@@ -4,6 +4,7 @@ import "./globals.css";
 import { PlatformProvider } from "@/lib/platform-store";
 import { WorkforceProvider } from "@/lib/store";
 import { PREPAINT_SCRIPT } from "@/lib/theme";
+import { DemoBar } from "@/components/demo/DemoBar";
 
 /*
  * The face is the identity, so the webfont leads the stack (workforce.css
@@ -50,7 +51,10 @@ export default function RootLayout({
       <body>
         <div className="wf min-h-dvh">
           <PlatformProvider>
-            <WorkforceProvider>{children}</WorkforceProvider>
+            <WorkforceProvider>
+              {children}
+              <DemoBar />
+            </WorkforceProvider>
           </PlatformProvider>
         </div>
       </body>

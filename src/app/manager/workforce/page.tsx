@@ -115,21 +115,22 @@ export default function WorkforcePage() {
                   size={42}
                   ring={b.state === "working" ? "green" : "none"}
                 />
+                {/* The name is what a supervisor scans for, so nothing on
+                    this row is allowed to squeeze it: the code and the
+                    zone drop to the detail line, and the chip carries only
+                    the clock, which is a fixed five characters wide. */}
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2">
-                    <span className="truncate font-semibold">{b.user.name}</span>
-                    <span className="text-[0.66rem] tabular-nums text-[var(--wf-faint)]">
-                      {b.user.employeeCode}
-                    </span>
-                  </span>
+                  <span className="block truncate font-semibold">{b.user.name}</span>
                   <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
-                    {b.user.designation} · {b.user.department}
-                    {b.project ? ` · ${b.project.name.split(" ")[0]}` : ""}
+                    {b.user.employeeCode} · {b.user.designation}
+                    {b.state === "working" && b.place && b.place !== "—"
+                      ? ` · ${b.place}`
+                      : ""}
                   </span>
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-1">
                   {b.state === "working" ? (
-                    <Chip tone="green">{fmtClock(b.workedMs).slice(0, 5)} · {b.place}</Chip>
+                    <Chip tone="green">{fmtClock(b.workedMs).slice(0, 5)}</Chip>
                   ) : (
                     <StatusChip status={b.attendance ? b.attendance.status : "not-in"} />
                   )}

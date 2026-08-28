@@ -3,6 +3,7 @@
 /** Platform settings — defaults, templates and the maintenance switch. */
 
 import { PageHead } from "@/components/platform/PlatformShell";
+import { PersonaMenuEntry } from "@/components/demo/PersonaMenuEntry";
 import { Field, SectionTitle, Toggle } from "@/components/ui";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
@@ -17,7 +18,8 @@ export default function PlatformSettingsPage() {
   return (
     <div className="pb-10">
       <PageHead title="Platform Settings" sub="Defaults applied to new clients, and platform-wide controls" />
-      <div className="grid gap-4 px-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 px-5 lg:grid-cols-2">
+        <PersonaMenuEntry />
         <div className="wf-card p-4">
           <SectionTitle>Subscription defaults</SectionTitle>
           <div className="flex flex-col gap-3.5">
