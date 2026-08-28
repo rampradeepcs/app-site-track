@@ -14,10 +14,12 @@ import { Avatar, Chip } from "@/components/ui";
 import { fmtShiftTime, todayISO } from "@/lib/format";
 import { shiftFor } from "@/lib/payroll";
 import { useWorkforce } from "@/lib/store";
+import { useFeature } from "@/components/FeatureGate";
 import {
   IBell,
   IChevronR,
   IClock,
+  INav,
   ISettings,
   IShield,
   IUser,
@@ -25,6 +27,7 @@ import {
 
 export default function EmployeeMore() {
   const { state, currentUser } = useWorkforce();
+  const petrolOn = useFeature("petrolAllowance");
 
   const unread = useMemo(
     () =>
@@ -63,6 +66,16 @@ export default function EmployeeMore() {
       label: "Privacy & permissions",
       sub: "What is tracked, and when",
     },
+    ...(petrolOn
+      ? [
+          {
+            href: "/employee/travel",
+            icon: <INav size={18} />,
+            label: "Travel",
+            sub: "Your work runs, routes and allowances",
+          },
+        ]
+      : []),
     {
       href: "/employee/profile?tab=alerts",
       icon: <IBell size={18} />,

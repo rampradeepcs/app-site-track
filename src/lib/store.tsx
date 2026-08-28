@@ -46,6 +46,7 @@ import {
   monthLocked,
   shiftFor,
 } from "./payroll";
+import { fmtKmLabel, sanitiseTrack, travelPoints, vehicleOf } from "./allowances";
 import { isLiveBackend } from "./supabase/client";
 import { onAuthChange, signOut as authSignOut } from "./supabase/auth";
 import {
@@ -65,6 +66,7 @@ import type {
   AttendanceMark,
   BreakEntry,
   CompRecord,
+  FoodRule,
   LatLng,
   LocationPoint,
   OutboxItem,
@@ -75,11 +77,15 @@ import type {
   Project,
   Role,
   Settings,
+  PetrolRule,
   ShiftAssignment,
   ShiftDef,
   ShiftEvent,
   TrackingMode,
+  TravelPurpose,
+  TravelSession,
   User,
+  Vehicle,
   VoiceNote,
   WorkUpdate,
   WorkforceState,
@@ -184,6 +190,12 @@ function scopeToTenant(s: WorkforceState): WorkforceState {
     shiftAssignments: (s.shiftAssignments ?? []).filter((x) => userIds.has(x.employeeId)),
     comp: (s.comp ?? []).filter((x) => userIds.has(x.employeeId)),
     payrollRuns: (s.payrollRuns ?? []).filter((x) => x.orgId === orgId),
+    travelSessions: (s.travelSessions ?? []).filter((x) => userIds.has(x.employeeId)),
+    petrolRules: (s.petrolRules ?? []).filter((x) => x.orgId === orgId),
+    foodRules: (s.foodRules ?? []).filter((x) => x.orgId === orgId),
+    allowanceDecisions: (s.allowanceDecisions ?? []).filter((x) =>
+      userIds.has(x.employeeId),
+    ),
   };
 }
 
@@ -287,6 +299,33 @@ interface StoreApi {
   setPayrollStatus: (month: string, status: PayrollStatus) => void;
   /** Append one audit line for a sensitive action a screen performed. */
   logAudit: (action: string, target: string, detail?: string) => void;
+
+  /* travel & allowances */
+  activeTravel: TravelSession | null;
+  startTravel: (
+    purpose: TravelPurpose,
+    note?: string,
+    selfie?: string,
+  ) => { ok: boolean; reason?: string };
+  endTravel: () => { ok: boolean; reason?: string };
+  decideTravel: (
+    sessionId: string,
+    decision: "approved" | "rejected",
+    approvedKm?: number,
+    note?: string,
+  ) => void;
+  savePetrolRule: (patch: Partial<PetrolRule> & { name: string }, id?: string) => void;
+  saveFoodRule: (patch: Partial<FoodRule> & { name: string }, id?: string) => void;
+  archiveAllowanceRule: (kind: "petrol" | "food", id: string) => void;
+  decideFoodAllowance: (
+    employeeId: string,
+    date: string,
+    ruleId: string,
+    status: "approved" | "rejected",
+    note?: string,
+  ) => void;
+  saveVehicle: (employeeId: string, vehicle: Vehicle | null) => void;
+  setProjectTravelTracking: (projectId: string, on: boolean) => void;
   addPayrollAdjustment: (
     month: string,
     employeeId: string,
@@ -376,6 +415,10 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
             comp: parsed.comp ?? [],
             payPolicy: { ...DEFAULT_PAY_POLICY, ...(parsed.payPolicy ?? {}) },
             payrollRuns: parsed.payrollRuns ?? [],
+            travelSessions: parsed.travelSessions ?? [],
+            petrolRules: parsed.petrolRules ?? [],
+            foodRules: parsed.foodRules ?? [],
+            allowanceDecisions: parsed.allowanceDecisions ?? [],
           };
         }
       }
@@ -506,6 +549,15 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     );
   }, [state, currentUser]);
 
+  const activeTravel = useMemo(() => {
+    if (!state || !currentUser) return null;
+    return (
+      (state.travelSessions ?? []).find(
+        (t) => t.employeeId === currentUser.id && t.status === "active",
+      ) ?? null
+    );
+  }, [state, currentUser]);
+
   const liveTrail = useMemo(() => {
     if (!state || !openShift) return [];
     return state.points
@@ -626,13 +678,19 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
 
       const project = s.projects.find((p) => p.id === shift.projectId);
 
+      // A deliberately-started travel session overrides the shift's privacy
+      // silence: the worker asked for this run to be measured (spec §7).
+      const travel = (s.travelSessions ?? []).find(
+        (t) => t.employeeId === user.id && t.status === "active",
+      );
+
       // Under `outside-only` the boundary is a privacy line, not a warning
       // line: while the worker is inside it, nothing is written at all.
       const offsiteOnly = project?.trackingMode === "outside-only";
       const inside = project
         ? checkGeofence(f.coords, project.geofence).inside
         : false;
-      if (offsiteOnly && inside) {
+      if (!travel && offsiteOnly && inside) {
         // Remember that the next fix outside opens a fresh stretch of trail.
         recordingRef.current = false;
         return;
@@ -669,6 +727,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         at: f.at,
         queued: isOffline || undefined,
         segmentStart: segmentStart || undefined,
+        travelSessionId: travel?.id,
       };
       const added = last
         ? distanceMeters({ lat: last.lat, lng: last.lng }, f.coords)
@@ -1151,6 +1210,34 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         insideGeofence: checkGeofence(f.coords, project.geofence).inside,
         syncedAt: isOffline ? undefined : at,
       };
+      // A travel session still running at checkout is the end-of-day
+      // workflow (spec §5): the day ends, so the run ends with it, measured
+      // and queued for review like any other.
+      const openTravel = (s.travelSessions ?? []).find(
+        (t) => t.employeeId === user.id && t.status === "active",
+      );
+      let travelSessions = s.travelSessions ?? [];
+      if (openTravel) {
+        const track = sanitiseTrack(travelPoints(s, openTravel.id));
+        travelSessions = travelSessions.map((t) =>
+          t.id === openTravel.id
+            ? {
+                ...t,
+                end: {
+                  kind: "project" as const,
+                  name: resolvePlace(f.coords, project.zones, project.location),
+                  coords: f.coords,
+                  at,
+                  projectId: project.id,
+                },
+                distanceMeters: Math.round(track.meters),
+                flags: track.flags,
+                status: "pending" as const,
+              }
+            : t,
+        );
+      }
+
       // A break that was never ended closes itself at checkout — the walk to
       // the gate ends both.
       const closedBreaks: BreakEntry[] = (shift.breaks ?? []).map((b) =>
@@ -1200,6 +1287,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       fenceStateRef.current = null;
       mutate((prev) => ({
         ...prev,
+        travelSessions: openTravel ? travelSessions : prev.travelSessions,
         attendance: prev.attendance.map((a) =>
           a.id === shift.id
             ? {
@@ -1642,6 +1730,403 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ].slice(0, 200),
         };
       });
+    },
+    [mutate],
+  );
+
+  /* ----------------------------------------------------- travel sessions */
+
+  const startTravel = useCallback(
+    (
+      purpose: TravelPurpose,
+      note?: string,
+      selfie?: string,
+    ): { ok: boolean; reason?: string } => {
+      const s = stateRef.current;
+      const f = fixRef.current;
+      if (!s?.session || !f) return { ok: false, reason: "Waiting for a GPS fix." };
+      const user = s.users.find((u) => u.id === s.session!.userId);
+      if (!user) return { ok: false, reason: "No signed-in employee." };
+      if ((s.travelSessions ?? []).some((t) => t.employeeId === user.id && t.status === "active")) {
+        return { ok: false, reason: "A travel session is already running." };
+      }
+      const pid = s.activeProjectId ?? user.projectIds[0];
+      const project = s.projects.find((p) => p.id === pid);
+      if (!project) return { ok: false, reason: "No project assigned." };
+      if (!project.travelTracking) {
+        return {
+          ok: false,
+          reason: "Travel tracking isn't enabled on this project. Ask your manager.",
+        };
+      }
+      const today = todayISO();
+      const shift = s.attendance.find(
+        (a) => a.employeeId === user.id && a.date === today && a.checkIn && !a.checkOut && !a.autoClosed,
+      );
+
+      // Where the run starts is recorded as a named place, not just a fix:
+      // at a premise the anchor is that premise, anywhere else it is the
+      // worker's own position (spec §2, §3).
+      const at = premiseAt(f.coords, assignedPremises(s.projects, user));
+      const session: TravelSession = {
+        id: uid(),
+        employeeId: user.id,
+        projectId: project.id,
+        attendanceId: shift?.id,
+        date: today,
+        start: {
+          kind: at ? (at.kind === "office" ? "office" : "project") : "custom",
+          name: at ? at.name : resolvePlace(f.coords, project.zones, project.location),
+          address: at?.address || undefined,
+          coords: f.coords,
+          at: Date.now(),
+          projectId: at?.id,
+        },
+        purpose,
+        note: note?.trim() || undefined,
+        vehicleType: vehicleOf(user),
+        distanceMeters: 0,
+        flags: [],
+        status: "active",
+        selfie,
+      };
+      mutate((prev) => ({
+        ...prev,
+        travelSessions: [...(prev.travelSessions ?? []), session],
+        audit: [
+          auditLine(prev, "travel.start", session.id, `${user.name} · ${purpose} from ${session.start.name}`),
+          ...prev.audit,
+        ].slice(0, 200),
+      }));
+      pushNotification({
+        audience: "manager",
+        kind: "geofence-exit",
+        title: `${user.name} started work travel`,
+        body: `${purpose} · from ${session.start.name}`,
+        severity: "info",
+      });
+      return { ok: true };
+    },
+    [mutate, pushNotification],
+  );
+
+  const endTravel = useCallback((): { ok: boolean; reason?: string } => {
+    const s = stateRef.current;
+    const f = fixRef.current;
+    if (!s?.session || !f) return { ok: false, reason: "Waiting for a GPS fix." };
+    const user = s.users.find((u) => u.id === s.session!.userId);
+    if (!user) return { ok: false, reason: "No signed-in employee." };
+    const session = (s.travelSessions ?? []).find(
+      (t) => t.employeeId === user.id && t.status === "active",
+    );
+    if (!session) return { ok: false, reason: "No travel session is running." };
+
+    // Measure the run now, through the sanitiser: drift, jumps and gaps are
+    // scored out here, once, and the flags kept for the reviewer (spec §8).
+    const track = sanitiseTrack(travelPoints(s, session.id));
+    const at = premiseAt(f.coords, assignedPremises(s.projects, user));
+    const project = s.projects.find((p) => p.id === session.projectId);
+    const ended: TravelSession = {
+      ...session,
+      end: {
+        kind: at ? (at.kind === "office" ? "office" : "project") : "custom",
+        name: at
+          ? at.name
+          : project
+            ? resolvePlace(f.coords, project.zones, project.location)
+            : "Journey end",
+        address: at?.address || undefined,
+        coords: f.coords,
+        at: Date.now(),
+        projectId: at?.id,
+      },
+      distanceMeters: Math.round(track.meters),
+      flags: track.flags,
+      status: "pending",
+    };
+    mutate((prev) => ({
+      ...prev,
+      travelSessions: (prev.travelSessions ?? []).map((t) =>
+        t.id === session.id ? ended : t,
+      ),
+      audit: [
+        auditLine(
+          prev,
+          "travel.end",
+          session.id,
+          `${user.name} · ${fmtKmLabel(track.meters)}${track.flags.length ? ` · ${track.flags.length} flag${track.flags.length === 1 ? "" : "s"}` : ""}`,
+        ),
+        ...prev.audit,
+      ].slice(0, 200),
+    }));
+    pushNotification({
+      audience: "manager",
+      kind: "geofence-exit",
+      title: `${user.name} ended work travel`,
+      body: `${fmtKmLabel(track.meters)} · ${session.purpose} · awaiting review`,
+      severity: track.flags.length ? "warning" : "info",
+    });
+    return { ok: true };
+  }, [mutate, pushNotification]);
+
+  const decideTravel = useCallback(
+    (
+      sessionId: string,
+      decision: "approved" | "rejected",
+      approvedKm?: number,
+      note?: string,
+    ) => {
+      const st = stateRef.current;
+      const session = (st?.travelSessions ?? []).find((t) => t.id === sessionId);
+      if (!session) return;
+      const worker = st?.users.find((u) => u.id === session.employeeId);
+      mutate((s) => ({
+        ...s,
+        travelSessions: (s.travelSessions ?? []).map((t) =>
+          t.id === sessionId
+            ? {
+                ...t,
+                status: decision,
+                approvedMeters:
+                  decision === "approved" && approvedKm != null
+                    ? Math.round(approvedKm * 1000)
+                    : t.approvedMeters,
+                decidedBy: s.session?.userId,
+                decidedAt: Date.now(),
+                decisionNote: note,
+              }
+            : t,
+        ),
+        audit: [
+          auditLine(
+            s,
+            `travel.${decision}`,
+            sessionId,
+            `${worker?.name ?? session.employeeId} · ${fmtKmLabel(session.distanceMeters)}${
+              decision === "approved" && approvedKm != null
+                ? ` → ${approvedKm.toFixed(1)} km`
+                : ""
+            }${note ? ` — ${note}` : ""}`,
+          ),
+          ...s.audit,
+        ].slice(0, 200),
+      }));
+      if (worker) {
+        pushNotification({
+          audience: "employee",
+          userId: worker.id,
+          kind: "check-out",
+          title: decision === "approved" ? "Travel approved" : "Travel not approved",
+          body: `${session.date} · ${session.purpose}${note ? ` — ${note}` : ""}`,
+          severity: decision === "approved" ? "success" : "warning",
+        });
+      }
+    },
+    [mutate, pushNotification],
+  );
+
+  /* ------------------------------------------------------ allowance rules */
+
+  const savePetrolRule = useCallback(
+    (patch: Partial<PetrolRule> & { name: string }, id?: string) => {
+      mutate((s) => {
+        if (id) {
+          return {
+            ...s,
+            petrolRules: (s.petrolRules ?? []).map((r) =>
+              r.id === id ? { ...r, ...patch, id } : r,
+            ),
+            audit: [
+              auditLine(s, "allowance.petrol.update", id, patch.name),
+              ...s.audit,
+            ].slice(0, 200),
+          };
+        }
+        const created: PetrolRule = {
+          id: uid(),
+          orgId: currentOrgId(s),
+          name: patch.name,
+          vehicleType: patch.vehicleType ?? "two-wheeler",
+          ratePerKm: patch.ratePerKm ?? 5,
+          maxDailyKm: patch.maxDailyKm ?? null,
+          maxDailyAmount: patch.maxDailyAmount ?? null,
+          approval: patch.approval ?? "manager",
+          projectIds: patch.projectIds ?? [],
+          employeeIds: patch.employeeIds ?? [],
+          effectiveFrom: patch.effectiveFrom ?? todayISO(),
+          status: "active",
+          createdAt: Date.now(),
+        };
+        return {
+          ...s,
+          petrolRules: [...(s.petrolRules ?? []), created],
+          audit: [
+            auditLine(
+              s,
+              "allowance.petrol.create",
+              created.id,
+              `${created.name} · ₹${created.ratePerKm}/km`,
+            ),
+            ...s.audit,
+          ].slice(0, 200),
+        };
+      });
+    },
+    [mutate],
+  );
+
+  const saveFoodRule = useCallback(
+    (patch: Partial<FoodRule> & { name: string }, id?: string) => {
+      mutate((s) => {
+        if (id) {
+          return {
+            ...s,
+            foodRules: (s.foodRules ?? []).map((r) =>
+              r.id === id ? { ...r, ...patch, id } : r,
+            ),
+            audit: [
+              auditLine(s, "allowance.food.update", id, patch.name),
+              ...s.audit,
+            ].slice(0, 200),
+          };
+        }
+        const created: FoodRule = {
+          id: uid(),
+          orgId: currentOrgId(s),
+          name: patch.name,
+          meal: patch.meal ?? "Breakfast",
+          startMinute: patch.startMinute ?? 6 * 60 + 30,
+          endMinute: patch.endMinute ?? 7 * 60,
+          trigger: patch.trigger ?? "check-in",
+          amount: patch.amount ?? 100,
+          projectIds: patch.projectIds ?? [],
+          employeeIds: patch.employeeIds ?? [],
+          shiftIds: patch.shiftIds ?? [],
+          approval: patch.approval ?? "auto",
+          effectiveFrom: patch.effectiveFrom ?? todayISO(),
+          status: "active",
+          createdAt: Date.now(),
+        };
+        return {
+          ...s,
+          foodRules: [...(s.foodRules ?? []), created],
+          audit: [
+            auditLine(
+              s,
+              "allowance.food.create",
+              created.id,
+              `${created.name} · ₹${created.amount}`,
+            ),
+            ...s.audit,
+          ].slice(0, 200),
+        };
+      });
+    },
+    [mutate],
+  );
+
+  const archiveAllowanceRule = useCallback(
+    (kind: "petrol" | "food", id: string) => {
+      mutate((s) => ({
+        ...s,
+        petrolRules:
+          kind === "petrol"
+            ? (s.petrolRules ?? []).map((r) =>
+                r.id === id ? { ...r, status: "archived" } : r,
+              )
+            : s.petrolRules,
+        foodRules:
+          kind === "food"
+            ? (s.foodRules ?? []).map((r) =>
+                r.id === id ? { ...r, status: "archived" } : r,
+              )
+            : s.foodRules,
+        audit: [
+          auditLine(s, `allowance.${kind}.archive`, id, ""),
+          ...s.audit,
+        ].slice(0, 200),
+      }));
+    },
+    [mutate],
+  );
+
+  const decideFoodAllowance = useCallback(
+    (
+      employeeId: string,
+      date: string,
+      ruleId: string,
+      status: "approved" | "rejected",
+      note?: string,
+    ) => {
+      mutate((s) => {
+        const worker = s.users.find((u) => u.id === employeeId);
+        const rule = (s.foodRules ?? []).find((r) => r.id === ruleId);
+        return {
+          ...s,
+          allowanceDecisions: [
+            ...(s.allowanceDecisions ?? []),
+            {
+              id: rid("alw"),
+              employeeId,
+              date,
+              ruleId,
+              status,
+              by: s.session?.userId ?? "system",
+              at: Date.now(),
+              note,
+            },
+          ],
+          audit: [
+            auditLine(
+              s,
+              `allowance.food.${status}`,
+              ruleId,
+              `${worker?.name ?? employeeId} · ${rule?.name ?? ruleId} · ${date}`,
+            ),
+            ...s.audit,
+          ].slice(0, 200),
+        };
+      });
+    },
+    [mutate],
+  );
+
+  const saveVehicle = useCallback(
+    (employeeId: string, vehicle: Vehicle | null) => {
+      mutate((s) => {
+        const worker = s.users.find((u) => u.id === employeeId);
+        return {
+          ...s,
+          users: s.users.map((u) =>
+            u.id === employeeId ? { ...u, vehicle: vehicle ?? undefined } : u,
+          ),
+          audit: [
+            auditLine(
+              s,
+              "vehicle.update",
+              employeeId,
+              `${worker?.name ?? employeeId} · ${vehicle ? `${vehicle.type} (${vehicle.ownership})` : "removed"}`,
+            ),
+            ...s.audit,
+          ].slice(0, 200),
+        };
+      });
+    },
+    [mutate],
+  );
+
+  const setProjectTravelTracking = useCallback(
+    (projectId: string, on: boolean) => {
+      mutate((s) => ({
+        ...s,
+        projects: s.projects.map((p) =>
+          p.id === projectId ? { ...p, travelTracking: on } : p,
+        ),
+        audit: [
+          auditLine(s, "travel.tracking", projectId, on ? "enabled" : "disabled"),
+          ...s.audit,
+        ].slice(0, 200),
+      }));
     },
     [mutate],
   );
@@ -2220,6 +2705,16 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     setPayrollStatus,
     addPayrollAdjustment,
     logAudit,
+    activeTravel,
+    startTravel,
+    endTravel,
+    decideTravel,
+    savePetrolRule,
+    saveFoodRule,
+    archiveAllowanceRule,
+    decideFoodAllowance,
+    saveVehicle,
+    setProjectTravelTracking,
     submitWorkUpdate,
     saveEmployee,
     setUserRole,

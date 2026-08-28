@@ -70,6 +70,10 @@ export function buildSeedState(): WorkforceState {
     comp: [],
     payPolicy: { ...DEFAULT_PAY_POLICY },
     payrollRuns: [],
+    travelSessions: [],
+    petrolRules: [],
+    foodRules: [],
+    allowanceDecisions: [],
     permissions: {
       location: "prompt",
       backgroundLocation: "prompt",

@@ -10,6 +10,7 @@
  * to the attendance, shift, break and compensation rules that made it.
  */
 
+import { dayAllowances } from "./allowances";
 import { todayISO } from "./format";
 import type {
   Attendance,
@@ -505,6 +506,22 @@ export function dayPay(
 
 /* ------------------------------------------------------------ month math */
 
+/** The slice of state the payroll engine reads. */
+export type PayrollState = Pick<
+  WorkforceState,
+  | "attendance"
+  | "shifts"
+  | "shiftAssignments"
+  | "users"
+  | "comp"
+  | "payPolicy"
+  | "payrollRuns"
+  | "travelSessions"
+  | "petrolRules"
+  | "foodRules"
+  | "allowanceDecisions"
+>;
+
 export interface MonthSummary {
   employeeId: string;
   month: string;
@@ -523,6 +540,11 @@ export interface MonthSummary {
   basePay: number;
   overtimePay: number;
   bonus: number;
+  /** Reimbursements — deliberately separate from salary (spec §24). */
+  travelMeters: number;
+  eligibleTravelMeters: number;
+  petrolAllowance: number;
+  foodAllowance: number;
   deductions: number;
   adjustments: number;
   netPay: number;
@@ -531,10 +553,7 @@ export interface MonthSummary {
 
 /** Every attendance day of a month for one employee, priced and summed. */
 export function monthSummary(
-  s: Pick<
-    WorkforceState,
-    "attendance" | "shifts" | "shiftAssignments" | "users" | "comp" | "payPolicy" | "payrollRuns"
-  >,
+  s: PayrollState,
   employeeId: string,
   month: string,
   now = Date.now(),
@@ -563,6 +582,17 @@ export function monthSummary(
   const bonus = sum((d) => d.pay.bonus);
   const deductions = sum((d) => d.pay.deductions);
 
+  // Reimbursements ride alongside pay, never inside it: petrol and food are
+  // summed per attendance day from the same rules the screens show.
+  const allowancesByDay = days.map((d) => dayAllowances(s, d.att));
+  const travelMeters = allowancesByDay.reduce((t, a) => t + a.travelMeters, 0);
+  const eligibleTravelMeters = allowancesByDay.reduce(
+    (t, a) => t + a.eligibleMeters,
+    0,
+  );
+  const petrolAllowance = allowancesByDay.reduce((t, a) => t + a.travelAmount, 0);
+  const foodAllowance = allowancesByDay.reduce((t, a) => t + a.foodAmount, 0);
+
   return {
     employeeId,
     month,
@@ -580,9 +610,21 @@ export function monthSummary(
     basePay: r2(basePay),
     overtimePay: r2(overtimePayTotal),
     bonus: r2(bonus),
+    travelMeters: Math.round(travelMeters),
+    eligibleTravelMeters: Math.round(eligibleTravelMeters),
+    petrolAllowance: r2(petrolAllowance),
+    foodAllowance: r2(foodAllowance),
     deductions: r2(deductions),
     adjustments: r2(adjustments),
-    netPay: r2(basePay + overtimePayTotal + bonus - deductions + adjustments),
+    netPay: r2(
+      basePay +
+        overtimePayTotal +
+        bonus +
+        petrolAllowance +
+        foodAllowance -
+        deductions +
+        adjustments,
+    ),
     days,
   };
 }
@@ -676,17 +718,7 @@ export function todayShiftKpis(
     headers and rows feed CSV, Excel and the printed PDF, so the three
     formats can never disagree. */
 export function payrollTable(
-  s: Pick<
-    WorkforceState,
-    | "attendance"
-    | "shifts"
-    | "shiftAssignments"
-    | "users"
-    | "comp"
-    | "payPolicy"
-    | "payrollRuns"
-    | "projects"
-  >,
+  s: PayrollState & Pick<WorkforceState, "projects">,
   month: string,
   employeeIds: string[],
 ): { headers: string[]; rows: Array<Array<string | number>> } {
@@ -706,6 +738,8 @@ export function payrollTable(
     "Base Salary",
     "Overtime Pay",
     "Bonus",
+    "Petrol Allowance",
+    "Food Allowance",
     "Deductions",
     "Adjustments",
     "Net Pay",
@@ -732,6 +766,8 @@ export function payrollTable(
       m.basePay,
       m.overtimePay,
       m.bonus,
+      m.petrolAllowance,
+      m.foodAllowance,
       m.deductions,
       m.adjustments,
       m.netPay,

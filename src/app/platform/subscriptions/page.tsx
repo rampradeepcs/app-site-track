@@ -147,6 +147,8 @@ function PlanEditor({
       salary: false,
       payroll: false,
       voiceNotes: true,
+      petrolAllowance: false,
+      foodAllowance: false,
       performance: false,
       advancedReports: false,
       dataExport: false,

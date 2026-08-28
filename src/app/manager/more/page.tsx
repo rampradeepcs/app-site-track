@@ -56,6 +56,7 @@ import {
   IChevronR,
   IWallet,
   IClock,
+  INav,
 } from "@/components/WfIcons";
 
 type Tab = "reports" | "performance" | "updates" | "alerts" | "settings";
@@ -94,6 +95,7 @@ function MoreInner() {
   const canExport = useFeature("dataExport");
   const shiftsOn = useFeature("shifts");
   const payrollOn = useFeature("payroll");
+  const petrolOn = useFeature("petrolAllowance");
   const canAdvancedReports = useFeature("advancedReports");
 
   const setTab = (t: Tab) => {
@@ -171,6 +173,20 @@ function MoreInner() {
                 <span className="block text-[0.92rem] font-semibold">Payroll</span>
                 <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
                   Monthly runs, OT approvals, exports
+                </span>
+              </span>
+              <IChevronR size={16} className="shrink-0 text-[var(--wf-faint)]" />
+            </Link>
+          )}
+          {petrolOn && (
+            <Link href="/manager/travel" className="wf-row">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--wf-fill-2)]">
+                <INav size={18} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[0.92rem] font-semibold">Travel & allowance</span>
+                <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
+                  Work travel, petrol and food rules, approvals
                 </span>
               </span>
               <IChevronR size={16} className="shrink-0 text-[var(--wf-faint)]" />

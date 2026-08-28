@@ -22,6 +22,8 @@ export interface FeatureSet {
   salary: boolean;
   payroll: boolean;
   voiceNotes: boolean;
+  petrolAllowance: boolean;
+  foodAllowance: boolean;
   performance: boolean;
   advancedReports: boolean;
   dataExport: boolean;
@@ -43,6 +45,8 @@ export const FEATURE_LABELS: Record<keyof FeatureSet, string> = {
   salary: "Salary management",
   payroll: "Payroll",
   voiceNotes: "Checkout voice notes",
+  petrolAllowance: "Petrol / travel allowance",
+  foodAllowance: "Food allowance",
   performance: "Performance analytics",
   advancedReports: "Advanced reports",
   dataExport: "Export (CSV / PDF)",

@@ -106,7 +106,7 @@ const EMPLOYEE_TABS = [
     label: "More",
     icon: ILayers,
     iconActive: ILayersFill,
-    alsoActive: ["/employee/profile"],
+    alsoActive: ["/employee/profile", "/employee/travel"],
   },
 ];
 
@@ -135,7 +135,12 @@ const MANAGER_TABS = [
     label: "More",
     icon: ILayers,
     iconActive: ILayersFill,
-    alsoActive: ["/manager/shifts", "/manager/payroll", "/manager/live"],
+    alsoActive: [
+      "/manager/shifts",
+      "/manager/payroll",
+      "/manager/live",
+      "/manager/travel",
+    ],
   },
 ];
 
@@ -168,6 +173,7 @@ const ADMIN_TABS = [
       "/manager/shifts",
       "/manager/payroll",
       "/manager/live",
+      "/manager/travel",
       "/manager/more",
       "/admin/governance",
     ],

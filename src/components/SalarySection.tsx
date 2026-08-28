@@ -22,8 +22,9 @@ import {
   upcomingShiftFor,
 } from "@/lib/payroll";
 import { useWorkforce } from "@/lib/store";
-import type { SalaryType, User } from "@/lib/types";
-import { IClock, IWallet } from "./WfIcons";
+import { VEHICLE_LABEL } from "@/lib/allowances";
+import type { SalaryType, User, Vehicle, VehicleType } from "@/lib/types";
+import { IClock, INav, IWallet } from "./WfIcons";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -69,6 +70,8 @@ export function SalaryAndShiftSection({ user }: { user: User }) {
     (role === "manager" && state.payPolicy.managerSeesSalary);
 
   const [editing, setEditing] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState(false);
+  const petrolOn = useFeature("petrolAllowance");
 
   return (
     <>
@@ -146,6 +149,42 @@ export function SalaryAndShiftSection({ user }: { user: User }) {
             </div>
           ) : null}
 
+          {petrolOn ? (
+            <div className="mt-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[0.72rem] font-bold uppercase tracking-wider text-[var(--wf-muted)]">
+                  Vehicle
+                </p>
+                <button
+                  className="wf-btn wf-btn-ghost wf-btn-sm"
+                  onClick={() => setEditingVehicle((v) => !v)}
+                >
+                  {editingVehicle ? "Close" : user.vehicle ? "Edit" : "Assign"}
+                </button>
+              </div>
+              {user.vehicle ? (
+                <div className="wf-card2 mt-1.5 flex items-center gap-3 px-4 py-3">
+                  <INav size={16} className="shrink-0 text-[var(--wf-blue)]" />
+                  <p className="min-w-0 flex-1 text-[0.84rem]">
+                    <span className="font-semibold">{VEHICLE_LABEL[user.vehicle.type]}</span>
+                    <span className="text-[var(--wf-muted)]">
+                      {" "}· {user.vehicle.ownership}
+                      {user.vehicle.registration ? ` · ${user.vehicle.registration}` : ""}
+                      {user.vehicle.fuelType ? ` · ${user.vehicle.fuelType}` : ""}
+                    </span>
+                  </p>
+                </div>
+              ) : !editingVehicle ? (
+                <p className="wf-card2 mt-1.5 px-4 py-3 text-[0.78rem] text-[var(--wf-muted)]">
+                  No vehicle assigned — travel earns no petrol allowance.
+                </p>
+              ) : null}
+              {editingVehicle ? (
+                <VehicleForm user={user} onDone={() => setEditingVehicle(false)} />
+              ) : null}
+            </div>
+          ) : null}
+
           {history.length > 1 ? (
             <div className="mt-3">
               <p className="mb-1.5 text-[0.72rem] font-bold uppercase tracking-wider text-[var(--wf-muted)]">
@@ -176,6 +215,90 @@ export function SalaryAndShiftSection({ user }: { user: User }) {
         </div>
       ) : null}
     </>
+  );
+}
+
+function VehicleForm({ user, onDone }: { user: User; onDone: () => void }) {
+  const wf = useWorkforce();
+  const [type, setType] = useState<VehicleType>(user.vehicle?.type ?? "two-wheeler");
+  const [ownership, setOwnership] = useState<Vehicle["ownership"]>(
+    user.vehicle?.ownership ?? "personal",
+  );
+  const [registration, setRegistration] = useState(user.vehicle?.registration ?? "");
+  const [fuelType, setFuelType] = useState(user.vehicle?.fuelType ?? "Petrol");
+  return (
+    <div className="wf-card mt-2 flex flex-col gap-3.5 p-4">
+      <Field label="Vehicle type">
+        <Segmented
+          size="sm"
+          ariaLabel="Vehicle type"
+          value={type}
+          onChange={(v) => setType(v as VehicleType)}
+          options={[
+            { value: "two-wheeler", label: "Two wheeler" },
+            { value: "four-wheeler", label: "Four wheeler" },
+          ]}
+        />
+      </Field>
+      <Field label="Ownership">
+        <Segmented
+          size="sm"
+          ariaLabel="Ownership"
+          value={ownership}
+          onChange={(v) => setOwnership(v as Vehicle["ownership"])}
+          options={[
+            { value: "personal", label: "Personal" },
+            { value: "company", label: "Company" },
+            { value: "rental", label: "Rental" },
+            { value: "other", label: "Other" },
+          ]}
+        />
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Registration">
+          <input
+            className="wf-input"
+            placeholder="TN 00 AB 0000"
+            value={registration}
+            onChange={(e) => setRegistration(e.target.value.toUpperCase())}
+          />
+        </Field>
+        <Field label="Fuel">
+          <input
+            className="wf-input"
+            value={fuelType}
+            onChange={(e) => setFuelType(e.target.value)}
+          />
+        </Field>
+      </div>
+      <div className="flex gap-2">
+        <button
+          className="wf-btn wf-btn-primary flex-1"
+          onClick={() => {
+            wf.saveVehicle(user.id, {
+              type,
+              ownership,
+              registration: registration.trim() || undefined,
+              fuelType: fuelType.trim() || undefined,
+            });
+            onDone();
+          }}
+        >
+          Save vehicle
+        </button>
+        {user.vehicle ? (
+          <button
+            className="wf-btn wf-btn-ghost text-[var(--wf-red)]"
+            onClick={() => {
+              wf.saveVehicle(user.id, null);
+              onDone();
+            }}
+          >
+            Remove
+          </button>
+        ) : null}
+      </div>
+    </div>
   );
 }
 

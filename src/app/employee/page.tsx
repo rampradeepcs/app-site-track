@@ -33,6 +33,13 @@ import {
   todayISO,
 } from "@/lib/format";
 import { dayMetrics, shiftFor } from "@/lib/payroll";
+import {
+  dayAllowances,
+  fmtKmLabel,
+  sanitiseTrack,
+  travelPoints,
+} from "@/lib/allowances";
+import { TRAVEL_PURPOSES, type TravelPurpose } from "@/lib/types";
 import { resolvePlace } from "@/lib/geo";
 import {
   assignedPremises,
@@ -79,6 +86,9 @@ export default function EmployeeHome() {
     checkOut,
     startBreak,
     endBreak,
+    activeTravel,
+    startTravel,
+    endTravel,
     simScenario,
     setSimScenario,
     setActiveProject,
@@ -90,6 +100,11 @@ export default function EmployeeHome() {
   const now = useNowTick(5);
   const breaksEnabled = useFeature("breaks");
   const voiceEnabled = useFeature("voiceNotes");
+  const petrolEnabled = useFeature("petrolAllowance");
+  const [travelSheet, setTravelSheet] = useState(false);
+  const [travelPurpose, setTravelPurpose] = useState<TravelPurpose>("Material Pickup");
+  const [travelNote, setTravelNote] = useState("");
+  const [travelError, setTravelError] = useState<string | null>(null);
 
   const project = useMemo(() => {
     const pid = state.activeProjectId ?? currentUser?.projectIds[0];
@@ -116,6 +131,18 @@ export default function EmployeeHome() {
     [openShift, shiftDef, now],
   );
   const openBreak = openShift?.breaks?.find((b) => !b.end) ?? null;
+
+  /* Travel: live measured distance of the running session, and the day's
+     allowances for the checkout summary. */
+  const travelEnabled = petrolEnabled && !!project?.travelTracking;
+  const liveTravelMeters = useMemo(() => {
+    if (!activeTravel) return 0;
+    return sanitiseTrack(travelPoints(state, activeTravel.id)).meters;
+  }, [state, activeTravel]);
+  const allowances = useMemo(
+    () => (openShift ? dayAllowances(state, openShift) : null),
+    [state, openShift],
+  );
 
   if (!currentUser || !project) {
     return (
@@ -379,6 +406,51 @@ export default function EmployeeHome() {
 
         <SimulatedLocationControls value={simScenario} onChange={setSimScenario} onShift />
 
+        {travelEnabled ? (
+          activeTravel ? (
+            <div className="wf-card2 flex items-center gap-3 px-3.5 py-3">
+              <span className="wf-pulse-dot shrink-0" style={{ background: "var(--wf-blue)" }} />
+              <div className="min-w-0 flex-1">
+                <p className="text-[0.66rem] font-bold uppercase tracking-wider text-[var(--wf-blue)]">
+                  Travel tracking active
+                </p>
+                <p className="truncate text-[0.88rem] font-semibold">
+                  {activeTravel.purpose} · {fmtKmLabel(liveTravelMeters)}
+                </p>
+              </div>
+              <button
+                className="wf-btn wf-btn-primary wf-btn-sm"
+                onClick={() => {
+                  setTravelError(null);
+                  const res = endTravel();
+                  if (!res.ok) setTravelError(res.reason ?? "Couldn't end travel.");
+                }}
+              >
+                End travel
+              </button>
+            </div>
+          ) : (
+            <button
+              className="wf-btn wf-btn-ghost"
+              onClick={() => {
+                setTravelError(null);
+                setTravelSheet(true);
+              }}
+            >
+              <INav size={16} /> Start Travel — material run, client visit…
+            </button>
+          )
+        ) : null}
+
+        {travelError ? (
+          <p
+            role="alert"
+            className="rounded-xl bg-[var(--wf-red-soft)] px-3 py-2 text-[0.78rem] text-[var(--wf-red)]"
+          >
+            {travelError}
+          </p>
+        ) : null}
+
         {breakError ? (
           <p
             role="alert"
@@ -485,6 +557,37 @@ export default function EmployeeHome() {
                       ),
                     ],
                     ["Distance", fmtDistance(openShift.distanceMeters)],
+                    ...(allowances && allowances.travel.length > 0
+                      ? ([
+                          ["Travel", fmtKmLabel(allowances.travelMeters)],
+                          [
+                            "Petrol allowance",
+                            allowances.travelAmount > 0
+                              ? `₹${allowances.travelAmount.toLocaleString("en-IN")}`
+                              : allowances.pending > 0
+                                ? "Pending approval"
+                                : "—",
+                          ],
+                        ] as Array<[string, string]>)
+                      : []),
+                    ...(allowances && allowances.food.some((f) => f.eligible)
+                      ? ([
+                          [
+                            "Food allowance",
+                            allowances.foodAmount > 0
+                              ? `₹${allowances.foodAmount.toLocaleString("en-IN")}`
+                              : "Pending approval",
+                          ],
+                        ] as Array<[string, string]>)
+                      : []),
+                    ...(allowances && allowances.total > 0
+                      ? ([
+                          [
+                            "Total allowances",
+                            `₹${allowances.total.toLocaleString("en-IN")}`,
+                          ],
+                        ] as Array<[string, string]>)
+                      : []),
                   ] as Array<[string, string]>
                 ).map(([label, value]) => (
                   <div
@@ -519,6 +622,82 @@ export default function EmployeeHome() {
               </p>
             </div>
           )}
+        </BottomSheet>
+
+        <BottomSheet
+          open={travelSheet}
+          onClose={() => setTravelSheet(false)}
+          title="Start Travel"
+          tall
+        >
+          <div className="flex flex-col gap-4">
+            <div className="wf-card2 flex items-center gap-3 px-4 py-3">
+              <IMapPin size={18} className="shrink-0 text-[var(--wf-blue)]" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[0.66rem] font-bold uppercase tracking-wider text-[var(--wf-muted)]">
+                  Current location
+                </p>
+                <p className="truncate text-[0.92rem] font-semibold">{place}</p>
+                <p className="text-[0.7rem] tabular-nums text-[var(--wf-muted)]">
+                  {fmtTime(now)} · GPS ±{fix ? Math.round(fix.accuracy) : "—"}m
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-[0.8rem] font-medium text-[var(--wf-muted)]">
+                Travel purpose
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {TRAVEL_PURPOSES.map((purpose) => (
+                  <button
+                    key={purpose}
+                    className="wf-btn wf-btn-sm"
+                    style={{
+                      background:
+                        travelPurpose === purpose
+                          ? "var(--wf-amber)"
+                          : "var(--wf-fill-3)",
+                      color:
+                        travelPurpose === purpose
+                          ? "var(--wf-on-amber)"
+                          : "var(--wf-fg)",
+                    }}
+                    onClick={() => setTravelPurpose(purpose)}
+                  >
+                    {purpose}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <input
+              className="wf-input"
+              placeholder="Purpose / notes (optional)"
+              value={travelNote}
+              onChange={(e) => setTravelNote(e.target.value)}
+            />
+
+            <p className="text-[0.74rem] leading-relaxed text-[var(--wf-muted)]">
+              Your route is recorded from here until you end the travel — this
+              run, nothing else. Distance and allowance are worked out for you.
+            </p>
+
+            <button
+              className="wf-btn wf-btn-primary wf-btn-lg"
+              onClick={() => {
+                const res = startTravel(travelPurpose, travelNote);
+                if (!res.ok) {
+                  setTravelError(res.reason ?? "Couldn't start travel.");
+                } else {
+                  setTravelNote("");
+                }
+                setTravelSheet(false);
+              }}
+            >
+              <INav size={17} /> Start Travel
+            </button>
+          </div>
         </BottomSheet>
 
         <BottomSheet open={updateSheet} onClose={() => setUpdateSheet(false)} title="Add work update" tall>

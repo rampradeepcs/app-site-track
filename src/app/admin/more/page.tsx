@@ -18,6 +18,7 @@ import {
   IChevronR,
   IClock,
   IMapPin,
+  INav,
   IShield,
   IWallet,
 } from "@/components/WfIcons";
@@ -48,6 +49,14 @@ const ITEMS: Item[] = [
     label: "Payroll",
     sub: "Monthly runs, OT approvals, exports",
     feature: "payroll",
+    roles: ["admin", "manager", "superadmin"],
+  },
+  {
+    href: "/manager/travel",
+    icon: <INav size={18} />,
+    label: "Travel & allowance",
+    sub: "Work travel, petrol and food rules, approvals",
+    feature: "petrolAllowance",
     roles: ["admin", "manager", "superadmin"],
   },
   {

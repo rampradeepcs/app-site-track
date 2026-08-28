@@ -44,6 +44,24 @@ export interface User {
   shiftEnd: number;
   joinedAt: number;
   supervisorRating?: number;
+  /** Assigned vehicle — decides the petrol rate that applies to their travel. */
+  vehicle?: Vehicle;
+}
+
+/* --------------------------------------------------------------- vehicles */
+
+export type VehicleType = "two-wheeler" | "four-wheeler" | "none";
+
+/**
+ * The vehicle a person travels for work in. Permission-controlled like
+ * salary: it carries a registration number, which is personal data, and the
+ * rate it selects is money.
+ */
+export interface Vehicle {
+  type: VehicleType;
+  ownership: "personal" | "company" | "rental" | "other";
+  registration?: string;
+  fuelType?: string;
 }
 
 /* --------------------------------------------------------------- projects */
@@ -109,6 +127,15 @@ export interface Project {
   kind: PremiseKind;
   /** Whether on-site movement is recorded. See {@link TrackingMode}. */
   trackingMode: TrackingMode;
+  /**
+   * Whether work travel may be recorded from this premise at all.
+   *
+   * Independent of `trackingMode` on purpose (spec §7): a site can record
+   * nothing of a worker's movement around it and still let them log an
+   * approved run to a supplier. Absent on projects created before travel
+   * existed, where it reads as off.
+   */
+  travelTracking?: boolean;
   code: string;
   name: string;
   client: string;
@@ -135,6 +162,153 @@ export interface Project {
     autoCheckoutHours: number;
   };
   createdAt: number;
+}
+
+/* ----------------------------------------------------------------- travel */
+
+/** Why a run was made. Only configured purposes qualify for allowance. */
+export const TRAVEL_PURPOSES = [
+  "Material Pickup",
+  "Client Visit",
+  "Supplier Visit",
+  "Other Project Site",
+  "Government Office",
+  "Inspection",
+  "Meeting",
+  "Delivery",
+  "Other",
+] as const;
+
+export type TravelPurpose = (typeof TRAVEL_PURPOSES)[number];
+
+/** Where a travel session started or finished, and what that place was. */
+export interface TravelAnchor {
+  kind: "base" | "project" | "office" | "custom";
+  name: string;
+  address?: string;
+  coords: LatLng;
+  at: number;
+  /** Set when the anchor is one of the org's premises. */
+  projectId?: string;
+}
+
+/** A GPS reading the engine refused to trust, kept so a manager can see why. */
+export interface TravelFlag {
+  at: number;
+  kind: "gps-jump" | "gps-gap" | "low-accuracy" | "offline";
+  detail: string;
+}
+
+export type TravelStatus = "active" | "pending" | "approved" | "rejected";
+
+/**
+ * One approved work run: start point, route, end point, and what it earns.
+ *
+ * The distance is measured from the trail points tagged with this session's
+ * id — never from the whole day — so ordinary movement around a site can
+ * never turn into reimbursable travel (spec §1, §6, §7).
+ */
+export interface TravelSession {
+  id: string;
+  employeeId: string;
+  projectId: string;
+  /** The shift this run happened during, when there was one. */
+  attendanceId?: string;
+  date: string;
+  start: TravelAnchor;
+  end?: TravelAnchor;
+  purpose: TravelPurpose;
+  note?: string;
+  vehicleType: VehicleType;
+  /** Metres accepted by the sanitiser — GPS drift and jumps excluded. */
+  distanceMeters: number;
+  /** Readings the sanitiser rejected or found suspicious. */
+  flags: TravelFlag[];
+  status: TravelStatus;
+  /** Distance a manager settled on, metres. Set only when they edited it. */
+  approvedMeters?: number;
+  decidedBy?: string;
+  decidedAt?: number;
+  decisionNote?: string;
+  selfie?: string;
+}
+
+/* ------------------------------------------------------------- allowances */
+
+/**
+ * Petrol allowance policy: what a kilometre is worth, to whom, with what
+ * ceilings. Never hard-coded — a client's rates live in these records
+ * (spec §9, §27).
+ */
+export interface PetrolRule {
+  id: string;
+  orgId: string;
+  name: string;
+  vehicleType: VehicleType;
+  ratePerKm: number;
+  /** Ceilings; null = uncapped. */
+  maxDailyKm: number | null;
+  maxDailyAmount: number | null;
+  approval: "auto" | "manager";
+  /** Empty arrays mean "everyone" / "every project". */
+  projectIds: string[];
+  employeeIds: string[];
+  effectiveFrom: string;
+  status: "active" | "archived";
+  createdAt: number;
+}
+
+export const MEAL_TYPES = [
+  "Breakfast",
+  "Lunch",
+  "Dinner",
+  "Night Meal",
+  "Other",
+] as const;
+
+export type MealType = (typeof MEAL_TYPES)[number];
+
+/**
+ * Food allowance policy: a meal, a window, an amount, and what event has to
+ * land inside the window to earn it. The event is always a verified record —
+ * a geofenced check-in — never a typed-in arrival time (spec §18).
+ */
+export interface FoodRule {
+  id: string;
+  orgId: string;
+  name: string;
+  meal: MealType;
+  /** Eligibility window, minutes from midnight. */
+  startMinute: number;
+  endMinute: number;
+  trigger: "check-in" | "check-out";
+  amount: number;
+  projectIds: string[];
+  employeeIds: string[];
+  /** Empty = every shift; otherwise only these shifts qualify (spec §21). */
+  shiftIds: string[];
+  approval: "auto" | "manager";
+  effectiveFrom: string;
+  status: "active" | "archived";
+  createdAt: number;
+}
+
+/**
+ * A manager's decision on one earned allowance.
+ *
+ * Amounts are never stored — they are recomputed from the rule and the
+ * attendance, exactly like pay. What is stored is the judgement: approved,
+ * rejected, and by whom.
+ */
+export interface AllowanceDecision {
+  id: string;
+  employeeId: string;
+  date: string;
+  ruleId: string;
+  status: "approved" | "rejected";
+  by: string;
+  at: number;
+  note?: string;
 }
 
 /* ----------------------------------------------------------------- shifts */
@@ -421,6 +595,12 @@ export interface LocationPoint {
   /** True while the point sat in the offline outbox. */
   queued?: boolean;
   /**
+   * The travel session this fix belongs to, when one was running. Only these
+   * points are measured for petrol allowance — a shift trail is presence,
+   * not reimbursable travel (spec §1, §6).
+   */
+  travelSessionId?: string;
+  /**
    * First fix of a new stretch of recording. Only `outside-only` projects
    * produce these: the trail is a series of excursions with the on-site time
    * between them missing entirely, so the distance from the previous point is
@@ -577,6 +757,11 @@ export interface WorkforceState {
   comp: CompRecord[];
   payPolicy: PayPolicy;
   payrollRuns: PayrollRun[];
+  /* travel & allowances */
+  travelSessions: TravelSession[];
+  petrolRules: PetrolRule[];
+  foodRules: FoodRule[];
+  allowanceDecisions: AllowanceDecision[];
   permissions: Permissions;
   settings: Settings;
   session: Session | null;

@@ -255,6 +255,7 @@ export default function ManagerPayroll() {
                     <th className="text-right">Hours</th>
                     <th className="text-right">OT</th>
                     <th className="text-right">Bonus</th>
+                    <th className="text-right">Allowances</th>
                     <th className="text-right">Deductions</th>
                     <th className="text-right">Net</th>
                   </tr>
@@ -291,6 +292,11 @@ export default function ManagerPayroll() {
                       <td className="text-right tabular-nums">
                         {summary.bonus > 0 ? fmtINR(summary.bonus) : "—"}
                       </td>
+                      <td className="text-right tabular-nums">
+                        {summary.petrolAllowance + summary.foodAllowance > 0
+                          ? fmtINR(summary.petrolAllowance + summary.foodAllowance)
+                          : "—"}
+                      </td>
                       <td className="text-right tabular-nums text-[var(--wf-red)]">
                         {summary.deductions > 0 ? fmtINR(summary.deductions) : "—"}
                       </td>
@@ -301,7 +307,7 @@ export default function ManagerPayroll() {
                   ))}
                   {rows.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-[var(--wf-muted)]">
+                      <td colSpan={8} className="py-8 text-center text-[var(--wf-muted)]">
                         No attendance this month yet.
                       </td>
                     </tr>
@@ -542,11 +548,18 @@ function MonthDetail({
     ["Break", fmtDuration(summary.breakMinutes)],
     ["Unpaid break", fmtDuration(summary.unpaidBreakMinutes)],
     ["Overtime", fmtDuration(summary.paidOvertimeMinutes)],
+    ...(summary.travelMeters > 0
+      ? ([["Travel", `${(summary.eligibleTravelMeters / 1000).toFixed(1)} km eligible`]] as Array<
+          [string, string]
+        >)
+      : []),
   ];
   const money: Array<[string, number]> = [
     ["Earnings", summary.basePay],
     ["Overtime earnings", summary.overtimePay],
     ["Bonus", summary.bonus],
+    ["Petrol allowance", summary.petrolAllowance],
+    ["Food allowance", summary.foodAllowance],
     ["Deductions", -summary.deductions],
     ["Adjustments", summary.adjustments],
   ];

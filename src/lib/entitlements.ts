@@ -39,6 +39,8 @@ const NO_FEATURES: FeatureSet = {
   salary: false,
   payroll: false,
   voiceNotes: false,
+  petrolAllowance: false,
+  foodAllowance: false,
   performance: false,
   advancedReports: false,
   dataExport: false,

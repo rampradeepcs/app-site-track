@@ -418,6 +418,8 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
             salary: false,
             payroll: false,
             voiceNotes: true,
+            petrolAllowance: false,
+            foodAllowance: false,
             performance: false,
             advancedReports: false,
             dataExport: false,
