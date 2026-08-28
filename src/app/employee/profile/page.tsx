@@ -7,7 +7,7 @@
 
 import { Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ScreenHeader } from "@/components/shell";
+import { AccountPanel, ScreenHeader } from "@/components/shell";
 import { ScoreBars, ProgressRing } from "@/components/charts";
 import {
   Avatar,
@@ -34,7 +34,6 @@ import {
   ICamera,
   ICheckCircle,
   IInfo,
-  ILogout,
   IMapPin,
   IRefresh,
   IShield,
@@ -52,7 +51,7 @@ export default function EmployeeProfilePage() {
 
 function ProfileInner() {
   const wf = useWorkforce();
-  const { state, currentUser, logout, setPermission, updateSettings, markNotificationsRead, eraseLocalData } = wf;
+  const { state, currentUser, setPermission, updateSettings, markNotificationsRead, eraseLocalData } = wf;
   const router = useRouter();
   const params = useSearchParams();
   const tab = (params.get("tab") as Tab) ?? "profile";
@@ -166,15 +165,10 @@ function ProfileInner() {
               })}
             </div>
 
-            <button
-              className="wf-btn wf-btn-ghost"
-              onClick={() => {
-                logout();
-                router.replace("/");
-              }}
-            >
-              <ILogout size={17} /> Sign out
-            </button>
+            {/* Same panel the More menu uses, so signing out looks and
+                reads identically wherever it is reached from. The identity
+                row is off: this page opens with it. */}
+            <AccountPanel identity={false} />
           </>
         )}
 

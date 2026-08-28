@@ -50,13 +50,25 @@ import { fmtKmLabel, sanitiseTrack, travelPoints, vehicleOf } from "./allowances
 import { isLiveBackend } from "./supabase/client";
 import { onAuthChange, signOut as authSignOut } from "./supabase/auth";
 import {
+  fetchOperations,
   fetchWorkforce,
+  insertAllowanceDecision,
   insertCheckIn,
   insertCheckOut,
+  insertComp,
   insertPoints,
+  insertShiftAssignments,
   insertWorkUpdate,
   replaceProjectMembers,
+  updateBreaks,
+  updateOvertime,
+  upsertFoodRule,
+  upsertPayPolicy,
+  upsertPayrollRun,
+  upsertPetrolRule,
   upsertProject,
+  upsertShift,
+  upsertTravelSession,
   upsertUser,
 } from "./supabase/repository";
 import { persist, uid } from "./supabase/sync";
@@ -472,6 +484,36 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
                   }
                 : prev,
             );
+            // Shifts, salary, payroll, travel and allowance rules follow in
+            // their own round: RLS may legitimately answer parts of it with
+            // nothing (a manager who may not read salary), and that must not
+            // void the workforce read that already succeeded.
+            fetchOperations()
+              .then((ops) => {
+                if (cancelled) return;
+                setState((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        shifts: ops.shifts,
+                        shiftAssignments: ops.shiftAssignments,
+                        comp: ops.comp,
+                        payPolicy: ops.payPolicy ?? prev.payPolicy,
+                        payrollRuns: ops.payrollRuns,
+                        travelSessions: ops.travelSessions,
+                        petrolRules: ops.petrolRules,
+                        foodRules: ops.foodRules,
+                        allowanceDecisions: ops.allowanceDecisions,
+                      }
+                    : prev,
+                );
+              })
+              .catch((err) => {
+                console.error(
+                  "[Workfence] Shift/payroll/allowance hydration failed; keeping local state.",
+                  err,
+                );
+              });
           })
           .catch((err) => {
             console.error("[Workfence] Supabase hydration failed; staying on local state.", err);
@@ -1131,6 +1173,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
             date: att.date,
             mark,
             status: att.status,
+            shiftId: shiftDef?.id,
           }),
         );
       }
@@ -1309,6 +1352,14 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
             ]
           : prev.outbox,
       }));
+      if (!isOffline && openTravel) {
+        const closed = travelSessions.find((t) => t.id === openTravel.id);
+        if (closed) {
+          persist("close the travel session", () =>
+            upsertTravelSession(closed, user.orgId),
+          );
+        }
+      }
       if (!isOffline) {
         persist("record the checkout", () =>
           insertCheckOut(shift.id, {
@@ -1316,6 +1367,9 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
             workedMinutes: worked,
             distanceMeters: shift.distanceMeters,
             status,
+            breaks: closedBreaks,
+            overtime,
+            voiceNote,
           }),
         );
       }
@@ -1370,12 +1424,14 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       start: Date.now(),
       coordsStart: f?.coords,
     };
+    const nextBreaks = [...breaks, entry];
     mutate((prev) => ({
       ...prev,
       attendance: prev.attendance.map((a) =>
-        a.id === shift.id ? { ...a, breaks: [...(a.breaks ?? []), entry] } : a,
+        a.id === shift.id ? { ...a, breaks: nextBreaks } : a,
       ),
     }));
+    persist("record the break", () => updateBreaks(shift.id, nextBreaks));
     return { ok: true };
   }, [mutate]);
 
@@ -1392,19 +1448,18 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     const open = shift?.breaks?.find((b) => !b.end);
     if (!shift || !open) return { ok: false, reason: "No break is running." };
     const at = Date.now();
+    const nextBreaks = (shift.breaks ?? []).map((b) =>
+      b.id === open.id ? { ...b, end: at, coordsEnd: f?.coords } : b,
+    );
     mutate((prev) => ({
       ...prev,
       attendance: prev.attendance.map((a) =>
-        a.id === shift.id
-          ? {
-              ...a,
-              breaks: (a.breaks ?? []).map((b) =>
-                b.id === open.id ? { ...b, end: at, coordsEnd: f?.coords } : b,
-              ),
-            }
-          : a,
+        a.id === shift.id ? { ...a, breaks: nextBreaks } : a,
       ),
     }));
+    persist("record the end of the break", () =>
+      updateBreaks(shift.id, nextBreaks),
+    );
     return { ok: true };
   }, [mutate]);
 
@@ -1478,7 +1533,9 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ].slice(0, 200),
         };
       });
-      return saved!;
+      const shift = saved!;
+      persist("save the shift", () => upsertShift(shift));
+      return shift;
     },
     [mutate],
   );
@@ -1495,12 +1552,18 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ...s.audit,
         ].slice(0, 200),
       }));
+      const archived = stateRef.current?.shifts.find((x) => x.id === shiftId);
+      if (archived) {
+        persist("archive the shift", () => upsertShift(archived));
+      }
     },
     [mutate],
   );
 
   const assignShift = useCallback(
     (employeeIds: string[], shiftId: string, effectiveFrom: string) => {
+      let written: ShiftAssignment[] = [];
+      let orgId = "";
       mutate((s) => {
         const name = (s.shifts ?? []).find((x) => x.id === shiftId)?.name ?? shiftId;
         const rows: ShiftAssignment[] = employeeIds.map((employeeId) => ({
@@ -1511,6 +1574,8 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           assignedBy: s.session?.userId ?? "system",
           at: Date.now(),
         }));
+        written = rows;
+        orgId = currentOrgId(s);
         return {
           ...s,
           shiftAssignments: [...(s.shiftAssignments ?? []), ...rows],
@@ -1525,6 +1590,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ].slice(0, 200),
         };
       });
+      persist("assign the shift", () => insertShiftAssignments(written, orgId));
     },
     [mutate],
   );
@@ -1539,17 +1605,15 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         .filter((c) => c.employeeId === rec.employeeId)
         .sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? -1 : 1))
         .pop();
+      const record: CompRecord = {
+        ...rec,
+        id: rid("cmp"),
+        setBy: st.session?.userId ?? "system",
+        at: Date.now(),
+      };
       mutate((s) => ({
         ...s,
-        comp: [
-          ...(s.comp ?? []),
-          {
-            ...rec,
-            id: rid("cmp"),
-            setBy: s.session?.userId ?? "system",
-            at: Date.now(),
-          },
-        ],
+        comp: [...(s.comp ?? []), record],
         audit: [
           auditLine(
             s,
@@ -1560,6 +1624,9 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ...s.audit,
         ].slice(0, 200),
       }));
+      persist("save the salary revision", () =>
+        insertComp(record, currentOrgId(st)),
+      );
       return { ok: true };
     },
     [mutate],
@@ -1575,6 +1642,12 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ...s.audit,
         ].slice(0, 200),
       }));
+      const st = stateRef.current;
+      if (st) {
+        persist("save the pay policy", () =>
+          upsertPayPolicy(st.payPolicy, currentOrgId(st)),
+        );
+      }
     },
     [mutate],
   );
@@ -1624,6 +1697,12 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ...s.audit,
         ].slice(0, 200),
       }));
+      const decided = stateRef.current?.attendance.find((a) => a.id === attendanceId);
+      if (decided) {
+        persist("record the overtime decision", () =>
+          updateOvertime(attendanceId, decided.overtime),
+        );
+      }
       if (worker) {
         pushNotification({
           audience: "employee",
@@ -1688,6 +1767,10 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ].slice(0, 200),
         };
       });
+      const saved = (stateRef.current?.payrollRuns ?? []).find(
+        (r) => r.month === month,
+      );
+      if (saved) persist("save the payroll run", () => upsertPayrollRun(saved));
     },
     [mutate],
   );
@@ -1790,6 +1873,9 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         status: "active",
         selfie,
       };
+      persist("start the travel session", () =>
+        upsertTravelSession(session, user.orgId),
+      );
       mutate((prev) => ({
         ...prev,
         travelSessions: [...(prev.travelSessions ?? []), session],
@@ -1844,6 +1930,9 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       flags: track.flags,
       status: "pending",
     };
+    persist("save the travel session", () =>
+      upsertTravelSession(ended, user.orgId),
+    );
     mutate((prev) => ({
       ...prev,
       travelSessions: (prev.travelSessions ?? []).map((t) =>
@@ -1911,6 +2000,14 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ...s.audit,
         ].slice(0, 200),
       }));
+      const settled = stateRef.current?.travelSessions.find(
+        (t) => t.id === sessionId,
+      );
+      if (settled && worker) {
+        persist("record the travel decision", () =>
+          upsertTravelSession(settled, worker.orgId),
+        );
+      }
       if (worker) {
         pushNotification({
           audience: "employee",
@@ -1971,6 +2068,10 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ].slice(0, 200),
         };
       });
+      const saved = (stateRef.current?.petrolRules ?? []).find(
+        (r) => r.id === id || r.name === patch.name,
+      );
+      if (saved) persist("save the petrol rule", () => upsertPetrolRule(saved));
     },
     [mutate],
   );
@@ -2021,6 +2122,10 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ].slice(0, 200),
         };
       });
+      const saved = (stateRef.current?.foodRules ?? []).find(
+        (r) => r.id === id || r.name === patch.name,
+      );
+      if (saved) persist("save the food rule", () => upsertFoodRule(saved));
     },
     [mutate],
   );
@@ -2046,6 +2151,14 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ...s.audit,
         ].slice(0, 200),
       }));
+      const st = stateRef.current;
+      if (kind === "petrol") {
+        const r = st?.petrolRules.find((x) => x.id === id);
+        if (r) persist("archive the petrol rule", () => upsertPetrolRule(r));
+      } else {
+        const r = st?.foodRules.find((x) => x.id === id);
+        if (r) persist("archive the food rule", () => upsertFoodRule(r));
+      }
     },
     [mutate],
   );
@@ -2087,6 +2200,15 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ].slice(0, 200),
         };
       });
+      const st = stateRef.current;
+      const written = (st?.allowanceDecisions ?? [])[
+        (st?.allowanceDecisions ?? []).length - 1
+      ];
+      if (st && written) {
+        persist("record the allowance decision", () =>
+          insertAllowanceDecision(written, currentOrgId(st)),
+        );
+      }
     },
     [mutate],
   );
@@ -2111,6 +2233,8 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ].slice(0, 200),
         };
       });
+      const person = stateRef.current?.users.find((u) => u.id === employeeId);
+      if (person) persist("save the vehicle", () => upsertUser(person, person.orgId));
     },
     [mutate],
   );
@@ -2127,6 +2251,10 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ...s.audit,
         ].slice(0, 200),
       }));
+      const project = stateRef.current?.projects.find((p) => p.id === projectId);
+      if (project) {
+        persist("save the travel policy", () => upsertProject(project));
+      }
     },
     [mutate],
   );

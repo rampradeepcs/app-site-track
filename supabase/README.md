@@ -270,3 +270,27 @@ select cron.schedule('purge-routes', '0 3 * * *',
 sampling interval is ~2,160 rows per worker per day. It is written in batches
 rather than per fix, which is also what lets an offline device flush its outbox
 in one round trip. Partitioning by month is the natural next step.
+
+## Shifts, payroll, travel and allowances
+
+`20260828000900_shifts_payroll_allowances.sql` adds the operational half of
+the product: shift definitions and assignments, salary revisions, the pay
+policy, payroll runs, travel sessions, petrol and food allowance rules, and
+allowance decisions — plus the columns the existing tables grew (breaks,
+overtime and voice notes on `attendance`, `travel_session_id` on
+`location_points`, `vehicle` on `users`, `travel_tracking` on `projects`).
+
+Two rules here are stricter than the rest of the schema, and are enforced in
+the database rather than in the client:
+
+* `compensation`, `pay_policies` and `payroll_runs` are **admin-only**. A
+  manager runs shifts and approves overtime; salary is not theirs by default.
+  `compensation` has an insert policy and no update policy at all, so salary
+  history is append-only in Postgres, not merely by convention in the app.
+* A worker reads their own everything and writes only their own travel
+  sessions.
+
+No computed money is stored anywhere in these tables. They hold inputs and
+judgements — rules, routes, approvals — and every amount the app shows is
+recalculated from them, so a figure on screen can never drift from the
+evidence behind it.

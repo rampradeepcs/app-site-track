@@ -85,6 +85,7 @@ export type UserRow = {
   shift_end: number;
   supervisor_rating: number | null;
   joined_at: string;
+  vehicle: Json | null;
 }
 
 export type ProjectRow = {
@@ -109,6 +110,7 @@ export type ProjectRow = {
   zones: Json;
   rules: Json;
   created_at: string;
+  travel_tracking: boolean;
 }
 
 export type AttendanceRow = {
@@ -127,6 +129,10 @@ export type AttendanceRow = {
   auto_closed: boolean;
   events: Json;
   created_at: string;
+  shift_id: string | null;
+  breaks: Json;
+  overtime: Json | null;
+  voice_note: Json | null;
 }
 
 export type LocationPointRow = {
@@ -144,6 +150,7 @@ export type LocationPointRow = {
   offline: boolean;
   /** Opens a new stretch of recording — see LocationPoint.segmentStart. */
   segment_start: boolean;
+  travel_session_id: string | null;
 }
 
 export type WorkUpdateRow = {
@@ -228,6 +235,15 @@ export type Database = {
       location_points: Table<LocationPointRow>;
       work_updates: Table<WorkUpdateRow>;
       project_members: Table<ProjectMemberRow>;
+      shifts: Table<ShiftRow>;
+      shift_assignments: Table<ShiftAssignmentRow>;
+      compensation: Table<CompRow>;
+      pay_policies: Table<PayPolicyRow>;
+      payroll_runs: Table<PayrollRunRow>;
+      travel_sessions: Table<TravelSessionRow>;
+      petrol_rules: Table<PetrolRuleRow>;
+      food_rules: Table<FoodRuleRow>;
+      allowance_decisions: Table<AllowanceDecisionRow>;
     };
     // Canonical "empty" form used by `supabase gen types`; `Record<string, never>`
     // does not satisfy GenericSchema and silently collapses Insert to `never`.
@@ -277,3 +293,145 @@ export interface ProvisionResult {
   siteId: string;
   officeId: string | null;
 }
+
+/* ------------------------- shifts, payroll, travel, allowances ----------- */
+
+export type ShiftRow = {
+  id: string;
+  org_id: string;
+  name: string;
+  code: string;
+  kind: "fixed" | "flexible" | "overnight" | "custom";
+  start_minute: number;
+  end_minute: number;
+  required_minutes: number;
+  grace_minutes: number;
+  break_rules: Json;
+  max_breaks_per_shift: number;
+  min_break_minutes: number;
+  max_break_minutes: number;
+  employee_breaks_allowed: boolean;
+  break_approval_required: boolean;
+  overtime: Json;
+  working_days: number[];
+  project_ids: string[];
+  status: "active" | "archived";
+  created_at: string;
+};
+
+export type ShiftAssignmentRow = {
+  id: string;
+  org_id: string;
+  employee_id: string;
+  shift_id: string;
+  effective_from: string;
+  assigned_by: string | null;
+  at: string;
+};
+
+export type CompRow = {
+  id: string;
+  org_id: string;
+  employee_id: string;
+  type: "monthly" | "daily" | "hourly";
+  amount: number;
+  effective_from: string;
+  working_days_per_month: number;
+  standard_day_minutes: number;
+  note: string | null;
+  set_by: string | null;
+  at: string;
+};
+
+export type PayPolicyRow = {
+  org_id: string;
+  late_deduction: string;
+  late_per_minute_rate: number;
+  late_fixed_amount: number;
+  early_out_deduction: string;
+  early_per_minute_rate: number;
+  early_fixed_amount: number;
+  absence_deduction: string;
+  excess_break_unpaid: boolean;
+  manager_sees_salary: boolean;
+  updated_at: string;
+};
+
+export type PayrollRunRow = {
+  id: string;
+  org_id: string;
+  month: string;
+  status: "draft" | "calculated" | "review" | "approved" | "locked";
+  adjustments: Json;
+  approved_by: string | null;
+  approved_at: string | null;
+  locked_at: string | null;
+};
+
+export type TravelSessionRow = {
+  id: string;
+  org_id: string;
+  employee_id: string;
+  project_id: string;
+  attendance_id: string | null;
+  date: string;
+  start_anchor: Json;
+  end_anchor: Json | null;
+  purpose: string;
+  note: string | null;
+  vehicle_type: "two-wheeler" | "four-wheeler" | "none";
+  distance_meters: number;
+  approved_meters: number | null;
+  flags: Json;
+  status: "active" | "pending" | "approved" | "rejected";
+  decided_by: string | null;
+  decided_at: string | null;
+  decision_note: string | null;
+  selfie: string | null;
+};
+
+export type PetrolRuleRow = {
+  id: string;
+  org_id: string;
+  name: string;
+  vehicle_type: "two-wheeler" | "four-wheeler" | "none";
+  rate_per_km: number;
+  max_daily_km: number | null;
+  max_daily_amount: number | null;
+  approval: "auto" | "manager";
+  project_ids: string[];
+  employee_ids: string[];
+  effective_from: string;
+  status: "active" | "archived";
+  created_at: string;
+};
+
+export type FoodRuleRow = {
+  id: string;
+  org_id: string;
+  name: string;
+  meal: string;
+  start_minute: number;
+  end_minute: number;
+  trigger_event: string;
+  amount: number;
+  project_ids: string[];
+  employee_ids: string[];
+  shift_ids: string[];
+  approval: "auto" | "manager";
+  effective_from: string;
+  status: "active" | "archived";
+  created_at: string;
+};
+
+export type AllowanceDecisionRow = {
+  id: string;
+  org_id: string;
+  employee_id: string;
+  date: string;
+  rule_id: string;
+  status: "approved" | "rejected";
+  decided_by: string | null;
+  at: string;
+  note: string | null;
+};

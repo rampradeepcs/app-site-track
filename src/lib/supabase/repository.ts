@@ -12,12 +12,21 @@
 
 import { requireSupabase } from "./client";
 import type {
+  AllowanceDecisionRow,
   AttendanceRow,
+  CompRow,
+  FoodRuleRow,
   InvoiceRow,
   LocationPointRow,
   OrgRow,
+  PayPolicyRow,
+  PayrollRunRow,
+  PetrolRuleRow,
   PlanRow,
   ProjectRow,
+  ShiftAssignmentRow,
+  ShiftRow,
+  TravelSessionRow,
   SubscriptionRow,
   UsageRow,
   UserRow,
@@ -25,11 +34,21 @@ import type {
 } from "./types";
 import type { ProvisionResult, SignupPayload } from "./types";
 import type {
+  AllowanceDecision,
   Attendance,
   AttendanceMark,
+  CompRecord,
+  FoodRule,
   LocationPoint,
+  PayPolicy,
+  PayrollRun,
+  PetrolRule,
   Project,
+  ShiftAssignment,
+  ShiftDef,
+  TravelSession,
   User,
+  Vehicle,
   WorkUpdate,
 } from "../types";
 import type {
@@ -47,6 +66,7 @@ const iso = (n: number) => new Date(n).toISOString();
 
 export function toUser(r: UserRow): User {
   return {
+    vehicle: (r.vehicle as unknown as Vehicle) ?? undefined,
     id: r.id,
     orgId: r.org_id ?? "",
     name: r.name,
@@ -107,6 +127,10 @@ export function toAttendance(r: AttendanceRow): Attendance {
     status: r.status,
     autoClosed: r.auto_closed,
     events: (r.events ?? []) as unknown as Attendance["events"],
+    breaks: (r.breaks ?? []) as unknown as Attendance["breaks"],
+    shiftId: r.shift_id ?? undefined,
+    overtime: (r.overtime as unknown as Attendance["overtime"]) ?? undefined,
+    voiceNote: (r.voice_note as unknown as Attendance["voiceNote"]) ?? undefined,
   };
 }
 
@@ -124,6 +148,7 @@ export function toPoint(r: LocationPointRow): LocationPoint {
     at: ms(r.at),
     queued: r.offline,
     segmentStart: r.segment_start || undefined,
+    travelSessionId: r.travel_session_id ?? undefined,
   };
 }
 
@@ -330,6 +355,8 @@ export async function insertCheckIn(a: {
   date: string;
   mark: AttendanceMark;
   status: Attendance["status"];
+  /** Shift in force when the day opened, so lateness is reproducible. */
+  shiftId?: string;
 }) {
   const sb = requireSupabase();
   // Upsert, not insert: a device that captured the shift offline and flushes
@@ -346,6 +373,7 @@ export async function insertCheckIn(a: {
       date: a.date,
       check_in: a.mark as never,
       status: a.status,
+      shift_id: a.shiftId ?? null,
     } as never)
     .select()
     .single();
@@ -355,7 +383,15 @@ export async function insertCheckIn(a: {
 
 export async function insertCheckOut(
   attendanceId: string,
-  patch: { mark: AttendanceMark; workedMinutes: number; distanceMeters: number; status: Attendance["status"] },
+  patch: {
+    mark: AttendanceMark;
+    workedMinutes: number;
+    distanceMeters: number;
+    status: Attendance["status"];
+    breaks?: Attendance["breaks"];
+    overtime?: Attendance["overtime"];
+    voiceNote?: Attendance["voiceNote"];
+  },
 ) {
   const sb = requireSupabase();
   const { error } = await sb
@@ -365,7 +401,36 @@ export async function insertCheckOut(
       worked_minutes: patch.workedMinutes,
       distance_meters: patch.distanceMeters,
       status: patch.status,
+      breaks: (patch.breaks ?? []) as never,
+      overtime: (patch.overtime ?? null) as never,
+      voice_note: (patch.voiceNote ?? null) as never,
     })
+    .eq("id", attendanceId);
+  if (error) throw error;
+}
+
+/** Breaks are written as they happen, so an interrupted shift keeps them. */
+export async function updateBreaks(
+  attendanceId: string,
+  breaks: Attendance["breaks"],
+) {
+  const sb = requireSupabase();
+  const { error } = await sb
+    .from("attendance")
+    .update({ breaks: (breaks ?? []) as never })
+    .eq("id", attendanceId);
+  if (error) throw error;
+}
+
+/** Overtime approval, rejection or an edited duration. */
+export async function updateOvertime(
+  attendanceId: string,
+  overtime: Attendance["overtime"],
+) {
+  const sb = requireSupabase();
+  const { error } = await sb
+    .from("attendance")
+    .update({ overtime: (overtime ?? null) as never })
     .eq("id", attendanceId);
   if (error) throw error;
 }
@@ -392,6 +457,7 @@ export async function insertPoints(points: LocationPoint[], orgId: string) {
       at: iso(p.at),
       offline: p.queued ?? false,
       segment_start: p.segmentStart ?? false,
+      travel_session_id: p.travelSessionId ?? null,
     })),
   );
   if (error) throw error;
@@ -467,6 +533,7 @@ export async function upsertUser(u: User, orgId: string) {
     avatar_hue: u.avatarHue,
     photo: u.photo ?? null,
     status: u.status,
+    vehicle: (u.vehicle ?? null) as never,
     shift_start: u.shiftStart,
     shift_end: u.shiftEnd,
     joined_at: iso(u.joinedAt),
@@ -481,6 +548,7 @@ export async function upsertProject(p: Project) {
     org_id: p.orgId,
     kind: p.kind,
     tracking_mode: p.trackingMode,
+    travel_tracking: p.travelTracking ?? false,
     code: p.code,
     name: p.name,
     client: p.client,
@@ -524,5 +592,393 @@ export async function replaceProjectMembers(
   const { error } = await sb.from("project_members").insert(
     userIds.map((user_id) => ({ project_id: projectId, user_id, org_id: orgId })),
   );
+  if (error) throw error;
+}
+
+/* ------------------ shifts, payroll, travel, allowances (mappers) -------- */
+
+export function toShift(r: ShiftRow): ShiftDef {
+  return {
+    id: r.id,
+    orgId: r.org_id,
+    name: r.name,
+    code: r.code,
+    kind: r.kind,
+    startMinute: r.start_minute,
+    endMinute: r.end_minute,
+    requiredMinutes: r.required_minutes,
+    graceMinutes: r.grace_minutes,
+    breakRules: (r.break_rules ?? []) as unknown as ShiftDef["breakRules"],
+    maxBreaksPerShift: r.max_breaks_per_shift,
+    minBreakMinutes: r.min_break_minutes,
+    maxBreakMinutes: r.max_break_minutes,
+    employeeBreaksAllowed: r.employee_breaks_allowed,
+    breakApprovalRequired: r.break_approval_required,
+    overtime: r.overtime as unknown as ShiftDef["overtime"],
+    workingDays: r.working_days,
+    projectIds: r.project_ids,
+    status: r.status,
+    createdAt: ms(r.created_at),
+  };
+}
+
+export function toShiftAssignment(r: ShiftAssignmentRow): ShiftAssignment {
+  return {
+    id: r.id,
+    employeeId: r.employee_id,
+    shiftId: r.shift_id,
+    effectiveFrom: r.effective_from,
+    assignedBy: r.assigned_by ?? "",
+    at: ms(r.at),
+  };
+}
+
+export function toComp(r: CompRow): CompRecord {
+  return {
+    id: r.id,
+    employeeId: r.employee_id,
+    type: r.type,
+    amount: Number(r.amount),
+    effectiveFrom: r.effective_from,
+    workingDaysPerMonth: r.working_days_per_month,
+    standardDayMinutes: r.standard_day_minutes,
+    note: r.note ?? undefined,
+    setBy: r.set_by ?? "",
+    at: ms(r.at),
+  };
+}
+
+export function toPayPolicy(r: PayPolicyRow): PayPolicy {
+  return {
+    lateDeduction: r.late_deduction as PayPolicy["lateDeduction"],
+    latePerMinuteRate: Number(r.late_per_minute_rate),
+    lateFixedAmount: Number(r.late_fixed_amount),
+    earlyOutDeduction: r.early_out_deduction as PayPolicy["earlyOutDeduction"],
+    earlyPerMinuteRate: Number(r.early_per_minute_rate),
+    earlyFixedAmount: Number(r.early_fixed_amount),
+    absenceDeduction: r.absence_deduction as PayPolicy["absenceDeduction"],
+    excessBreakUnpaid: r.excess_break_unpaid,
+    managerSeesSalary: r.manager_sees_salary,
+  };
+}
+
+export function toPayrollRun(r: PayrollRunRow): PayrollRun {
+  return {
+    id: r.id,
+    orgId: r.org_id,
+    month: r.month,
+    status: r.status,
+    adjustments: (r.adjustments ?? []) as unknown as PayrollRun["adjustments"],
+    approvedBy: r.approved_by ?? undefined,
+    approvedAt: r.approved_at ? ms(r.approved_at) : undefined,
+    lockedAt: r.locked_at ? ms(r.locked_at) : undefined,
+  };
+}
+
+export function toTravelSession(r: TravelSessionRow): TravelSession {
+  return {
+    id: r.id,
+    employeeId: r.employee_id,
+    projectId: r.project_id,
+    attendanceId: r.attendance_id ?? undefined,
+    date: r.date,
+    start: r.start_anchor as unknown as TravelSession["start"],
+    end: (r.end_anchor as unknown as TravelSession["end"]) ?? undefined,
+    purpose: r.purpose as TravelSession["purpose"],
+    note: r.note ?? undefined,
+    vehicleType: r.vehicle_type,
+    distanceMeters: Number(r.distance_meters),
+    approvedMeters:
+      r.approved_meters === null ? undefined : Number(r.approved_meters),
+    flags: (r.flags ?? []) as unknown as TravelSession["flags"],
+    status: r.status,
+    decidedBy: r.decided_by ?? undefined,
+    decidedAt: r.decided_at ? ms(r.decided_at) : undefined,
+    decisionNote: r.decision_note ?? undefined,
+    selfie: r.selfie ?? undefined,
+  };
+}
+
+export function toPetrolRule(r: PetrolRuleRow): PetrolRule {
+  return {
+    id: r.id,
+    orgId: r.org_id,
+    name: r.name,
+    vehicleType: r.vehicle_type,
+    ratePerKm: Number(r.rate_per_km),
+    maxDailyKm: r.max_daily_km === null ? null : Number(r.max_daily_km),
+    maxDailyAmount:
+      r.max_daily_amount === null ? null : Number(r.max_daily_amount),
+    approval: r.approval,
+    projectIds: r.project_ids,
+    employeeIds: r.employee_ids,
+    effectiveFrom: r.effective_from,
+    status: r.status,
+    createdAt: ms(r.created_at),
+  };
+}
+
+export function toFoodRule(r: FoodRuleRow): FoodRule {
+  return {
+    id: r.id,
+    orgId: r.org_id,
+    name: r.name,
+    meal: r.meal as FoodRule["meal"],
+    startMinute: r.start_minute,
+    endMinute: r.end_minute,
+    trigger: r.trigger_event as FoodRule["trigger"],
+    amount: Number(r.amount),
+    projectIds: r.project_ids,
+    employeeIds: r.employee_ids,
+    shiftIds: r.shift_ids,
+    approval: r.approval,
+    effectiveFrom: r.effective_from,
+    status: r.status,
+    createdAt: ms(r.created_at),
+  };
+}
+
+export function toAllowanceDecision(r: AllowanceDecisionRow): AllowanceDecision {
+  return {
+    id: r.id,
+    employeeId: r.employee_id,
+    date: r.date,
+    ruleId: r.rule_id,
+    status: r.status,
+    by: r.decided_by ?? "",
+    at: ms(r.at),
+    note: r.note ?? undefined,
+  };
+}
+
+/* --------------------------------------------------------------- reads --- */
+
+/**
+ * The shift → payroll → allowance half of a tenant's data.
+ *
+ * Split from `fetchWorkforce` because RLS may legitimately answer parts of it
+ * with nothing: a manager reading an organisation whose pay policy withholds
+ * salary gets an empty `comp`, and that is a correct answer, not a failure.
+ * Each result is therefore taken on its own rather than one error voiding the
+ * whole round.
+ */
+export async function fetchOperations() {
+  const sb = requireSupabase();
+  const [
+    shifts,
+    assignments,
+    comp,
+    policy,
+    runs,
+    travel,
+    petrol,
+    food,
+    decisions,
+  ] = await Promise.all([
+    sb.from("shifts").select("*"),
+    sb.from("shift_assignments").select("*"),
+    sb.from("compensation").select("*"),
+    sb.from("pay_policies").select("*").maybeSingle(),
+    sb.from("payroll_runs").select("*"),
+    sb.from("travel_sessions").select("*").order("date", { ascending: false }).limit(2000),
+    sb.from("petrol_rules").select("*"),
+    sb.from("food_rules").select("*"),
+    sb.from("allowance_decisions").select("*").limit(2000),
+  ]);
+  return {
+    shifts: (shifts.data ?? []).map(toShift),
+    shiftAssignments: (assignments.data ?? []).map(toShiftAssignment),
+    comp: (comp.data ?? []).map(toComp),
+    payPolicy: policy.data ? toPayPolicy(policy.data as PayPolicyRow) : null,
+    payrollRuns: (runs.data ?? []).map(toPayrollRun),
+    travelSessions: (travel.data ?? []).map(toTravelSession),
+    petrolRules: (petrol.data ?? []).map(toPetrolRule),
+    foodRules: (food.data ?? []).map(toFoodRule),
+    allowanceDecisions: (decisions.data ?? []).map(toAllowanceDecision),
+  };
+}
+
+/* -------------------------------------------------------------- writes --- */
+
+export async function upsertShift(sh: ShiftDef) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("shifts").upsert({
+    id: sh.id,
+    org_id: sh.orgId,
+    name: sh.name,
+    code: sh.code,
+    kind: sh.kind,
+    start_minute: sh.startMinute,
+    end_minute: sh.endMinute,
+    required_minutes: sh.requiredMinutes,
+    grace_minutes: sh.graceMinutes,
+    break_rules: sh.breakRules as never,
+    max_breaks_per_shift: sh.maxBreaksPerShift,
+    min_break_minutes: sh.minBreakMinutes,
+    max_break_minutes: sh.maxBreakMinutes,
+    employee_breaks_allowed: sh.employeeBreaksAllowed,
+    break_approval_required: sh.breakApprovalRequired,
+    overtime: sh.overtime as never,
+    working_days: sh.workingDays,
+    project_ids: sh.projectIds,
+    status: sh.status,
+  } as never);
+  if (error) throw error;
+}
+
+export async function insertShiftAssignments(
+  rows: ShiftAssignment[],
+  orgId: string,
+) {
+  if (rows.length === 0) return;
+  const sb = requireSupabase();
+  const { error } = await sb.from("shift_assignments").insert(
+    rows.map((a) => ({
+      id: a.id,
+      org_id: orgId,
+      employee_id: a.employeeId,
+      shift_id: a.shiftId,
+      effective_from: a.effectiveFrom,
+      assigned_by: a.assignedBy || null,
+    })) as never,
+  );
+  if (error) throw error;
+}
+
+/** Salary is insert-only: a revision is a new row, never an edit. */
+export async function insertComp(c: CompRecord, orgId: string) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("compensation").insert({
+    id: c.id,
+    org_id: orgId,
+    employee_id: c.employeeId,
+    type: c.type,
+    amount: c.amount,
+    effective_from: c.effectiveFrom,
+    working_days_per_month: c.workingDaysPerMonth,
+    standard_day_minutes: c.standardDayMinutes,
+    note: c.note ?? null,
+    set_by: c.setBy || null,
+  } as never);
+  if (error) throw error;
+}
+
+export async function upsertPayPolicy(p: PayPolicy, orgId: string) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("pay_policies").upsert({
+    org_id: orgId,
+    late_deduction: p.lateDeduction,
+    late_per_minute_rate: p.latePerMinuteRate,
+    late_fixed_amount: p.lateFixedAmount,
+    early_out_deduction: p.earlyOutDeduction,
+    early_per_minute_rate: p.earlyPerMinuteRate,
+    early_fixed_amount: p.earlyFixedAmount,
+    absence_deduction: p.absenceDeduction,
+    excess_break_unpaid: p.excessBreakUnpaid,
+    manager_sees_salary: p.managerSeesSalary,
+    updated_at: new Date().toISOString(),
+  } as never);
+  if (error) throw error;
+}
+
+export async function upsertPayrollRun(r: PayrollRun) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("payroll_runs").upsert(
+    {
+      id: r.id,
+      org_id: r.orgId,
+      month: r.month,
+      status: r.status,
+      adjustments: r.adjustments as never,
+      approved_by: r.approvedBy ?? null,
+      approved_at: r.approvedAt ? iso(r.approvedAt) : null,
+      locked_at: r.lockedAt ? iso(r.lockedAt) : null,
+    } as never,
+    { onConflict: "org_id,month" },
+  );
+  if (error) throw error;
+}
+
+export async function upsertTravelSession(t: TravelSession, orgId: string) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("travel_sessions").upsert({
+    id: t.id,
+    org_id: orgId,
+    employee_id: t.employeeId,
+    project_id: t.projectId,
+    attendance_id: t.attendanceId ?? null,
+    date: t.date,
+    start_anchor: t.start as never,
+    end_anchor: (t.end ?? null) as never,
+    purpose: t.purpose,
+    note: t.note ?? null,
+    vehicle_type: t.vehicleType,
+    distance_meters: t.distanceMeters,
+    approved_meters: t.approvedMeters ?? null,
+    flags: t.flags as never,
+    status: t.status,
+    decided_by: t.decidedBy ?? null,
+    decided_at: t.decidedAt ? iso(t.decidedAt) : null,
+    decision_note: t.decisionNote ?? null,
+    selfie: t.selfie ?? null,
+  } as never);
+  if (error) throw error;
+}
+
+export async function upsertPetrolRule(r: PetrolRule) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("petrol_rules").upsert({
+    id: r.id,
+    org_id: r.orgId,
+    name: r.name,
+    vehicle_type: r.vehicleType,
+    rate_per_km: r.ratePerKm,
+    max_daily_km: r.maxDailyKm,
+    max_daily_amount: r.maxDailyAmount,
+    approval: r.approval,
+    project_ids: r.projectIds,
+    employee_ids: r.employeeIds,
+    effective_from: r.effectiveFrom,
+    status: r.status,
+  } as never);
+  if (error) throw error;
+}
+
+export async function upsertFoodRule(r: FoodRule) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("food_rules").upsert({
+    id: r.id,
+    org_id: r.orgId,
+    name: r.name,
+    meal: r.meal,
+    start_minute: r.startMinute,
+    end_minute: r.endMinute,
+    trigger_event: r.trigger,
+    amount: r.amount,
+    project_ids: r.projectIds,
+    employee_ids: r.employeeIds,
+    shift_ids: r.shiftIds,
+    approval: r.approval,
+    effective_from: r.effectiveFrom,
+    status: r.status,
+  } as never);
+  if (error) throw error;
+}
+
+export async function insertAllowanceDecision(
+  d: AllowanceDecision,
+  orgId: string,
+) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("allowance_decisions").insert({
+    id: d.id,
+    org_id: orgId,
+    employee_id: d.employeeId,
+    date: d.date,
+    rule_id: d.ruleId,
+    status: d.status,
+    decided_by: d.by || null,
+    note: d.note ?? null,
+  } as never);
   if (error) throw error;
 }
