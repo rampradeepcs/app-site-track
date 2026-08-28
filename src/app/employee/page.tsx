@@ -15,7 +15,7 @@ import { SelfieCapture } from "@/components/SelfieCapture";
 import { VoiceRecorder, type RecordedNote } from "@/components/VoiceRecorder";
 import { WorkUpdateForm } from "@/components/WorkUpdateForm";
 import { useFeature } from "@/components/FeatureGate";
-import { AccountMenu, NotificationBell } from "@/components/shell";
+import { NotificationBell } from "@/components/shell";
 import {
   Avatar,
   BottomSheet,
@@ -302,7 +302,6 @@ export default function EmployeeHome() {
             </div>
           </div>
           <NotificationBell role="employee" />
-          <AccountMenu />
         </div>
 
         {/* the shift this day is measured against */}
@@ -725,7 +724,6 @@ export default function EmployeeHome() {
           </h1>
         </div>
         <NotificationBell role="employee" />
-          <AccountMenu />
       </div>
 
       {/* project card */}

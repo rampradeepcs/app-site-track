@@ -9,7 +9,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { ScreenHeader } from "@/components/shell";
+import { AccountPanel, ScreenHeader } from "@/components/shell";
 import { Avatar, Chip } from "@/components/ui";
 import { fmtShiftTime, todayISO } from "@/lib/format";
 import { shiftFor } from "@/lib/payroll";
@@ -131,6 +131,8 @@ export default function EmployeeMore() {
             </Link>
           ))}
         </div>
+
+        <AccountPanel identity={false} />
       </div>
     </div>
   );

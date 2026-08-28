@@ -14,7 +14,7 @@ import type { Role } from "@/lib/types";
 import { roleLabel } from "@/lib/format";
 import { canEnter, rememberDestination } from "@/lib/routes";
 import { isLiveBackend } from "@/lib/supabase/client";
-import { Avatar, BottomSheet, Chip } from "./ui";
+import { Avatar, Chip } from "./ui";
 import { SyncBanner } from "./SyncBanner";
 import {
   IBell,
@@ -25,9 +25,6 @@ import {
   IHistory,
   IHome,
   ILogout,
-  IMap,
-  IShield,
-  IUser,
   IUsers,
   ILayers,
   IHomeFill,
@@ -290,14 +287,11 @@ export function ScreenHeader({
   sub,
   back,
   action,
-  account = true,
 }: {
   title: string;
   sub?: string;
   back?: string;
   action?: React.ReactNode;
-  /** Set false on screens that supply their own account affordance. */
-  account?: boolean;
 }) {
   const router = useRouter();
 
@@ -346,7 +340,6 @@ export function ScreenHeader({
         ) : null}
       </div>
       {action}
-      {account ? <AccountMenu /> : null}
     </header>
   );
 }
@@ -355,66 +348,57 @@ export function ScreenHeader({
  * Signed-in identity + sign out, reachable from the header of every screen
  * so leaving a session never means hunting through settings tabs.
  */
-export function AccountMenu() {
+export function AccountPanel({
+  /** Hide the identity row on screens that already show who this is. */
+  identity = true,
+}: {
+  identity?: boolean;
+} = {}) {
   const { state, currentUser, logout } = useWorkforce();
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   if (!currentUser) return null;
 
   const role = state.session?.role ?? currentUser.role;
-  const label = roleLabel(role);
 
   return (
-    <>
-      <button
-        onClick={() => setOpen(true)}
-        aria-label={`Account — ${currentUser.name}. Open menu to sign out`}
-        title="Account"
-        className="shrink-0 cursor-pointer rounded-full ring-2 ring-transparent transition hover:ring-[var(--wf-line-strong)]"
-      >
-        <Avatar name={currentUser.name} hue={currentUser.avatarHue} size={38} />
-      </button>
-
-      <BottomSheet open={open} onClose={() => setOpen(false)} title="Account">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-3">
-            <Avatar name={currentUser.name} hue={currentUser.avatarHue} size={52} />
-            <div className="min-w-0 flex-1">
-              <p className="wf-display truncate text-lg font-bold">{currentUser.name}</p>
-              <p className="truncate text-[0.78rem] text-[var(--wf-muted)]">
-                {currentUser.designation} · {currentUser.employeeCode}
-              </p>
-            </div>
-            <Chip
-              tone={
-                role === "superadmin" || role === "admin"
-                  ? "violet"
-                  : role === "manager"
-                    ? "amber"
-                    : "blue"
-              }
-            >
-              {label}
-            </Chip>
-          </div>
-          <button
-            className="wf-btn wf-btn-ghost"
-            onClick={() => {
-              setOpen(false);
-              logout();
-              router.replace("/");
-            }}
-          >
-            <ILogout size={17} /> Sign out
-          </button>
-          <p className="text-center text-[0.7rem] text-[var(--wf-faint)]">
-            Signing out stops any location tracking and returns to the sign-in
-            screen. Your records stay on this device.
+    <div className="wf-card flex flex-col gap-3.5 p-4">
+      {identity ? (
+      <div className="flex items-center gap-3">
+        <Avatar name={currentUser.name} hue={currentUser.avatarHue} size={44} />
+        <div className="min-w-0 flex-1">
+          <p className="wf-display truncate font-bold">{currentUser.name}</p>
+          <p className="truncate text-[0.74rem] text-[var(--wf-muted)]">
+            {currentUser.designation} · {currentUser.employeeCode}
           </p>
-          <BackendModeNote />
         </div>
-      </BottomSheet>
-    </>
+        <Chip
+          tone={
+            role === "superadmin" || role === "admin"
+              ? "violet"
+              : role === "manager"
+                ? "amber"
+                : "blue"
+          }
+        >
+          {roleLabel(role)}
+        </Chip>
+      </div>
+      ) : null}
+      <button
+        className="wf-btn wf-btn-ghost"
+        onClick={() => {
+          logout();
+          router.replace("/");
+        }}
+      >
+        <ILogout size={17} /> Sign out
+      </button>
+      <p className="text-center text-[0.7rem] leading-relaxed text-[var(--wf-faint)]">
+        Signing out stops any location tracking and returns to the sign-in
+        screen. Your records stay on this device.
+      </p>
+      <BackendModeNote />
+    </div>
   );
 }
 

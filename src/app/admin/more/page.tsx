@@ -9,7 +9,7 @@
 
 import Link from "next/link";
 import { useEntitlements } from "@/components/FeatureGate";
-import { ScreenHeader } from "@/components/shell";
+import { AccountPanel, ScreenHeader } from "@/components/shell";
 import { Chip } from "@/components/ui";
 import { useWorkforce } from "@/lib/store";
 import type { FeatureSet } from "@/lib/saas-types";
@@ -98,7 +98,7 @@ export default function AdminMore() {
   return (
     <div>
       <ScreenHeader title="More" sub={`Modules on ${ent.planName}`} />
-      <div className="px-4">
+      <div className="flex flex-col gap-4 px-4">
         <div className="wf-card wf-list overflow-hidden">
           {visible.map((it) => (
             <Link key={it.href} href={it.href} className="wf-row">
@@ -116,11 +116,13 @@ export default function AdminMore() {
           ))}
         </div>
         {visible.length < ITEMS.length ? (
-          <p className="mt-3 flex items-center gap-2 text-[0.72rem] text-[var(--wf-faint)]">
+          <p className="flex items-center gap-2 text-[0.72rem] text-[var(--wf-faint)]">
             <Chip tone="neutral">{ent.planName}</Chip>
             Some modules aren&apos;t part of this plan.
           </p>
         ) : null}
+
+        <AccountPanel />
       </div>
     </div>
   );

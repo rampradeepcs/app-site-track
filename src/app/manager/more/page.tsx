@@ -10,7 +10,7 @@ import { Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BarTrend, ScoreBars } from "@/components/charts";
 import { FeatureGate, UpgradeNotice, useFeature } from "@/components/FeatureGate";
-import { ScreenHeader } from "@/components/shell";
+import { AccountPanel, ScreenHeader } from "@/components/shell";
 import { ThemeControl } from "@/components/ThemeControl";
 import {
   Avatar,
@@ -49,7 +49,6 @@ import {
   IDownload,
   IFile,
   IInfo,
-  ILogout,
   IMapPin,
   IRefresh,
   IShield,
@@ -71,7 +70,7 @@ export default function MorePage() {
 
 function MoreInner() {
   const wf = useWorkforce();
-  const { state, updateSettings, markNotificationsRead, logout, eraseLocalData } = wf;
+  const { state, updateSettings, markNotificationsRead, eraseLocalData } = wf;
   const router = useRouter();
   const params = useSearchParams();
   const tab = (params.get("tab") as Tab) ?? "reports";
@@ -529,20 +528,14 @@ function MoreInner() {
               </div>
             </div>
 
-            <div className="flex gap-2.5">
-              <button className="wf-btn wf-btn-ghost flex-1" onClick={() => confirmDestructive(ERASE_DEVICE, eraseLocalData)}>
-                <IRefresh size={15} /> Erase this device
-              </button>
-              <button
-                className="wf-btn wf-btn-ghost flex-1"
-                onClick={() => {
-                  logout();
-                  router.replace("/");
-                }}
-              >
-                <ILogout size={15} /> Sign out
-              </button>
-            </div>
+            <AccountPanel />
+
+            <button
+              className="wf-btn wf-btn-ghost"
+              onClick={() => confirmDestructive(ERASE_DEVICE, eraseLocalData)}
+            >
+              <IRefresh size={15} /> Erase this device
+            </button>
           </>
         )}
       </div>
