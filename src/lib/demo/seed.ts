@@ -1067,20 +1067,35 @@ export function buildDemoData(now = Date.now()): DemoData {
     cycle: "annual",
     startedAt: now - 400 * DAY,
     renewsAt: new Date(2027, 8, 30).getTime(),
-    limitOverrides: { employees: 250, projects: 25, storageGb: 500 },
+    // Seats are sized to the account, not parked at a number nobody
+    // approaches: 45 people against 70 reads as a customer using what they
+    // bought, which is what drives the adoption half of the health score.
+    // Comfortably under the 80% mark that flags a client as near its limit.
+    limitOverrides: { employees: 70, projects: 25, storageGb: 500 },
     featureOverrides: {},
     creditBalance: 0,
     onLimitReached: "warn",
     notes: "Enterprise agreement — demonstration tenant.",
   };
 
+  /*
+   * The flagship account settles on time. Its billing history is a clean
+   * run of paid invoices plus one raised two days ago and not yet due —
+   * ordinary receivables, not a debt, so it leaves the health score alone
+   * and still gives the billing screen something live to show.
+   *
+   * The messier states — overdue, failed, refunded, payment holds — belong
+   * to the wider client book, where a presenter can open them deliberately
+   * from "Accounts at risk" rather than tripping over them on the tenant
+   * the demo is built around.
+   */
   const invoices: Invoice[] = [
-    ["INV-2026-00821", 295_000, "paid", 12],
-    ["INV-2026-00744", 295_000, "paid", 42],
-    ["INV-2026-00669", 295_000, "pending", 2],
-    ["INV-2026-00591", 118_000, "overdue", 68],
-    ["INV-2026-00512", 88_000, "failed", 96],
-    ["INV-2026-00477", 44_000, "refunded", 128],
+    ["INV-2026-00868", 295_000, "pending", 2],
+    ["INV-2026-00821", 295_000, "paid", 32],
+    ["INV-2026-00744", 295_000, "paid", 62],
+    ["INV-2026-00669", 295_000, "paid", 92],
+    ["INV-2026-00591", 295_000, "paid", 122],
+    ["INV-2026-00512", 295_000, "paid", 152],
   ].map(([number, amount, status, daysAgo]) => {
     const issued = now - (daysAgo as number) * DAY;
     return {
