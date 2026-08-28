@@ -1002,11 +1002,21 @@ a.wf-row:active, button.wf-row:active {
 
 .wf-demo-chip {
   position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  /* Default clears the tab bar; surfaces without one (the platform console)
-     set data-tabs="false" and the chip drops to the bottom edge. */
-  bottom: calc(var(--wf-safe-bottom) + 62px);
+  /* Off to the right rather than centred, so it never sits on top of a tab
+     label. On a wide screen it tracks the right edge of the 430px phone
+     column instead of drifting out to the window edge. */
+  left: auto;
+  right: max(0.75rem, calc(50% - 215px + 0.75rem));
+  /*
+   * Clear the tab bar by measuring it, not by guessing. The bar is 56px of
+   * content plus its own bottom padding — max(safe-area, 0.75rem) — so on a
+   * device reporting little or no bottom inset the old flat 62px landed
+   * *inside* it. This is that height plus a 10px gap.
+   *
+   * Surfaces with no tab bar (the platform console) set data-tabs="false"
+   * and the chip drops to the bottom edge.
+   */
+  bottom: calc(max(var(--wf-safe-bottom), 0.75rem) + 56px + 10px);
   z-index: 45;
   display: inline-flex;
   align-items: center;
@@ -1032,6 +1042,13 @@ a.wf-row:active, button.wf-row:active {
 }
 .wf-demo-chip[data-tabs="false"] {
   bottom: calc(var(--wf-safe-bottom) + 14px);
+}
+/* The persona name is the useful half but also the long half; drop it on
+   the narrowest screens so the chip never grows into the content. */
+@media (max-width: 359px) {
+  .wf-demo-persona {
+    display: none;
+  }
 }
 .wf-demo-chip:active { opacity: 0.7; }
 .wf-demo-dot {
