@@ -171,6 +171,12 @@
   --wf-safe-top: max(var(--safe-area-inset-top, 0px), env(safe-area-inset-top, 0px));
   --wf-safe-bottom: max(var(--safe-area-inset-bottom, 0px), env(safe-area-inset-bottom, 0px));
 
+  /* The line just above the tab bar, where floating things live. The bar is
+     56px of content plus its own bottom padding — max(safe-area, 0.75rem) —
+     so this is measured rather than guessed, and everything that sits above
+     the bar shares one definition instead of each picking its own number. */
+  --wf-above-tabbar: calc(max(var(--wf-safe-bottom), 0.75rem) + 56px + 10px);
+
   /* Every screen starts below the status bar rather than under the clock. */
   padding-top: var(--wf-safe-top);
 
@@ -994,6 +1000,55 @@ a.wf-row:active, button.wf-row:active {
   background: var(--wf-amber);
 }
 
+/* --------------------------------------------------------------- toast */
+/* Confirmation, not conversation: it appears where the thumb already is,
+   says what happened, and leaves. Same measured tab-bar clearance as the
+   demo chip, so the two never sit on the bar or on each other. */
+
+.wf-toast {
+  position: fixed;
+  left: 50%;
+  /* One row above the demo chip's line, so a confirmation never lands on
+     top of it. Without a tab bar this simply floats a little higher. */
+  bottom: calc(var(--wf-above-tabbar) + 38px);
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: min(24rem, calc(100vw - 2rem));
+  padding: 0.6rem 0.95rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--wf-fg);
+  background: var(--wf-material-thick);
+  backdrop-filter: var(--wf-material-blur);
+  box-shadow:
+    0 0 0 0.5px var(--wf-line-strong),
+    0 8px 28px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  animation: wf-toast-in 0.22s var(--wf-ease-out) both;
+  transform: translateX(-50%);
+}
+
+@keyframes wf-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wf-toast {
+    animation: none;
+  }
+}
+
 /* ------------------------------------------------------------ demo mode */
 /* Small, fixed, and out of the way: the presenter needs to know at a glance
    that this is demonstration data, and the audience needs to be looking at
@@ -1016,7 +1071,7 @@ a.wf-row:active, button.wf-row:active {
    * Surfaces with no tab bar (the platform console) set data-tabs="false"
    * and the chip drops to the bottom edge.
    */
-  bottom: calc(max(var(--wf-safe-bottom), 0.75rem) + 56px + 10px);
+  bottom: var(--wf-above-tabbar);
   z-index: 45;
   display: inline-flex;
   align-items: center;

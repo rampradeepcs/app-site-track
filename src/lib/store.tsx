@@ -39,6 +39,7 @@ import { setActor } from "./actor";
 import { assignedPremises, nearestPremise, premiseAt } from "./premises";
 import { SEED_VERSION, buildSeedState, makeSelfie } from "./seed";
 import { clearDestination, homeFor } from "./routes";
+import { showToast } from "./toast";
 import {
   DEFAULT_OVERTIME,
   DEFAULT_PAY_POLICY,
@@ -1566,6 +1567,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       });
       const shift = saved!;
       persist("save the shift", () => upsertShift(shift));
+      showToast(id ? `${shift.name} updated` : `${shift.name} created`);
       return shift;
     },
     [mutate],
@@ -1586,6 +1588,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       const archived = stateRef.current?.shifts.find((x) => x.id === shiftId);
       if (archived) {
         persist("archive the shift", () => upsertShift(archived));
+        showToast(`${archived.name} deleted`, "danger");
       }
     },
     [mutate],
@@ -1622,6 +1625,9 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         };
       });
       persist("assign the shift", () => insertShiftAssignments(written, orgId));
+      showToast(
+        `Shift assigned to ${employeeIds.length} ${employeeIds.length === 1 ? "person" : "people"}`,
+      );
     },
     [mutate],
   );
@@ -1658,6 +1664,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       persist("save the salary revision", () =>
         insertComp(record, currentOrgId(st)),
       );
+      showToast("Salary saved");
       return { ok: true };
     },
     [mutate],
@@ -1744,6 +1751,10 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           severity: decision === "approved" ? "success" : "warning",
         });
       }
+      showToast(
+        decision === "approved" ? "Overtime approved" : "Overtime rejected",
+        decision === "approved" ? "success" : "danger",
+      );
     },
     [mutate, pushNotification],
   );
@@ -1802,6 +1813,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         (r) => r.month === month,
       );
       if (saved) persist("save the payroll run", () => upsertPayrollRun(saved));
+      showToast(`Payroll ${status}`);
     },
     [mutate],
   );
@@ -2049,6 +2061,10 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           severity: decision === "approved" ? "success" : "warning",
         });
       }
+      showToast(
+        decision === "approved" ? "Travel approved" : "Travel rejected",
+        decision === "approved" ? "success" : "danger",
+      );
     },
     [mutate, pushNotification],
   );
@@ -2455,6 +2471,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           }
         }
       });
+      showToast(id ? `${person.name} updated` : `${person.name} added`);
       return person;
     },
     [mutate],
@@ -2566,6 +2583,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       });
       const project = saved!;
       persist("save the project", () => upsertProject(project));
+      showToast(id ? `${project.name} updated` : `${project.name} created`);
       return project;
     },
     [mutate],

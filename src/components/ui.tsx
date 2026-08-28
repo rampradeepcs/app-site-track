@@ -467,7 +467,19 @@ export function BottomSheet({
   const onPointerDown = (e: React.PointerEvent) => {
     // Only from the grabber/header area: dragging from inside a scrolling
     // list would fight the scroll, and the loser is always the user.
-    if ((e.target as HTMLElement).closest("[data-sheet-scroll]")) return;
+    //
+    // Controls are excluded for a subtler reason. Starting a drag calls
+    // setPointerCapture, which redirects the pointerup to the surface — so
+    // the browser never pairs down and up on the button and never fires a
+    // click. That is why the sheet's own close button did nothing: the
+    // press was being taken for the start of a dismiss gesture.
+    if (
+      (e.target as HTMLElement).closest(
+        "[data-sheet-scroll], button, a, input, select, textarea, [role='button']",
+      )
+    ) {
+      return;
+    }
     const el = surface.current;
     if (!el) return;
     stopSpring.current?.();

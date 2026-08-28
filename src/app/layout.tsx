@@ -6,6 +6,7 @@ import { WorkforceProvider } from "@/lib/store";
 import { PREPAINT_SCRIPT } from "@/lib/theme";
 import { DemoBar } from "@/components/demo/DemoBar";
 import { NativeChrome } from "@/components/NativeChrome";
+import { ToastHost } from "@/components/ToastHost";
 
 /*
  * The face is the identity, so the webfont leads the stack (workforce.css
@@ -55,6 +56,7 @@ export default function RootLayout({
             <WorkforceProvider>
               {children}
               <NativeChrome />
+              <ToastHost />
               <DemoBar />
             </WorkforceProvider>
           </PlatformProvider>
