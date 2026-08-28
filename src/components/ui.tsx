@@ -119,6 +119,21 @@ export function Chip({
 
 /* ----------------------------------------------------------- KPI card */
 
+/**
+ * Display size for a KPI value, chosen from how much there is to show.
+ *
+ * Only strings and numbers can be measured; a node (a value with its own
+ * markup) keeps the full size, which is what those are built for.
+ */
+function valueSize(value: React.ReactNode): string {
+  const text =
+    typeof value === "string" || typeof value === "number" ? String(value) : "";
+  if (!text || text.length <= 7) return "text-[1.65rem]";
+  if (text.length <= 9) return "text-[1.4rem]";
+  if (text.length <= 12) return "text-[1.2rem]";
+  return "text-[1.05rem]";
+}
+
 export function KpiCard({
   label,
   value,
@@ -156,8 +171,12 @@ export function KpiCard({
         </span>
         {icon ? <span style={{ color: accent }}>{icon}</span> : null}
       </div>
+      {/* The display size steps down for long values. A fixed size clipped
+          them at the card edge, which on a money figure is not a cosmetic
+          problem: "₹10,50,812.31" rendered as "₹10,50,812.3" reads as a
+          real, wrong number. Short values keep the full size. */}
       <div
-        className="wf-display text-[1.65rem] font-bold leading-none"
+        className={`wf-display font-bold leading-none [overflow-wrap:anywhere] ${valueSize(value)}`}
         style={{ color: accent }}
       >
         {value}
@@ -512,7 +531,13 @@ export function BottomSheet({
         tabIndex={-1}
         className={`absolute inset-x-0 bottom-0 mx-auto flex w-full flex-col ${
           wide ? "max-w-[720px]" : "max-w-[430px]"
-        } ${tall ? "max-h-[92dvh]" : "max-h-[80dvh]"}`}
+        } ${
+          // Leave the status bar clear: a tall sheet on a short screen would
+          // otherwise reach up under the clock.
+          tall
+            ? "max-h-[calc(92dvh-var(--wf-safe-top))]"
+            : "max-h-[calc(80dvh-var(--wf-safe-top))]"
+        }`}
       >
         <div
           ref={surface}

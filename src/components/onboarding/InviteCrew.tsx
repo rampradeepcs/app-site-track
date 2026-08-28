@@ -97,7 +97,7 @@ function ContactSheet({
       aria-label="Pick crew from contacts"
     >
       <button className="min-h-16 flex-1" aria-label="Close" onClick={onCancel} />
-      <div className="flex max-h-[80dvh] flex-col gap-3 rounded-t-3xl border-t border-[var(--wf-line)] bg-[var(--wf-surface)] px-4 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+      <div className="flex max-h-[calc(80dvh-var(--wf-safe-top))] flex-col gap-3 rounded-t-3xl border-t border-[var(--wf-line)] bg-[var(--wf-surface)] px-4 pt-4 pb-[max(1.25rem,var(--wf-safe-bottom))]">
         <div className="flex items-center justify-between">
           <h2 className="wf-display text-lg font-bold">Pick from contacts</h2>
           <button

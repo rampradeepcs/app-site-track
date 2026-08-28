@@ -47,7 +47,7 @@ export function PlatformGuard({ children }: { children: React.ReactNode }) {
   }, [ok, router]);
   if (!ok) {
     return (
-      <div className="grid min-h-dvh place-items-center">
+      <div className="grid min-h-[calc(100dvh-var(--wf-safe-top))] place-items-center">
         <p className="text-sm text-[var(--wf-muted)]">Redirecting to sign in…</p>
       </div>
     );
@@ -65,10 +65,10 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   const openTickets = platform.tickets.filter((t) => t.status !== "resolved").length;
 
   return (
-    <div className="min-h-dvh md:flex">
+    <div className="min-h-[calc(100dvh-var(--wf-safe-top))] md:flex">
       {/* impersonation is a privileged action — never let it be invisible */}
       {platform.impersonating && (
-        <div className="fixed inset-x-0 top-0 z-50 flex items-center justify-center gap-3 bg-[var(--wf-violet)] px-4 py-2 text-[0.8rem] font-bold text-[var(--wf-on-violet)]">
+        <div className="fixed inset-x-0 top-[var(--wf-safe-top)] z-50 flex items-center justify-center gap-3 bg-[var(--wf-violet)] px-4 py-2 text-[0.8rem] font-bold text-[var(--wf-on-violet)]">
           Viewing{" "}
           {platform.organizations.find((o) => o.id === platform.impersonating!.orgId)?.name}
           {" "}as their admin — all actions are audited
@@ -85,7 +85,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
       )}
 
       {/* mobile top bar */}
-      <header className="sticky top-0 z-40 flex items-center gap-3 border-b border-[var(--wf-line)] bg-[var(--wf-bg)] px-4 py-3 md:hidden">
+      <header className="wf-topbar flex items-center gap-3 px-4 py-3 md:hidden">
         <button
           aria-label="Open navigation"
           aria-expanded={navOpen}
@@ -99,7 +99,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
 
       {/* sidebar */}
       <aside
-        className={`${navOpen ? "block" : "hidden"} border-b border-[var(--wf-line)] bg-[var(--wf-surface)] md:sticky md:top-0 md:block md:h-dvh md:w-60 md:shrink-0 md:border-b-0 md:border-r`}
+        className={`${navOpen ? "block" : "hidden"} border-b border-[var(--wf-line)] bg-[var(--wf-surface)] md:sticky md:top-[var(--wf-safe-top)] md:block md:h-[calc(100dvh-var(--wf-safe-top))] md:w-60 md:shrink-0 md:border-b-0 md:border-r`}
       >
         <div className="hidden items-center gap-2.5 px-5 py-5 md:flex">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--wf-violet)] text-[0.8rem] font-bold text-[var(--wf-on-violet)]">

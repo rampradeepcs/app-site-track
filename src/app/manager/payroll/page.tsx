@@ -164,23 +164,10 @@ export default function ManagerPayroll() {
 
   return (
     <div>
-      <ScreenHeader
-        title="Payroll"
-        sub={`${monthLabel} · ${STATUS_LABEL[status]}`}
-        action={
-          <div className="flex gap-1.5">
-            <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={exportCSV}>
-              <IDownload size={14} /> CSV
-            </button>
-            <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={exportExcel}>
-              Excel
-            </button>
-            <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={exportPDF}>
-              PDF
-            </button>
-          </div>
-        }
-      />
+      {/* Three export buttons in the header action slot left the title about
+          180px and broke "August 2026 · Draft" across two lines. They get
+          their own row, beside the data they export. */}
+      <ScreenHeader title="Payroll" sub={`${monthLabel} · ${STATUS_LABEL[status]}`} />
 
       <div className="flex flex-col gap-4 px-4">
         <FeatureGate feature="payroll">
@@ -219,6 +206,19 @@ export default function ManagerPayroll() {
               onClick={() => shiftMonth(1)}
             >
               <IChevronR size={16} />
+            </button>
+          </div>
+
+          {/* export — one row, equal thirds, so no label is ever clipped */}
+          <div className="grid grid-cols-3 gap-2">
+            <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={exportCSV}>
+              <IDownload size={14} /> CSV
+            </button>
+            <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={exportExcel}>
+              <IDownload size={14} /> Excel
+            </button>
+            <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={exportPDF}>
+              <IDownload size={14} /> PDF
             </button>
           </div>
 
@@ -463,10 +463,12 @@ function OvertimeApprovalRow({ att }: { att: Attendance }) {
         </div>
         <Chip tone="amber">{fmtDuration(att.overtime.minutes)} OT</Chip>
       </div>
-      <div className="mt-2 grid grid-cols-3 gap-2 text-[0.74rem] text-[var(--wf-muted)]">
+      {/* Label above value, not inline: three inline label+time pairs on a
+          phone broke every one of them across a line ("11:00" / "pm"). */}
+      <div className="mt-2 grid grid-cols-3 gap-2 text-[0.7rem] text-[var(--wf-muted)] [&>span]:flex [&>span]:flex-col [&>span]:gap-0.5">
         <span>
           Shift end{" "}
-          <span className="font-semibold text-[var(--wf-fg)]">
+          <span className="whitespace-nowrap text-[0.8rem] font-semibold text-[var(--wf-fg)]">
             {shift && shift.kind !== "flexible"
               ? fmtTime(
                   new Date(`${att.date}T00:00:00`).getTime() +
@@ -479,13 +481,15 @@ function OvertimeApprovalRow({ att }: { att: Attendance }) {
         </span>
         <span>
           Checked out{" "}
-          <span className="font-semibold text-[var(--wf-fg)]">
+          <span className="whitespace-nowrap text-[0.8rem] font-semibold text-[var(--wf-fg)]">
             {att.checkOut ? fmtTime(att.checkOut.at) : "—"}
           </span>
         </span>
         <span>
           Est. amount{" "}
-          <span className="font-semibold text-[var(--wf-green)]">{fmtINR(estimate)}</span>
+          <span className="whitespace-nowrap text-[0.8rem] font-semibold text-[var(--wf-green)]">
+            {fmtINR(estimate)}
+          </span>
         </span>
       </div>
       <div className="mt-3 flex items-center gap-2">

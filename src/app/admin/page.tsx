@@ -95,14 +95,18 @@ export default function AdminOverview() {
                   <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[var(--wf-amber-soft)] text-[var(--wf-amber)]">
                     <IMapPin size={20} />
                   </span>
+                  {/* The project name gets the full width; the status chip
+                      sits under it rather than eating into the title. */}
                   <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2">
-                      <span className="truncate font-bold">{p.name}</span>
-                      <Chip tone={p.status === "active" ? "green" : "neutral"}>{p.status}</Chip>
-                    </span>
+                    <span className="block truncate font-bold">{p.name}</span>
                     <span className="mt-0.5 block truncate text-[0.74rem] text-[var(--wf-muted)]">
                       PM: {mgr?.name ?? "Unassigned"} · {p.employeeIds.length} assigned ·{" "}
                       {onsite} on site · {today} present today
+                    </span>
+                    <span className="mt-1.5 flex">
+                      <Chip tone={p.status === "active" ? "green" : "neutral"}>
+                        {p.status}
+                      </Chip>
                     </span>
                   </span>
                   <IArrowR size={15} className="shrink-0 text-[var(--wf-faint)]" />

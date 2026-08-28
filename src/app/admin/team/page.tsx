@@ -107,7 +107,14 @@ export default function AdminTeam() {
               u.role === "employee" ? performanceFor(state, u, 14, now) : null;
             const isOwner = u.id === "usr_owner";
             return (
-              <div key={u.id} className="wf-card2 flex flex-wrap items-center gap-3 px-3.5 py-3">
+              /* Identity on one line, actions on the next. Sharing the row
+                 squeezed admin names down to "Divy…" while manager rows —
+                 whose buttons happened to wrap — showed the name in full, so
+                 one list read two different ways. */
+              <div
+                key={u.id}
+                className="wf-card2 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2.5 px-3.5 py-3"
+              >
                 <Avatar
                   name={u.name}
                   hue={u.avatarHue}
@@ -139,7 +146,7 @@ export default function AdminTeam() {
                     {live?.state === "working" ? ` · on site ${fmtClock(live.workedMs).slice(0, 5)}` : ""}
                   </span>
                 </Link>
-                <div className="flex shrink-0 items-center gap-1.5">
+                <div className="col-span-2 flex flex-wrap items-center gap-1.5">
                   {!isOwner && u.role !== "admin" && (
                     <button
                       className="wf-btn wf-btn-ghost wf-btn-sm"

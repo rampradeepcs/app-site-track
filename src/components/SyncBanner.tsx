@@ -37,7 +37,7 @@ export function SyncBanner() {
   return (
     <div
       role="alert"
-      className="sticky top-0 z-50 flex items-start gap-2 border-b border-[var(--wf-red-edge)] bg-[var(--wf-red-soft)] px-4 py-2.5 text-[0.78rem] text-[var(--wf-red)]"
+      className="sticky top-[var(--wf-safe-top)] z-50 flex items-start gap-2 border-b border-[var(--wf-red-edge)] bg-[var(--wf-red-soft)] px-4 py-2.5 text-[0.78rem] text-[var(--wf-red)]"
     >
       <IAlert size={15} className="mt-0.5 shrink-0" />
       <span className="min-w-0 flex-1">

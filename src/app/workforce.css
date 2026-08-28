@@ -162,6 +162,18 @@
   --wf-marker-ring: rgba(255, 255, 255, 0.9);
   --wf-map-ground: #101010;
 
+  /* ---- native system-bar insets ----
+     On the open web both sources are 0 and nothing changes. Inside the
+     Android shell, Capacitor injects --safe-area-inset-* (and newer
+     WebViews also report env()), so max() is right in every combination:
+     whichever channel knows the real inset wins, and when Capacitor pads
+     the WebView natively instead, both read 0 and nothing doubles up. */
+  --wf-safe-top: max(var(--safe-area-inset-top, 0px), env(safe-area-inset-top, 0px));
+  --wf-safe-bottom: max(var(--safe-area-inset-bottom, 0px), env(safe-area-inset-bottom, 0px));
+
+  /* Every screen starts below the status bar rather than under the clock. */
+  padding-top: var(--wf-safe-top);
+
   color-scheme: dark;
   background: var(--wf-bg);
   color: var(--wf-fg);
@@ -474,6 +486,18 @@ html[data-theme="light"] .wf {
 .wf-input::placeholder {
   color: var(--wf-faint);
 }
+/* Number fields: drop the stepper. It overlapped the value in narrow
+   inputs — the overtime minutes box rendered "33" as a clipped "3" — and
+   on a touch screen nobody is aiming for a 12px arrow anyway. */
+.wf-input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.wf-input[type="number"]::-webkit-outer-spin-button,
+.wf-input[type="number"]::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
 .wf-input-search {
   padding-left: 2.5rem;
 }
@@ -725,7 +749,9 @@ a.wf-row:active, button.wf-row:active {
   width: 100%;
   max-width: 430px;
   margin-inline: auto;
-  min-height: 100dvh;
+  /* Full height *of what is left* under the status bar — a plain 100dvh
+     inside the padded .wf overflows by exactly the inset. */
+  min-height: calc(100dvh - var(--wf-safe-top));
   display: flex;
   flex-direction: column;
   position: relative;
@@ -737,8 +763,23 @@ a.wf-row:active, button.wf-row:active {
   }
 }
 
+/* Opaque strip over the status-bar area. Sticky bars sit below it and
+   content disappears under it as it scrolls, instead of running through
+   the clock. Zero-height on the open web, so it costs nothing there. */
+.wf::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--wf-safe-top);
+  z-index: 60;
+  background: var(--wf-bg);
+  pointer-events: none;
+}
+
 .wf-safe-bottom {
-  padding-bottom: max(env(safe-area-inset-bottom), 0.75rem);
+  padding-bottom: max(var(--wf-safe-bottom), 0.75rem);
 }
 
 /* Bottom navigation */
@@ -751,8 +792,12 @@ a.wf-row:active, button.wf-row:active {
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
   background: var(--wf-material-bar);
+  /* Standard property only. Writing the -webkit- alias alongside it made
+     Lightning CSS collapse the pair down to the prefixed one, which Chrome
+     and the Android WebView do not implement — so every "material" surface
+     silently lost its blur and became a flat 55% panel. The build adds
+     whatever prefix the targets need. */
   backdrop-filter: var(--wf-material-blur);
-  -webkit-backdrop-filter: var(--wf-material-blur);
   box-shadow: inset 0 0.5px 0 var(--wf-material-edge), 0 -0.5px 0 var(--wf-line);
 }
 .wf-tab {
@@ -791,7 +836,9 @@ a.wf-row:active, button.wf-row:active {
    appears. A permanent 1px rule under a header is the thing it replaced. */
 .wf-navbar {
   position: sticky;
-  top: 0;
+  /* Stick below the status bar, not behind the clock; the strip painted by
+     .wf::after keeps scrolling content from showing through above it. */
+  top: var(--wf-safe-top);
   z-index: 30;
   background: transparent;
   transition: background-color 0.25s var(--wf-ease-out),
@@ -799,9 +846,25 @@ a.wf-row:active, button.wf-row:active {
 }
 .wf-navbar[data-scrolled="true"] {
   background: var(--wf-material-bar);
+  /* Standard property only. Writing the -webkit- alias alongside it made
+     Lightning CSS collapse the pair down to the prefixed one, which Chrome
+     and the Android WebView do not implement — so every "material" surface
+     silently lost its blur and became a flat 55% panel. The build adds
+     whatever prefix the targets need. */
   backdrop-filter: var(--wf-material-blur);
-  -webkit-backdrop-filter: var(--wf-material-blur);
   box-shadow: 0 0.5px 0 var(--wf-line);
+}
+
+/* A top bar that is always the material, for surfaces whose header carries
+   controls rather than a scroll-edge title (the platform console). Same
+   recipe as the tab bar, so both ends of every screen match. */
+.wf-topbar {
+  position: sticky;
+  top: var(--wf-safe-top);
+  z-index: 40;
+  background: var(--wf-material-bar);
+  backdrop-filter: var(--wf-material-blur);
+  box-shadow: inset 0 -0.5px 0 var(--wf-material-edge), 0 0.5px 0 var(--wf-line);
 }
 
 .wf :focus-visible {
@@ -941,7 +1004,9 @@ a.wf-row:active, button.wf-row:active {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(env(safe-area-inset-bottom) + 62px);
+  /* Default clears the tab bar; surfaces without one (the platform console)
+     set data-tabs="false" and the chip drops to the bottom edge. */
+  bottom: calc(var(--wf-safe-bottom) + 62px);
   z-index: 45;
   display: inline-flex;
   align-items: center;
@@ -954,12 +1019,19 @@ a.wf-row:active, button.wf-row:active {
   cursor: pointer;
   color: var(--wf-fg);
   background: var(--wf-material-thick);
+  /* Standard property only. Writing the -webkit- alias alongside it made
+     Lightning CSS collapse the pair down to the prefixed one, which Chrome
+     and the Android WebView do not implement — so every "material" surface
+     silently lost its blur and became a flat 55% panel. The build adds
+     whatever prefix the targets need. */
   backdrop-filter: var(--wf-material-blur);
-  -webkit-backdrop-filter: var(--wf-material-blur);
   box-shadow:
     0 0 0 0.5px var(--wf-line-strong),
     var(--wf-shadow);
   -webkit-tap-highlight-color: transparent;
+}
+.wf-demo-chip[data-tabs="false"] {
+  bottom: calc(var(--wf-safe-bottom) + 14px);
 }
 .wf-demo-chip:active { opacity: 0.7; }
 .wf-demo-dot {

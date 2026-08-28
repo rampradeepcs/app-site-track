@@ -61,7 +61,7 @@ export function RoleGuard({
   }, [ok, pathname, router]);
   if (!ok) {
     return (
-      <div className="grid min-h-dvh place-items-center">
+      <div className="grid min-h-[calc(100dvh-var(--wf-safe-top))] place-items-center">
         <p className="text-sm text-[var(--wf-muted)]">Redirecting to sign in…</p>
       </div>
     );
@@ -232,7 +232,7 @@ export function StatusStrip() {
   const queued = state.outbox.length;
   if (online && !openShift) return null;
   return (
-    <div className="pointer-events-none sticky top-0 z-40 flex flex-col gap-1 px-3 pt-2">
+    <div className="pointer-events-none sticky top-[var(--wf-safe-top)] z-40 flex flex-col gap-1 px-3 pt-2">
       {!online && (
         <div className="pointer-events-auto flex items-center justify-between rounded-xl border border-[var(--wf-amber-edge)] bg-[color-mix(in_srgb,var(--wf-amber)_18%,var(--wf-surface))] px-3 py-2 text-[0.78rem] font-semibold text-[var(--wf-amber-hi)] shadow-lg backdrop-blur">
           <span>Offline mode</span>
@@ -267,7 +267,7 @@ export function ImpersonationBanner() {
   if (!imp) return null;
   const org = platform.organizations.find((o) => o.id === imp.orgId);
   return (
-    <div className="sticky top-0 z-50 flex flex-wrap items-center justify-center gap-2 bg-[var(--wf-violet)] px-4 py-2 text-center text-[0.76rem] font-bold text-[var(--wf-on-violet)]">
+    <div className="sticky top-[var(--wf-safe-top)] z-50 flex flex-wrap items-center justify-center gap-2 bg-[var(--wf-violet)] px-4 py-2 text-center text-[0.76rem] font-bold text-[var(--wf-on-violet)]">
       Super Admin view — {org?.name ?? "client"} · audited
       <button
         className="cursor-pointer rounded-md bg-black/20 px-2 py-0.5 text-[0.7rem] hover:bg-black/30"
@@ -334,7 +334,9 @@ export function ScreenHeader({
           {title}
         </h1>
         {sub ? (
-          <p className="mt-0.5 truncate text-[0.76rem] text-[var(--wf-muted)]">
+          /* The title is a heading and stays on one line; the subtitle is
+             information, so it wraps rather than losing its last words. */
+          <p className="mt-0.5 line-clamp-2 text-[0.76rem] leading-snug text-[var(--wf-muted)]">
             {sub}
           </p>
         ) : null}

@@ -13,8 +13,8 @@
  * covers is ever the thing being demonstrated.
  */
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { PERSONAS, currentPersonaId, personaById } from "@/lib/demo/mode";
 import { useWorkforce } from "@/lib/store";
 import { homeFor } from "@/lib/routes";
@@ -58,6 +58,14 @@ export function DemoBar() {
   const [guide, setGuide] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
 
+  // The chip clears the tab bar on the app surfaces; the platform console has
+  // no tab bar, so there it would float in dead space over the content.
+  const pathname = usePathname();
+  const [hasTabs, setHasTabs] = useState(true);
+  useEffect(() => {
+    setHasTabs(!!document.querySelector(".wf-tabbar"));
+  }, [pathname]);
+
   if (!wf.isDemo) return null;
 
   const persona = personaById(currentPersonaId());
@@ -66,6 +74,7 @@ export function DemoBar() {
     <>
       <button
         className="wf-demo-chip"
+        data-tabs={hasTabs}
         onClick={() => setOpen(true)}
         aria-label="Demo controls"
       >

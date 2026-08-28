@@ -753,7 +753,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
 
   if (!api) {
     return (
-      <div className="grid min-h-dvh place-items-center text-sm text-[var(--wf-muted)]">
+      <div className="grid min-h-[calc(100dvh-var(--wf-safe-top))] place-items-center text-sm text-[var(--wf-muted)]">
         Loading platform…
       </div>
     );

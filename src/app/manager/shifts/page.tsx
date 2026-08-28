@@ -99,10 +99,14 @@ export default function ManagerShifts() {
               <div key={sh.id} className="wf-card p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h2 className="wf-display truncate text-[1.05rem] font-bold">
-                        {sh.name}
-                      </h2>
+                    {/* The name owns its line. Sharing it with the code and
+                        kind chips clipped "General Shift" to "General Sh…"
+                        while a short name showed in full, so one list read
+                        two different ways. */}
+                    <h2 className="wf-display truncate text-[1.05rem] font-bold">
+                      {sh.name}
+                    </h2>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
                       <Chip tone="neutral">{sh.code}</Chip>
                       <Chip tone={sh.kind === "overnight" ? "violet" : "blue"}>
                         {sh.kind}
