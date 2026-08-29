@@ -37,6 +37,7 @@ import { useWorkforce } from "@/lib/store";
 import {
   IArrowR,
   ICheck,
+  ISearch,
   IMapPin,
   IPhone,
   IPlus,
@@ -46,6 +47,17 @@ import {
 } from "@/components/WfIcons";
 
 type Tab = "overview" | "geofence" | "team" | "attendance" | "updates";
+
+/** Short status labels for the totals strip — the chip is already narrow. */
+const STATUS_TEXT: Record<string, string> = {
+  present: "Present",
+  late: "Late",
+  absent: "Absent",
+  "early-checkout": "Early out",
+  "missing-checkout": "No checkout",
+  "on-leave": "On leave",
+  holiday: "Holiday",
+};
 
 export default function ProjectPage() {
   return (
@@ -94,6 +106,44 @@ function ProjectInner() {
     .filter((a) => a.projectId === project.id && a.checkIn)
     .sort((a, b) => (a.date < b.date ? 1 : -1));
   const updates = state.updates.filter((u) => u.projectId === project.id).slice(0, 20);
+
+  /* ---- attendance tab: date, search, and totals that agree with them ---- */
+
+  // Opens on the most recent day that has records rather than on today,
+  // which on a quiet morning would show an empty table and zero totals.
+  const [attDate, setAttDate] = useState(() => attendance[0]?.date ?? "");
+  const [attQuery, setAttQuery] = useState("");
+
+  const attRows = useMemo(() => {
+    const q = attQuery.trim().toLowerCase();
+    return attendance.filter((a) => {
+      if (attDate && a.date !== attDate) return false;
+      if (!q) return true;
+      const u = state.users.find((x) => x.id === a.employeeId);
+      return [u?.name, u?.employeeCode, u?.designation]
+        .filter(Boolean)
+        .some((f) => String(f).toLowerCase().includes(q));
+    });
+  }, [attendance, attDate, attQuery, state.users]);
+
+  /*
+   * Totals describe exactly the rows below them.
+   *
+   * Counting the whole project while the table shows one filtered day would
+   * be worse than no total at all — the number would look like a summary of
+   * what you are reading and would not be one.
+   */
+  const attTotals = useMemo(() => {
+    const by = new Map<string, number>();
+    for (const a of attRows) by.set(a.status, (by.get(a.status) ?? 0) + 1);
+    return by;
+  }, [attRows]);
+
+  /** Only dates this project actually has records for. */
+  const attDates = useMemo(
+    () => [...new Set(attendance.map((a) => a.date))].sort().reverse(),
+    [attendance],
+  );
 
   const markers: MapMarker[] = working
     .filter((b) => b.lastPoint)
@@ -273,7 +323,60 @@ function ProjectInner() {
         )}
 
         {tab === "attendance" && (
-          <div className="wf-card overflow-hidden">
+          <>
+            <div className="flex flex-col gap-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  className="wf-input w-auto min-w-40 flex-1"
+                  aria-label="Attendance date"
+                  value={attDate}
+                  onChange={(e) => setAttDate(e.target.value)}
+                >
+                  <option value="">All dates</option>
+                  {attDates.map((d) => (
+                    <option key={d} value={d}>
+                      {fmtDateLong(d)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="relative">
+                <ISearch
+                  size={15}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]"
+                />
+                <input
+                  className="wf-input wf-input-search"
+                  placeholder="Search name, code, trade…"
+                  value={attQuery}
+                  onChange={(e) => setAttQuery(e.target.value)}
+                />
+              </div>
+
+              {/* Totals for the rows below, not for the project — see the
+                  note where they are computed. */}
+              <div className="wf-scroll-x -mx-1 flex items-center gap-2 px-1 pb-1">
+                <span className="wf-chip shrink-0 whitespace-nowrap bg-[var(--wf-fill-2)] font-bold text-[var(--wf-fg)]">
+                  {attRows.length} record{attRows.length === 1 ? "" : "s"}
+                </span>
+                {[...attTotals.entries()].map(([status, count]) => (
+                  <span key={status} className="shrink-0">
+                    <StatusChip
+                      status={status as Parameters<typeof StatusChip>[0]["status"]}
+                      label={`${STATUS_TEXT[status] ?? status} ${count}`}
+                    />
+                  </span>
+                ))}
+                {attRows.length === 0 ? (
+                  <span className="text-[0.78rem] text-[var(--wf-muted)]">
+                    Nothing recorded here.
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="wf-card overflow-hidden">
             <div className="wf-scroll-x">
               <table className="wf-table">
                 <thead>
@@ -288,15 +391,15 @@ function ProjectInner() {
                   </tr>
                 </thead>
                 <tbody>
-                  {attendance.slice(0, 30).map((a) => {
+                  {attRows.slice(0, 60).map((a) => {
                     const u = state.users.find((x) => x.id === a.employeeId);
                     return (
                       <tr key={a.id}>
-                        <td className="tabular-nums">{a.date.slice(5)}</td>
-                        <td className="font-semibold">{u?.name}</td>
-                        <td className="tabular-nums">{a.checkIn ? fmtTime(a.checkIn.at) : "—"}</td>
-                        <td className="tabular-nums">{a.checkOut ? fmtTime(a.checkOut.at) : "…"}</td>
-                        <td className="tabular-nums">
+                        <td className="whitespace-nowrap tabular-nums">{a.date.slice(5)}</td>
+                        <td className="whitespace-nowrap font-semibold">{u?.name}</td>
+                        <td className="whitespace-nowrap tabular-nums">{a.checkIn ? fmtTime(a.checkIn.at) : "—"}</td>
+                        <td className="whitespace-nowrap tabular-nums">{a.checkOut ? fmtTime(a.checkOut.at) : "…"}</td>
+                        <td className="whitespace-nowrap tabular-nums">
                           {a.workedMinutes != null
                             ? fmtDuration(a.workedMinutes)
                             : a.checkIn && !a.checkOut
@@ -318,7 +421,8 @@ function ProjectInner() {
                 </tbody>
               </table>
             </div>
-          </div>
+            </div>
+          </>
         )}
 
         {tab === "updates" && (
