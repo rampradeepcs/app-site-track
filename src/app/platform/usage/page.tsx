@@ -56,7 +56,7 @@ export default function UsagePage() {
         }
       />
       <div className="flex flex-col gap-5 px-5">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-6">
           <MetricCard label="Active employees" value={stats.activeEmployees.toLocaleString("en-IN")} tone="blue" />
           <MetricCard label="Active projects" value={stats.activeProjects} tone="green" />
           <MetricCard label="Daily check-ins" value={stats.dailyCheckIns.toLocaleString("en-IN")} />

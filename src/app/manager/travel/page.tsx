@@ -36,6 +36,7 @@ import {
   type TravelAllowance,
 } from "@/lib/allowances";
 import { fmtDateLong, fmtTime, todayISO } from "@/lib/format";
+import { StatusPills, countByStatus } from "@/components/StatusPills";
 import { fmtINR } from "@/lib/payroll";
 import { downloadCSV, toCSV } from "@/lib/reports";
 import { useWorkforce } from "@/lib/store";
@@ -487,7 +488,7 @@ function PetrolRuleForm({ base, onDone }: { base: PetrolRule | null; onDone: () 
           onChange={(e) => setName(e.target.value)}
         />
       </Field>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Vehicle type">
           <Segmented
             size="sm"
@@ -546,11 +547,11 @@ function PetrolRuleForm({ base, onDone }: { base: PetrolRule | null; onDone: () 
         />
       </Field>
       <Field label="Projects" hint="None selected = every project">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2">
           {state.projects.map((p) => (
             <button
               key={p.id}
-              className="wf-btn wf-btn-sm"
+              className="wf-btn wf-btn-sm w-full justify-start"
               style={{
                 background: projectIds.includes(p.id) ? "var(--wf-amber)" : "var(--wf-fill-3)",
                 color: projectIds.includes(p.id) ? "var(--wf-on-amber)" : "var(--wf-fg)",
@@ -676,11 +677,11 @@ function FoodRuleForm({ base, onDone }: { base: FoodRule | null; onDone: () => v
         />
       </Field>
       <Field label="Projects" hint="None selected = every project (project-level overrides)">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2">
           {state.projects.map((p) => (
             <button
               key={p.id}
-              className="wf-btn wf-btn-sm"
+              className="wf-btn wf-btn-sm w-full justify-start"
               style={{
                 background: projectIds.includes(p.id) ? "var(--wf-amber)" : "var(--wf-fill-3)",
                 color: projectIds.includes(p.id) ? "var(--wf-on-amber)" : "var(--wf-fg)",
@@ -702,7 +703,7 @@ function FoodRuleForm({ base, onDone }: { base: FoodRule | null; onDone: () => v
             {shifts.map((sh) => (
               <button
                 key={sh.id}
-                className="wf-btn wf-btn-sm"
+                className="wf-btn wf-btn-sm w-full justify-start"
                 style={{
                   background: shiftIds.includes(sh.id) ? "var(--wf-amber)" : "var(--wf-fill-3)",
                   color: shiftIds.includes(sh.id) ? "var(--wf-on-amber)" : "var(--wf-fg)",
@@ -832,9 +833,27 @@ function ReportsTab() {
     wf.logAudit("allowance.export", month, "Food CSV");
   };
 
+  // Same filter the attendance tables use, over trip status.
+  const travelCounts = useMemo(
+    () => countByStatus(travelRows, (t) => t.session.status),
+    [travelRows],
+  );
+  const [travelStatus, setTravelStatus] = useState<string | null>(null);
+  const shownTravel = useMemo(
+    () =>
+      travelStatus
+        ? travelRows.filter((t) => t.session.status === travelStatus)
+        : travelRows,
+    [travelRows, travelStatus],
+  );
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-end gap-3">
+      {/* A month field and two export buttons do not fit one phone line, and
+          the row did not wrap — so it ran off the right edge and dragged the
+          whole page sideways with it. The month takes its own row and the
+          exports share the next, each half. */}
+      <div className="flex flex-col gap-3">
         <Field label="Month">
           <input
             className="wf-input"
@@ -843,16 +862,26 @@ function ReportsTab() {
             onChange={(e) => setMonth(e.target.value)}
           />
         </Field>
-        <button className="wf-btn wf-btn-ghost wf-btn-sm mb-1" onClick={exportTravel}>
-          <IDownload size={13} /> Petrol CSV
-        </button>
-        <button className="wf-btn wf-btn-ghost wf-btn-sm mb-1" onClick={exportFood}>
-          <IDownload size={13} /> Food CSV
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={exportTravel}>
+            <IDownload size={13} /> Petrol CSV
+          </button>
+          <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={exportFood}>
+            <IDownload size={13} /> Food CSV
+          </button>
+        </div>
       </div>
 
       <div>
         <SectionTitle>Petrol allowance — {travelRows.length} trips</SectionTitle>
+        <div className="mb-2.5">
+          <StatusPills
+            counts={travelCounts}
+            value={travelStatus}
+            onChange={setTravelStatus}
+            emptyLabel="No trips this month."
+          />
+        </div>
         <div className="wf-card overflow-hidden">
           <div className="wf-scroll-x">
             <table className="wf-table">
@@ -868,11 +897,11 @@ function ReportsTab() {
                 </tr>
               </thead>
               <tbody>
-                {travelRows.map((t) => {
+                {shownTravel.map((t) => {
                   const u = state.users.find((x) => x.id === t.session.employeeId);
                   return (
                     <tr key={t.session.id}>
-                      <td className="font-semibold">{u?.name}</td>
+                      <td className="whitespace-nowrap font-semibold">{u?.name}</td>
                       <td className="whitespace-nowrap tabular-nums">{t.session.date.slice(5)}</td>
                       <td className="max-w-[180px] truncate">
                         {t.session.start.name} → {t.session.end?.name ?? "…"}

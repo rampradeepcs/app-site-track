@@ -29,6 +29,11 @@ export const STATUS_TEXT: Record<string, string> = {
   holiday: "Holiday",
   working: "Working",
   "not-in": "Not in",
+  // travel / allowance
+  active: "Running",
+  pending: "Pending",
+  approved: "Approved",
+  rejected: "Rejected",
 };
 
 export function StatusPills({

@@ -110,7 +110,7 @@ export function EmployeeEditor({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Designation">
             <input className="wf-input" value={designation} onChange={(e) => setDesignation(e.target.value)} />
           </Field>

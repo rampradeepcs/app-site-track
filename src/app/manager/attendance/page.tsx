@@ -158,9 +158,11 @@ function AttendanceInner() {
         }
       />
       <div className="flex flex-col gap-4 px-4">
-        {/* date + filters */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1">
+        {/* Filters fill the row rather than sizing to their longest option
+            — a select that stops halfway across leaves a strip of dead
+            space beside it and a smaller target on the way. */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="col-span-2 flex items-center gap-1">
             <button
               aria-label="Previous day"
               className="grid h-11 w-10 shrink-0 cursor-pointer place-items-center rounded-xl border border-[var(--wf-line)] bg-[var(--wf-surface)] text-[var(--wf-muted)] hover:text-[var(--wf-fg)]"
@@ -171,7 +173,7 @@ function AttendanceInner() {
             <input
               type="date"
               aria-label="Attendance date"
-              className="wf-input w-40"
+              className="wf-input min-w-0 flex-1"
               value={date}
               max={todayISO()}
               onChange={(e) => e.target.value && setDate(e.target.value)}
@@ -187,7 +189,7 @@ function AttendanceInner() {
           </div>
           <select
             aria-label="Project filter"
-            className="wf-input w-auto min-w-36"
+            className="wf-input min-w-0 flex-1"
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
           >
@@ -198,7 +200,7 @@ function AttendanceInner() {
           </select>
           <select
             aria-label="Department filter"
-            className="wf-input w-auto min-w-32"
+            className="wf-input min-w-0 flex-1"
             value={department}
             onChange={(e) => setDepartment(e.target.value)}
           >

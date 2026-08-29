@@ -38,7 +38,7 @@ export default function SupportPage() {
     <div className="pb-10">
       <PageHead title="Support" sub={`${open.length} open · ${platform.tickets.length} total`} />
       <div className="flex flex-col gap-4 px-5">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-5">
           <MetricCard label="Open" value={platform.tickets.filter((t) => t.status === "open").length} tone="amber" />
           <MetricCard label="In progress" value={platform.tickets.filter((t) => t.status === "in-progress").length} tone="blue" />
           <MetricCard label="Waiting" value={platform.tickets.filter((t) => t.status === "waiting").length} />

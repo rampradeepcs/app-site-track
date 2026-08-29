@@ -52,10 +52,11 @@ export function Avatar({
 
 /* -------------------------------------------------------- status chips */
 
-const STATUS_STYLES: Record<
-  AttendanceStatus | "working" | "not-in" | "queued" | "synced",
-  { bg: string; fg: string; label: string }
-> = {
+/* Attendance states, plus the trip and approval states the shared status
+   filter also sits over. Widened to a plain string key so a new status
+   anywhere in the app degrades to a neutral chip rather than a type error
+   here and a crash there. */
+const STATUS_STYLES: Record<string, { bg: string; fg: string; label: string }> = {
   present: { bg: "var(--wf-green-soft)", fg: "var(--wf-green)", label: "Present" },
   absent: { bg: "var(--wf-red-soft)", fg: "var(--wf-red)", label: "Absent" },
   late: { bg: "var(--wf-warn-soft)", fg: "var(--wf-warn)", label: "Late" },
@@ -67,6 +68,12 @@ const STATUS_STYLES: Record<
   "not-in": { bg: "var(--wf-slate-soft)", fg: "var(--wf-muted)", label: "Not In" },
   queued: { bg: "var(--wf-amber-soft)", fg: "var(--wf-amber)", label: "Queued" },
   synced: { bg: "var(--wf-green-soft)", fg: "var(--wf-green)", label: "Synced" },
+  // Trip and approval states, so the shared status filter can sit over a
+  // travel table as readily as an attendance one.
+  active: { bg: "var(--wf-blue-soft)", fg: "var(--wf-blue)", label: "Running" },
+  pending: { bg: "var(--wf-warn-soft)", fg: "var(--wf-warn)", label: "Pending" },
+  approved: { bg: "var(--wf-green-soft)", fg: "var(--wf-green)", label: "Approved" },
+  rejected: { bg: "var(--wf-red-soft)", fg: "var(--wf-red)", label: "Rejected" },
 };
 
 export function StatusChip({
@@ -74,11 +81,17 @@ export function StatusChip({
   label,
   dot,
 }: {
-  status: keyof typeof STATUS_STYLES;
+  status: AttendanceStatus | "working" | "not-in" | "queued" | "synced" | (string & {});
   label?: string;
   dot?: boolean;
 }) {
-  const s = STATUS_STYLES[status];
+  /* A status the map has never seen still renders — a neutral chip is a
+     far better outcome than a crash on someone's attendance screen. */
+  const s = STATUS_STYLES[status] ?? {
+    bg: "var(--wf-fill-2)",
+    fg: "var(--wf-fg)",
+    label: String(status),
+  };
   return (
     <span className="wf-chip" style={{ background: s.bg, color: s.fg }}>
       {dot ? (

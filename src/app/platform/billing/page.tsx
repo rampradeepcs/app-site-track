@@ -73,7 +73,7 @@ export default function BillingPage() {
         }
       />
       <div className="flex flex-col gap-4 px-5">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-6">
           <MetricCard label="Total revenue" value={money(totalRevenue)} tone="green" sub="collected" />
           <MetricCard label="MRR" value={money(stats.mrr)} tone="violet" />
           <MetricCard label="ARR" value={money(stats.arr)} tone="violet" />

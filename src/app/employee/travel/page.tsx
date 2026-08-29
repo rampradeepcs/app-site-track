@@ -198,7 +198,6 @@ export function TripDetail({
             : [s.start.coords]
         }
         heightClass="h-[260px]"
-        showControls={false}
       />
 
       <div className="wf-card2 divide-y divide-[var(--wf-line)]">

@@ -67,6 +67,8 @@ export default function ManagerProjects() {
               <SiteMap
                 project={p}
                 heightClass="h-36 rounded-none border-0"
+                /* A thumbnail inside a link: controls here would compete
+                   with the tap that opens the project. */
                 showControls={false}
                 interactive={false}
               />

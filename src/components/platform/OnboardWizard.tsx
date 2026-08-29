@@ -319,7 +319,7 @@ export function OnboardWizard({
                 ))}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Billing cycle">
                 <Segmented
                   ariaLabel="Billing cycle"
