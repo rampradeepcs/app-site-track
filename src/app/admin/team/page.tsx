@@ -25,6 +25,14 @@ import { useWorkforce } from "@/lib/store";
 import type { Role, User } from "@/lib/types";
 import { IArrowR, IPlus, ISearch, IShield, IUsers } from "@/components/WfIcons";
 
+/** Role names read as labels, not as enum values. */
+const ROLE_LABEL: Record<string, string> = {
+  employee: "Employee",
+  manager: "Manager",
+  admin: "Admin",
+  superadmin: "Super Admin",
+};
+
 export default function AdminTeam() {
   const { state, saveEmployee, setUserRole } = useWorkforce();
   const now = useNowTick(15);
@@ -113,7 +121,7 @@ export default function AdminTeam() {
                  one list read two different ways. */
               <div
                 key={u.id}
-                className="wf-card2 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2.5 px-3.5 py-3"
+                className="wf-card2 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2.5 px-3.5 py-3"
               >
                 <Avatar
                   name={u.name}
@@ -121,32 +129,36 @@ export default function AdminTeam() {
                   size={42}
                   ring={live?.state === "working" ? "green" : "none"}
                 />
+                {/* The name owns the left, the role sits at the right edge
+                    where the eye can run down a column of them. Jammed up
+                    against the name it competed with it and pushed long
+                    names into an ellipsis for no reason. */}
                 <Link
                   href={u.role === "employee" ? `/manager/employee?id=${u.id}` : "#"}
-                  className={`min-w-0 flex-1 ${u.role === "employee" ? "" : "pointer-events-none"}`}
+                  className={`min-w-0 ${u.role === "employee" ? "" : "pointer-events-none"}`}
                 >
-                  <span className="flex items-center gap-2">
-                    <span className="truncate font-semibold">{u.name}</span>
-                    <Chip
-                      tone={u.role === "admin" ? "violet" : u.role === "manager" ? "amber" : "blue"}
-                    >
-                      {u.role === "admin" ? (
-                        <>
-                          <IShield size={10} /> Admin
-                        </>
-                      ) : (
-                        u.role
-                      )}
-                    </Chip>
-                    {u.status !== "active" && <StatusChip status="not-in" label={u.status} />}
-                  </span>
+                  <span className="block truncate font-semibold">{u.name}</span>
                   <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
                     {u.designation} · {u.department} · {u.employeeCode}
                     {perf ? ` · ${pct(perf.attendancePct)} att · score ${Math.round(perf.overall)}` : ""}
                     {live?.state === "working" ? ` · on site ${fmtClock(live.workedMs).slice(0, 5)}` : ""}
                   </span>
                 </Link>
-                <div className="col-span-2 flex flex-wrap items-center gap-1.5">
+                <span className="flex shrink-0 items-center gap-1.5">
+                  {u.status !== "active" && <StatusChip status="not-in" label={u.status} />}
+                  <Chip
+                    tone={u.role === "admin" ? "violet" : u.role === "manager" ? "amber" : "blue"}
+                  >
+                    {u.role === "admin" ? (
+                      <>
+                        <IShield size={10} /> Admin
+                      </>
+                    ) : (
+                      ROLE_LABEL[u.role] ?? u.role
+                    )}
+                  </Chip>
+                </span>
+                <div className="col-span-3 flex flex-wrap items-center gap-2">
                   {!isOwner && u.role !== "admin" && (
                     <button
                       className="wf-btn wf-btn-ghost wf-btn-sm"
@@ -161,7 +173,7 @@ export default function AdminTeam() {
                     <Chip tone="neutral">Owner</Chip>
                   ) : (
                     <button
-                      className="wf-btn wf-btn-quiet wf-btn-sm"
+                      className="wf-btn wf-btn-ghost wf-btn-sm"
                       onClick={() =>
                         saveEmployee(
                           { name: u.name, status: u.status === "active" ? "inactive" : "active" },
@@ -174,7 +186,7 @@ export default function AdminTeam() {
                   )}
                   {u.role === "employee" && (
                     <button
-                      className="wf-btn wf-btn-quiet wf-btn-sm"
+                      className="wf-btn wf-btn-ghost wf-btn-sm"
                       onClick={() => setEditing(u)}
                     >
                       Edit
