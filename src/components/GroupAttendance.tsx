@@ -30,6 +30,8 @@ import { ICamera, ICheck, IRefresh, IUsers, IX } from "./WfIcons";
 
 interface Candidate {
   face: GroupFace;
+  /** A crop of this face, so a picker row shows who it is asking about. */
+  thumb: string;
   /** Proposed person, or null when nothing was close enough. */
   userId: string | null;
   distance: number;
@@ -71,11 +73,46 @@ export function GroupAttendance({
     );
   }, [state.attendance]);
 
+  /**
+   * Cut each detected face out of the photo.
+   *
+   * A row that says "unrecognised face, choose a name" is unanswerable
+   * without it: the supervisor is looking at a list of identical dropdowns
+   * and a photo with several boxes, and nothing connects the two.
+   */
+  const cropFaces = (img: HTMLImageElement, faces: GroupFace[]): string[] =>
+    faces.map((f) => {
+      const pad = 0.25;
+      const x = Math.max(0, (f.box.x - f.box.w * pad) * img.naturalWidth);
+      const y = Math.max(0, (f.box.y - f.box.h * pad) * img.naturalHeight);
+      const w = Math.min(
+        img.naturalWidth - x,
+        f.box.w * (1 + pad * 2) * img.naturalWidth,
+      );
+      const h = Math.min(
+        img.naturalHeight - y,
+        f.box.h * (1 + pad * 2) * img.naturalHeight,
+      );
+      const c = document.createElement("canvas");
+      c.width = 96;
+      c.height = 96;
+      const ctx = c.getContext("2d");
+      if (!ctx) return "";
+      ctx.drawImage(img, x, y, w, h, 0, 0, 96, 96);
+      return c.toDataURL("image/jpeg", 0.8);
+    });
+
   const analyse = async (dataUrl: string) => {
     setBusy(true);
     setError("");
     setCandidates([]);
     const faces = await readAllFaces(dataUrl);
+    const img = await new Promise<HTMLImageElement>((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = dataUrl;
+    }).catch(() => null);
     if (faces.length === 0) {
       setError(
         "No faces found. Get closer, or take the photo with everyone facing the camera.",
@@ -110,11 +147,13 @@ export function GroupAttendance({
       assigned.set(p.fi, { userId: p.userId, d: p.d });
     }
 
+    const thumbs = img ? cropFaces(img, faces) : faces.map(() => "");
     setCandidates(
       faces.map((face, i) => {
         const hit = assigned.get(i);
         return {
           face,
+          thumb: thumbs[i] ?? "",
           userId: hit?.userId ?? null,
           distance: hit?.d ?? Number.POSITIVE_INFINITY,
           dismissed: false,
@@ -136,6 +175,12 @@ export function GroupAttendance({
   };
 
   const chosen = candidates.filter((c) => c.userId && !c.dismissed);
+  /*
+   * Who this will actually change. Someone already checked in is skipped,
+   * so counting them in the button would promise more than it does — and
+   * the supervisor would only find out on the screen after.
+   */
+  const willMark = chosen.filter((c) => !alreadyIn.has(c.userId!));
   const unmatched = candidates.filter((c) => !c.userId && !c.dismissed);
   const userById = (id: string) => state.users.find((u) => u.id === id);
 
@@ -198,7 +243,14 @@ export function GroupAttendance({
       {photo ? (
         <div className="relative overflow-hidden rounded-2xl bg-black">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={photo} alt="Crew" className="w-full" />
+          <img
+            src={photo}
+            alt="Crew"
+            className="max-h-[46vh] w-full object-contain"
+          />
+          {/* Numbered, because the rows below refer to these boxes and a
+              colour alone cannot say which of four amber boxes is the one
+              the third dropdown is asking about. */}
           {candidates.map((c, i) => (
             <span
               key={i}
@@ -214,7 +266,21 @@ export function GroupAttendance({
                     ? "var(--wf-green)"
                     : "var(--wf-warn)",
               }}
-            />
+            >
+              <span
+                className="absolute -top-2 -left-2 grid h-5 w-5 place-items-center rounded-full text-[0.6rem] font-bold"
+                style={{
+                  background: c.dismissed
+                    ? "var(--wf-faint)"
+                    : c.userId
+                      ? "var(--wf-green)"
+                      : "var(--wf-warn)",
+                  color: "#000",
+                }}
+              >
+                {i + 1}
+              </span>
+            </span>
           ))}
         </div>
       ) : (
@@ -236,7 +302,19 @@ export function GroupAttendance({
         <p className="text-[0.82rem] font-semibold text-[var(--wf-red)]">{error}</p>
       ) : null}
 
-      {photo && !busy ? (
+      {/* Nothing found is one message and one way forward — not a message,
+          a "0 faces found" tally, and a dead "Mark 0 present" button all
+          describing the same emptiness. */}
+      {photo && !busy && candidates.length === 0 ? (
+        <button
+          className="wf-btn wf-btn-primary wf-btn-lg"
+          onClick={() => fileRef.current?.click()}
+        >
+          <IRefresh size={16} /> Take another photo
+        </button>
+      ) : null}
+
+      {photo && !busy && candidates.length > 0 ? (
         <>
           <p className="text-[0.8rem] leading-relaxed text-[var(--wf-muted)]">
             {candidates.length} face{candidates.length === 1 ? "" : "s"} found ·{" "}
@@ -256,20 +334,28 @@ export function GroupAttendance({
                       key={`${c.userId}-${i}`}
                       className="wf-card2 flex items-center gap-3 px-3.5 py-2.5"
                     >
-                      <Avatar name={u.name} hue={u.avatarHue} size={34} />
+                      <span className="relative shrink-0">
+                        <Avatar name={u.name} hue={u.avatarHue} size={34} />
+                        <span className="absolute -top-1 -left-1 grid h-4 w-4 place-items-center rounded-full bg-[var(--wf-green)] text-[0.55rem] font-bold text-black">
+                          {candidates.indexOf(c) + 1}
+                        </span>
+                      </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-semibold">{u.name}</span>
                         <span className="block truncate text-[0.7rem] text-[var(--wf-muted)]">
                           {isIn
-                            ? "Already checked in — will be left alone"
-                            : `${u.designation} · match ${(1 - c.distance).toFixed(2)}`}
+                            ? "Already checked in — left as it is"
+                            : u.designation}
                         </span>
                       </span>
                       <button
                         className="wf-btn wf-btn-ghost wf-btn-sm wf-btn-danger-text shrink-0"
+                        aria-label={`Not ${u.name}`}
                         onClick={() =>
                           setCandidates((prev) =>
-                            prev.map((x) => (x === c ? { ...x, dismissed: true } : x)),
+                            prev.map((x) =>
+                              x === c ? { ...x, userId: null, dismissed: false } : x,
+                            ),
                           )
                         }
                       >
@@ -288,42 +374,67 @@ export function GroupAttendance({
               hint="Assign them by name, or leave them — nobody is marked by guesswork."
             >
               <div className="flex flex-col gap-2">
-                {unmatched.map((c, i) => (
-                  <select
-                    key={i}
-                    className="wf-input"
-                    value=""
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      if (!id) return;
-                      setCandidates((prev) =>
-                        prev.map((x) =>
-                          x === c ? { ...x, userId: id, distance: 0 } : x,
-                        ),
-                      );
-                    }}
-                  >
-                    <option value="">Unrecognised face — choose a name</option>
-                    {spare.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name} · {u.employeeCode}
-                      </option>
-                    ))}
-                  </select>
-                ))}
+                {unmatched.map((c) => {
+                  const n = candidates.indexOf(c) + 1;
+                  return (
+                    <div key={n} className="flex items-center gap-2.5">
+                      {/* The crop is the whole point of this row: a column
+                          of identical dropdowns beside a photo of four
+                          boxes is a question nobody can answer. */}
+                      <span className="relative shrink-0">
+                        {c.thumb ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={c.thumb}
+                            alt={`Face ${n}`}
+                            className="h-11 w-11 rounded-xl object-cover"
+                          />
+                        ) : (
+                          <span className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--wf-fill-2)]">
+                            <IUsers size={16} />
+                          </span>
+                        )}
+                        <span className="absolute -top-1 -left-1 grid h-4 w-4 place-items-center rounded-full bg-[var(--wf-warn)] text-[0.55rem] font-bold text-black">
+                          {n}
+                        </span>
+                      </span>
+                      <select
+                        className="wf-input min-w-0 flex-1"
+                        aria-label={`Name for face ${n}`}
+                        value=""
+                        onChange={(e) => {
+                          const id = e.target.value;
+                          if (!id) return;
+                          setCandidates((prev) =>
+                            prev.map((x) =>
+                              x === c ? { ...x, userId: id, distance: 0 } : x,
+                            ),
+                          );
+                        }}
+                      >
+                        <option value="">Choose a name…</option>
+                        {spare.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.name} · {u.employeeCode}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
               </div>
             </Field>
           ) : null}
 
           <button
             className="wf-btn wf-btn-primary wf-btn-lg"
-            disabled={chosen.length === 0}
+            disabled={willMark.length === 0}
             onClick={() => {
               const ids = chosen.map((c) => c.userId!).filter(Boolean);
               setDone(markPresentFromPhoto(ids, projectId));
             }}
           >
-            <ICheck size={17} /> Mark {chosen.length} present
+            <ICheck size={17} /> Mark {willMark.length} present
           </button>
 
           <button
