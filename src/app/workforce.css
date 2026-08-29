@@ -1059,6 +1059,12 @@ a.wf-row:active, button.wf-row:active {
   z-index: 1;
 }
 
+/* The sweep is coloured by what is about to happen, so a reject fills red
+   and is never mistaken for an approval mid-countdown. */
+.wf-countdown[data-tone="danger"] .wf-countdown-fill {
+  background: var(--wf-red);
+}
+
 @keyframes wf-countdown-sweep {
   from { transform: scaleX(0); }
   to   { transform: scaleX(1); }

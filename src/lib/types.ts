@@ -345,6 +345,17 @@ export interface OvertimeConfig {
   enabled: boolean;
   /** Minutes past shift end that count as nothing before OT begins. */
   graceMinutes: number;
+  /**
+   * OT has to reach this before any of it counts. Staying ten minutes late
+   * is not overtime; it is staying ten minutes late.
+   */
+  minimumMinutes: number;
+  /**
+   * Credit OT in whole blocks of this size — 30 gives half-hours, 15 gives
+   * quarter-hours, 0 counts every minute. Part-blocks are not credited, so
+   * the figure on a payslip is one a person can check against a clock.
+   */
+  incrementMinutes: number;
   approval: "auto" | "manager";
   /** How the OT hour is priced. */
   method: "fixed-hourly" | "salary-multiplier";

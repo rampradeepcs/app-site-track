@@ -21,11 +21,13 @@ import { fmtDateLong, fmtShiftTime, todayISO } from "@/lib/format";
 import { useWorkforce } from "@/lib/store";
 import type {
   BreakRule,
+  OvertimeConfig,
   OvertimeTier,
   Project,
   ShiftDef,
   ShiftKind,
 } from "@/lib/types";
+import { DEFAULT_OVERTIME } from "@/lib/payroll";
 import {
   ICheck,
   IClock,
@@ -310,16 +312,11 @@ function ShiftEditor({ base, onDone }: { base: ShiftDef | null; onDone: () => vo
   );
   const [maxBreaks, setMaxBreaks] = useState(base?.maxBreaksPerShift ?? 3);
   const [selfServe, setSelfServe] = useState(base?.employeeBreaksAllowed ?? true);
-  const [ot, setOt] = useState(base?.overtime ?? {
-    enabled: true,
-    graceMinutes: 15,
-    approval: "auto" as const,
-    method: "salary-multiplier" as const,
-    hourlyRate: 150,
-    tiers: [{ afterHours: 0, multiplier: 1.5 }],
-    bonusAfterHours: null,
-    bonusAmount: 0,
-  });
+  // The shared default rather than a second copy of it — the local literal
+  // silently drifted from OvertimeConfig the moment a field was added.
+  const [ot, setOt] = useState<OvertimeConfig>(
+    base?.overtime ?? { ...DEFAULT_OVERTIME },
+  );
 
   const save = () => {
     if (!name.trim()) return;
@@ -568,6 +565,38 @@ function ShiftEditor({ base, onDone }: { base: ShiftDef | null; onDone: () => vo
                   options={[
                     { value: "auto", label: "Auto approve" },
                     { value: "manager", label: "Manager approval" },
+                  ]}
+                />
+              </Field>
+              <Field
+                label="Minimum OT to count (min)"
+                hint="Below this, staying late is not overtime."
+              >
+                <input
+                  className="wf-input"
+                  type="number"
+                  min={0}
+                  value={ot.minimumMinutes}
+                  onChange={(e) =>
+                    setOt((o) => ({ ...o, minimumMinutes: Number(e.target.value) || 0 }))
+                  }
+                />
+              </Field>
+              <Field
+                label="Count OT in blocks of"
+                hint="Part-blocks are not credited, so a payslip reads 30 or 60 rather than 47."
+              >
+                <Segmented
+                  size="sm"
+                  ariaLabel="Overtime increment"
+                  value={String(ot.incrementMinutes)}
+                  onChange={(v) =>
+                    setOt((o) => ({ ...o, incrementMinutes: Number(v) }))
+                  }
+                  options={[
+                    { value: "15", label: "15 min" },
+                    { value: "30", label: "30 min" },
+                    { value: "0", label: "Every minute" },
                   ]}
                 />
               </Field>

@@ -13,7 +13,7 @@ import { useMemo, useState } from "react";
 import { CountdownButton } from "@/components/CountdownButton";
 import { FeatureGate } from "@/components/FeatureGate";
 import { ScreenHeader } from "@/components/shell";
-import { Avatar, BottomSheet, Chip, Field, KpiCard } from "@/components/ui";
+import { Avatar, BottomSheet, Chip, Field, KpiCard, Segmented } from "@/components/ui";
 import {
   fmtDateLong,
   fmtDuration,
@@ -24,6 +24,7 @@ import {
   dayPay,
   fmtINR,
   monthSummary,
+  periodSummary,
   payrollCSV,
   payrollTable,
   runFor,
@@ -61,10 +62,46 @@ const STATUS_LABEL: Record<PayrollStatus, string> = {
 const monthISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
+type Period = "day" | "week" | "month";
+
+const dateISO = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/** Monday-first, matching how a site week is actually counted here. */
+function weekStart(iso: string): Date {
+  const d = new Date(`${iso}T00:00:00`);
+  const shift = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - shift);
+  return d;
+}
+
+/** The inclusive [from, to] the chosen lens covers. */
+function periodRange(period: Period, anchor: string, month: string) {
+  if (period === "month") {
+    const [y, m] = month.split("-").map(Number);
+    return { from: `${month}-01`, to: dateISO(new Date(y, m, 0)) };
+  }
+  if (period === "day") return { from: anchor, to: anchor };
+  const start = weekStart(anchor);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  return { from: dateISO(start), to: dateISO(end) };
+}
+
 export default function ManagerPayroll() {
   const wf = useWorkforce();
   const { state } = wf;
   const [month, setMonth] = useState(() => monthISO(new Date()));
+  /*
+   * Day and week are review lenses; month is the payroll object.
+   *
+   * A run — its adjustments, its working-day count, its approve-and-lock
+   * workflow — is monthly, and prorating a monthly salary across a Tuesday
+   * would invent a figure nobody agreed to. So the shorter periods report
+   * what those days actually earned, and the workflow stays on the month.
+   */
+  const [period, setPeriod] = useState<Period>("month");
+  const [anchor, setAnchor] = useState(() => dateISO(new Date()));
   const [detail, setDetail] = useState<{ user: User; summary: MonthSummary } | null>(null);
   const [dayDetail, setDayDetail] = useState<Attendance | null>(null);
   const [adjusting, setAdjusting] = useState<User | null>(null);
@@ -113,10 +150,73 @@ export default function ManagerPayroll() {
     setMonth(monthISO(new Date(y, m - 1 + delta, 1)));
   };
 
+  const range = useMemo(
+    () => periodRange(period, anchor, month),
+    [period, anchor, month],
+  );
+
+  /** Per-person totals for the shorter lenses; month keeps monthSummary. */
+  const periodRows = useMemo(() => {
+    if (period === "month") return [];
+    return people
+      .map((user) => ({
+        user,
+        summary: periodSummary(state, user.id, range.from, range.to),
+      }))
+      .filter((r) => r.summary.daysWorked > 0)
+      .sort((a, b) => b.summary.earned - a.summary.earned);
+  }, [period, people, state, range]);
+
+  const periodTotals = useMemo(
+    () =>
+      periodRows.reduce(
+        (t, r) => ({
+          earned: t.earned + r.summary.earned,
+          // Paid, not merely credited — otherwise "OT hours" counts records
+          // still awaiting a decision and open shifts accruing right now,
+          // and stops describing the same thing as "OT cost" beside it.
+          otMinutes: t.otMinutes + r.summary.paidOvertimeMinutes,
+          ot: t.ot + r.summary.overtimePay,
+          deductions: t.deductions + r.summary.deductions,
+          reimbursements: t.reimbursements + r.summary.reimbursements,
+        }),
+        { earned: 0, otMinutes: 0, ot: 0, deductions: 0, reimbursements: 0 },
+      ),
+    [periodRows],
+  );
+
+  /** One step back or forward in whatever lens is active. */
+  const step = (delta: number) => {
+    if (period === "month") return shiftMonth(delta);
+    const d = new Date(`${anchor}T00:00:00`);
+    d.setDate(d.getDate() + delta * (period === "week" ? 7 : 1));
+    setAnchor(dateISO(d));
+  };
+
   const monthLabel = new Date(`${month}-01T00:00:00`).toLocaleDateString("en-IN", {
     month: "long",
     year: "numeric",
   });
+
+  const periodLabel =
+    period === "month"
+      ? monthLabel
+      : period === "day"
+        ? new Date(`${range.from}T00:00:00`).toLocaleDateString("en-IN", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })
+        : `${new Date(`${range.from}T00:00:00`).toLocaleDateString("en-IN", {
+            day: "numeric",
+            month: "short",
+          })} — ${new Date(`${range.to}T00:00:00`).toLocaleDateString("en-IN", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })}`;
+
 
   const nextStatus = STATUS_FLOW[STATUS_FLOW.indexOf(status) + 1];
 
@@ -172,39 +272,58 @@ export default function ManagerPayroll() {
 
       <div className="flex flex-col gap-4 px-4">
         <FeatureGate feature="payroll">
-          {/* month picker + workflow */}
+          <Segmented<Period>
+            ariaLabel="Payroll period"
+            size="sm"
+            value={period}
+            onChange={setPeriod}
+            options={[
+              { value: "day", label: "Day" },
+              { value: "week", label: "Week" },
+              { value: "month", label: "Month" },
+            ]}
+          />
+
+          {/* period picker — the run's status dots belong to the month */}
           <div className="wf-card flex items-center justify-between p-3.5">
             <button
-              aria-label="Previous month"
+              aria-label={`Previous ${period}`}
               className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg bg-[var(--wf-surface2)]"
-              onClick={() => shiftMonth(-1)}
+              onClick={() => step(-1)}
             >
               <IChevronL size={16} />
             </button>
             <div className="text-center">
-              <p className="wf-display font-bold">{monthLabel}</p>
-              <div className="mt-1 flex items-center justify-center gap-1">
-                {STATUS_FLOW.map((s, i) => (
-                  <span
-                    key={s}
-                    className="h-1.5 rounded-full transition-all"
-                    style={{
-                      width: s === status ? 22 : 8,
-                      background:
-                        i <= STATUS_FLOW.indexOf(status)
-                          ? s === "locked" && locked
-                            ? "var(--wf-green)"
-                            : "var(--wf-amber)"
-                          : "var(--wf-line-strong)",
-                    }}
-                  />
-                ))}
-              </div>
+              <p className="wf-display font-bold">{periodLabel}</p>
+              {period === "month" ? (
+                <div className="mt-1 flex items-center justify-center gap-1">
+                  {STATUS_FLOW.map((s, i) => (
+                    <span
+                      key={s}
+                      className="h-1.5 rounded-full transition-all"
+                      style={{
+                        width: s === status ? 22 : 8,
+                        background:
+                          i <= STATUS_FLOW.indexOf(status)
+                            ? s === "locked" && locked
+                              ? "var(--wf-green)"
+                              : "var(--wf-amber)"
+                            : "var(--wf-line-strong)",
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-0.5 text-[0.7rem] text-[var(--wf-muted)]">
+                  {periodRows.length}{" "}
+                  {periodRows.length === 1 ? "person" : "people"} worked
+                </p>
+              )}
             </div>
             <button
-              aria-label="Next month"
+              aria-label={`Next ${period}`}
               className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg bg-[var(--wf-surface2)]"
-              onClick={() => shiftMonth(1)}
+              onClick={() => step(1)}
             >
               <IChevronR size={16} />
             </button>
@@ -223,20 +342,63 @@ export default function ManagerPayroll() {
             </button>
           </div>
 
-          {/* KPI strip */}
+          {/* KPI strip. "Net payroll" is a monthly settlement; the shorter
+              lenses say "earned", because that is what they measure. */}
           <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
-            <KpiCard label="Net payroll" value={fmtINR(totals.net)} tone="green" icon={<IWallet size={16} />} />
-            <KpiCard label="OT hours" value={fmtDuration(totals.otMinutes)} tone="blue" icon={<IClock size={16} />} />
-            <KpiCard label="OT cost" value={fmtINR(totals.ot)} tone="amber" />
-            <KpiCard label="Deductions" value={fmtINR(totals.deductions)} tone="red" />
+            {period === "month" ? (
+              <>
+                <KpiCard label="Net payroll" value={fmtINR(totals.net)} tone="green" icon={<IWallet size={16} />} />
+                <KpiCard label="OT hours" value={fmtDuration(totals.otMinutes)} tone="blue" icon={<IClock size={16} />} />
+                <KpiCard label="OT cost" value={fmtINR(totals.ot)} tone="amber" />
+                <KpiCard label="Deductions" value={fmtINR(totals.deductions)} tone="red" />
+              </>
+            ) : (
+              <>
+                <KpiCard label="Earned" value={fmtINR(periodTotals.earned)} tone="green" icon={<IWallet size={16} />} />
+                <KpiCard label="OT hours" value={fmtDuration(periodTotals.otMinutes)} tone="blue" icon={<IClock size={16} />} />
+                <KpiCard label="OT cost" value={fmtINR(periodTotals.ot)} tone="amber" />
+                <KpiCard label="Allowances" value={fmtINR(periodTotals.reimbursements)} />
+              </>
+            )}
           </div>
 
           {/* pending overtime approvals */}
           {pendingOT.length > 0 ? (
             <div className="wf-card p-4">
-              <h2 className="wf-display mb-3 text-sm font-bold">
-                Pending overtime approvals ({pendingOT.length})
-              </h2>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <h2 className="wf-display text-sm font-bold">
+                  Pending overtime approvals ({pendingOT.length})
+                </h2>
+                {/* Deciding a month of a large crew one row at a time is not
+                    review, it is data entry. Both bulk actions arm for three
+                    seconds like the per-row ones — more so here, since one
+                    tap settles every outstanding record. */}
+                <div className="ml-auto flex gap-2">
+                  <CountdownButton
+                    className="wf-btn wf-btn-success wf-btn-sm"
+                    label={`Approve all (${pendingOT.length})`}
+                    armedLabel="Cancel"
+                    onCommit={() =>
+                      wf.decideOvertimeMany(
+                        pendingOT.map((a) => a.id),
+                        "approved",
+                      )
+                    }
+                  />
+                  <CountdownButton
+                    className="wf-btn wf-btn-ghost wf-btn-sm text-[var(--wf-red)]"
+                    tone="danger"
+                    label="Reject all"
+                    armedLabel="Cancel"
+                    onCommit={() =>
+                      wf.decideOvertimeMany(
+                        pendingOT.map((a) => a.id),
+                        "rejected",
+                      )
+                    }
+                  />
+                </div>
+              </div>
               <div className="flex flex-col gap-3">
                 {pendingOT.map((a) => (
                   <OvertimeApprovalRow key={a.id} att={a} />
@@ -245,7 +407,63 @@ export default function ManagerPayroll() {
             </div>
           ) : null}
 
+          {period !== "month" ? (
+            <div className="wf-card overflow-hidden">
+              <div className="wf-scroll-x">
+                <table className="wf-table">
+                  <thead>
+                    <tr>
+                      <th>Person</th>
+                      <th className="text-right">Days</th>
+                      <th className="text-right">Hours</th>
+                      <th className="text-right">OT</th>
+                      <th className="text-right">OT pay</th>
+                      <th className="text-right">Allowances</th>
+                      <th className="text-right">Earned</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {periodRows.map(({ user, summary }) => (
+                      <tr key={user.id}>
+                        <td className="whitespace-nowrap">
+                          <span className="font-semibold">{user.name}</span>
+                          <span className="block text-[0.66rem] text-[var(--wf-faint)]">
+                            {user.employeeCode} · {user.designation}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap text-right tabular-nums">{summary.daysWorked}</td>
+                        <td className="whitespace-nowrap text-right tabular-nums">
+                          {fmtDuration(summary.totalMinutes)}
+                        </td>
+                        <td className="whitespace-nowrap text-right tabular-nums">
+                          {fmtDuration(summary.paidOvertimeMinutes)}
+                        </td>
+                        <td className="whitespace-nowrap text-right tabular-nums">
+                          {fmtINR(summary.overtimePay)}
+                        </td>
+                        <td className="whitespace-nowrap text-right tabular-nums">
+                          {fmtINR(summary.reimbursements)}
+                        </td>
+                        <td className="whitespace-nowrap text-right font-bold tabular-nums">
+                          {fmtINR(summary.earned)}
+                        </td>
+                      </tr>
+                    ))}
+                    {periodRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-[var(--wf-muted)]">
+                          Nobody worked in this {period}.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+
           {/* the monthly table */}
+          {period === "month" ? (
           <div className="wf-card overflow-hidden">
             <div className="wf-scroll-x">
               <table className="wf-table">
@@ -317,8 +535,10 @@ export default function ManagerPayroll() {
               </table>
             </div>
           </div>
+          ) : null}
 
-          {/* workflow */}
+          {/* workflow — a run is monthly, so it only exists on that lens */}
+          {period === "month" ? (
           <div className="wf-card flex flex-wrap items-center gap-3 p-4">
             <div className="min-w-0 flex-1">
               <p className="font-semibold">
@@ -353,8 +573,9 @@ export default function ManagerPayroll() {
               </button>
             ) : null}
           </div>
+          ) : null}
 
-          {(run?.adjustments.length ?? 0) > 0 ? (
+          {period === "month" && (run?.adjustments.length ?? 0) > 0 ? (
             <div className="wf-card p-4">
               <h2 className="wf-display mb-2 text-sm font-bold">Adjustments</h2>
               <div className="flex flex-col gap-1.5">
@@ -527,6 +748,7 @@ function OvertimeApprovalRow({ att }: { att: Attendance }) {
         />
         <CountdownButton
           className="wf-btn wf-btn-ghost wf-btn-sm text-[var(--wf-red)]"
+          tone="danger"
           label="Reject"
           armedLabel="Cancel"
           onCommit={() => wf.decideOvertime(att.id, "rejected")}

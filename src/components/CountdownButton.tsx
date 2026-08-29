@@ -26,6 +26,7 @@ export function CountdownButton({
   className = "",
   disabled,
   title,
+  tone = "success",
 }: {
   label: React.ReactNode;
   /** Shown while the countdown runs. Say how to stop it. */
@@ -35,6 +36,8 @@ export function CountdownButton({
   className?: string;
   disabled?: boolean;
   title?: string;
+  /** Colours the sweep: what is about to happen, not what the button is. */
+  tone?: "success" | "danger";
 }) {
   const [armed, setArmed] = useState(false);
   const [left, setLeft] = useState(Math.ceil(ms / 1000));
@@ -79,6 +82,7 @@ export function CountdownButton({
       aria-live="polite"
       className={`wf-countdown ${className}`}
       data-armed={armed}
+      data-tone={tone}
       onClick={armed ? cancel : start}
     >
       {armed ? (

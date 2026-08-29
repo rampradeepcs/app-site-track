@@ -41,6 +41,8 @@ export const DEFAULT_PAY_POLICY: PayPolicy = {
 export const DEFAULT_OVERTIME: OvertimeConfig = {
   enabled: true,
   graceMinutes: 15,
+  minimumMinutes: 30,
+  incrementMinutes: 30,
   approval: "auto",
   method: "salary-multiplier",
   hourlyRate: 150,
@@ -50,6 +52,27 @@ export const DEFAULT_OVERTIME: OvertimeConfig = {
   bonusAfterHours: null,
   bonusAmount: 0,
 };
+
+/**
+ * What a stretch of raw overtime is actually worth, in minutes.
+ *
+ * Two rules, both about not paying by the stopwatch. A run has to clear a
+ * minimum before any of it counts — staying eleven minutes late is not
+ * overtime — and what clears it is credited in whole blocks, so a payslip
+ * reads 30 or 60 rather than 47. Part-blocks are dropped rather than
+ * rounded up: crediting time nobody worked is the more expensive mistake,
+ * and a worker can check a floor against a clock.
+ *
+ * The fallbacks matter — shifts stored before these fields existed hydrate
+ * without them, and `??` leaves a deliberate 0 (count every minute) alone.
+ */
+export function creditedOvertime(raw: number, ot: OvertimeConfig): number {
+  if (!ot.enabled || raw <= 0) return 0;
+  const minimum = ot.minimumMinutes ?? DEFAULT_OVERTIME.minimumMinutes;
+  if (raw < minimum) return 0;
+  const step = ot.incrementMinutes ?? DEFAULT_OVERTIME.incrementMinutes;
+  return step > 0 ? Math.floor(raw / step) * step : Math.floor(raw);
+}
 
 /**
  * The shift a person is on when no ShiftDef has been assigned: their
@@ -241,7 +264,10 @@ export function dayMetrics(
 
   if (flexible) {
     const past = netMinutes - shift.requiredMinutes;
-    overtimeMinutes = past > shift.overtime.graceMinutes ? past : 0;
+    overtimeMinutes = creditedOvertime(
+      past > shift.overtime.graceMinutes ? past : 0,
+      shift.overtime,
+    );
   } else {
     const start = timeOn(att.date, shift.startMinute);
     // An overnight shift ends on the next calendar day; the attendance row
@@ -259,10 +285,12 @@ export function dayMetrics(
     const otRef = open ? now : outAt;
     if (!open) earlyOutMinutes = Math.max(0, (end - outAt) / 60000);
     const past = (otRef - otFrom) / 60000;
-    overtimeMinutes =
+    overtimeMinutes = creditedOvertime(
       shift.overtime.enabled && past > shift.overtime.graceMinutes
         ? Math.min(past, netMinutes)
-        : 0;
+        : 0,
+      shift.overtime,
+    );
   }
 
   return {
@@ -625,6 +653,90 @@ export function monthSummary(
         deductions +
         adjustments,
     ),
+    days,
+  };
+}
+
+/* ------------------------------------------------------- period summary */
+
+/**
+ * What a person earned between two dates.
+ *
+ * Deliberately smaller than MonthSummary. A payroll *run* is a monthly
+ * object — its adjustments, its working-day count, its approve-and-lock
+ * workflow — and none of that is meaningful for a Tuesday. Prorating a
+ * monthly salary across four days would invent a number nobody agreed to,
+ * so a period reports what the days themselves earned and says so.
+ */
+export interface PeriodSummary {
+  employeeId: string;
+  from: string;
+  to: string;
+  daysWorked: number;
+  totalMinutes: number;
+  overtimeMinutes: number;
+  paidOvertimeMinutes: number;
+  lateMinutes: number;
+  basePay: number;
+  overtimePay: number;
+  bonus: number;
+  deductions: number;
+  petrolAllowance: number;
+  foodAllowance: number;
+  /** base + overtime + bonus − deductions. Reimbursements sit outside it. */
+  earned: number;
+  reimbursements: number;
+  days: Array<{ att: Attendance; pay: DayPay }>;
+}
+
+/** Inclusive on both ends; dates are plain ISO strings, so they compare. */
+export function periodSummary(
+  s: PayrollState,
+  employeeId: string,
+  from: string,
+  to: string,
+  now = Date.now(),
+): PeriodSummary {
+  const days = s.attendance
+    .filter(
+      (a) =>
+        a.employeeId === employeeId &&
+        a.checkIn &&
+        a.date >= from &&
+        a.date <= to,
+    )
+    .sort((a, b) => (a.date < b.date ? -1 : 1))
+    .map((att) => ({ att, pay: dayPay(s, att, now) }));
+
+  const sum = (f: (d: { att: Attendance; pay: DayPay }) => number) =>
+    days.reduce((t, d) => t + f(d), 0);
+
+  const allowances = days.map((d) => dayAllowances(s, d.att));
+  const petrolAllowance = allowances.reduce((t, a) => t + a.travelAmount, 0);
+  const foodAllowance = allowances.reduce((t, a) => t + a.foodAmount, 0);
+
+  const basePay = sum((d) => d.pay.base);
+  const overtimePay = sum((d) => d.pay.overtimePay);
+  const bonus = sum((d) => d.pay.bonus);
+  const deductions = sum((d) => d.pay.deductions);
+
+  return {
+    employeeId,
+    from,
+    to,
+    daysWorked: days.length,
+    totalMinutes: sum((d) => d.pay.metrics.netMinutes),
+    overtimeMinutes: sum((d) => d.pay.metrics.overtimeMinutes),
+    paidOvertimeMinutes: sum((d) => d.pay.paidOvertimeMinutes),
+    lateMinutes: sum((d) => d.pay.metrics.lateMinutes),
+    basePay: r2(basePay),
+    overtimePay: r2(overtimePay),
+    bonus: r2(bonus),
+    deductions: r2(deductions),
+    petrolAllowance: r2(petrolAllowance),
+    foodAllowance: r2(foodAllowance),
+    earned: r2(basePay + overtimePay + bonus - deductions),
+    reimbursements: r2(petrolAllowance + foodAllowance),
     days,
   };
 }

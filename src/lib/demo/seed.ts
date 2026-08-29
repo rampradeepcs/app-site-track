@@ -17,7 +17,7 @@
  * Every record is fictional. Names, numbers, GSTIN and invoices are invented.
  */
 
-import { DEFAULT_OVERTIME, DEFAULT_PAY_POLICY } from "../payroll";
+import { DEFAULT_OVERTIME, DEFAULT_PAY_POLICY, creditedOvertime } from "../payroll";
 import { SEED_VERSION, makeSelfie } from "../seed";
 import { DEMO_IDS } from "./mode";
 import type {
@@ -748,9 +748,18 @@ export function buildDemoData(now = Date.now()): DemoData {
         iso,
         shift.endMinute < shift.startMinute ? shift.endMinute + 24 * 60 : shift.endMinute,
       );
-      const otMinutes = closed
-        ? Math.max(0, Math.round((outAt - shiftEndAt) / 60_000) - shift.overtime.graceMinutes)
-        : 0;
+      // Credited through the same rule the engine uses, so a row that shows
+      // "30m OT" is a row the payroll engine also values at 30 minutes.
+      // Raw minutes below the minimum simply are not overtime.
+      const otMinutes = creditedOvertime(
+        closed
+          ? Math.max(
+              0,
+              Math.round((outAt - shiftEndAt) / 60_000) - shift.overtime.graceMinutes,
+            )
+          : 0,
+        shift.overtime,
+      );
 
       const otRoll = r();
       const overtime =

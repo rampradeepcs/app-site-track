@@ -317,6 +317,10 @@ interface StoreApi {
     rec: Omit<CompRecord, "id" | "setBy" | "at">,
   ) => { ok: boolean; reason?: string };
   updatePayPolicy: (patch: Partial<PayPolicy>) => void;
+  decideOvertimeMany: (
+    attendanceIds: string[],
+    decision: "approved" | "rejected",
+  ) => void;
   decideOvertime: (
     attendanceId: string,
     decision: Extract<OvertimeStatus, "approved" | "rejected">,
@@ -1690,6 +1694,87 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     [mutate],
   );
 
+  /**
+   * Decide many overtime records at once.
+   *
+   * A month of a large crew is dozens of near-identical rows, and deciding
+   * them one at a time is not review — it is data entry. One pass, one
+   * audit line naming the count, and one notification per worker, because
+   * each of them is still owed the news about their own pay.
+   *
+   * Each record keeps the minutes it was raised with. There is no bulk
+   * edit: changing an amount is a per-person judgement, and doing it to
+   * forty people at once is exactly the mistake this should not make easy.
+   */
+  const decideOvertimeMany = useCallback(
+    (
+      attendanceIds: string[],
+      decision: Extract<OvertimeStatus, "approved" | "rejected">,
+    ) => {
+      const st = stateRef.current;
+      if (!st || attendanceIds.length === 0) return;
+      const ids = new Set(attendanceIds);
+      const affected = st.attendance.filter((a) => ids.has(a.id) && a.overtime);
+      if (affected.length === 0) return;
+
+      mutate((s) => ({
+        ...s,
+        attendance: s.attendance.map((a) =>
+          ids.has(a.id) && a.overtime
+            ? {
+                ...a,
+                overtime: {
+                  ...a.overtime,
+                  status: decision,
+                  approvedMinutes: decision === "approved" ? a.overtime.minutes : 0,
+                  decidedBy: s.session?.userId,
+                  decidedAt: Date.now(),
+                },
+              }
+            : a,
+        ),
+        audit: [
+          auditLine(
+            s,
+            decision === "approved" ? "overtime.approve.bulk" : "overtime.reject.bulk",
+            `${affected.length} records`,
+            affected
+              .map((a) => `${a.employeeId}:${a.date}:${a.overtime!.minutes}m`)
+              .join(", ")
+              .slice(0, 400),
+          ),
+          ...s.audit,
+        ].slice(0, 200),
+      }));
+
+      for (const a of affected) {
+        const decided = stateRef.current?.attendance.find((x) => x.id === a.id);
+        if (decided) {
+          persist("record the overtime decision", () =>
+            updateOvertime(a.id, decided.overtime),
+          );
+        }
+        const worker = st.users.find((u) => u.id === a.employeeId);
+        if (worker) {
+          pushNotification({
+            audience: "employee",
+            userId: worker.id,
+            kind: "check-out",
+            title: decision === "approved" ? "Overtime approved" : "Overtime not approved",
+            body: `${fmtHM(a.overtime!.minutes)} on ${a.date}`,
+            severity: decision === "approved" ? "success" : "warning",
+          });
+        }
+      }
+
+      showToast(
+        `${affected.length} overtime ${affected.length === 1 ? "record" : "records"} ${decision}`,
+        decision === "approved" ? "success" : "danger",
+      );
+    },
+    [mutate, pushNotification],
+  );
+
   const decideOvertime = useCallback(
     (
       attendanceId: string,
@@ -2949,6 +3034,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     saveComp,
     updatePayPolicy,
     decideOvertime,
+    decideOvertimeMany,
     setPayrollStatus,
     addPayrollAdjustment,
     logAudit,
