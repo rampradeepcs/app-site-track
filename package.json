@@ -12,6 +12,7 @@
     "node": ">=22"
   },
   "dependencies": {
+    "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/android": "^8.5.0",
     "@capacitor/camera": "^8.2.3",
     "@capacitor/core": "^8.5.0",

@@ -273,6 +273,8 @@ export function RouteReview({
           dataUrl={attendance.voiceNote.dataUrl}
           seconds={attendance.voiceNote.seconds}
           meta={`${user.name} · ${project.name} · recorded ${fmtTime(attendance.voiceNote.at)}`}
+          transcript={attendance.voiceNote.transcript}
+          transcriptLang={attendance.voiceNote.transcriptLang}
         />
       ) : null}
 

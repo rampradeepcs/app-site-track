@@ -56,6 +56,19 @@ function rng(seed: number) {
   };
 }
 
+/**
+ * Checkout dictations for the demo, written the way Android's recogniser
+ * actually returns speech — no punctuation, no capitals, clauses running
+ * into one another. Anything tidier would flatter the summariser.
+ */
+const VOICE_TRANSCRIPTS: readonly string[] = [
+  "today we completed the riser pipe fixing for block b level two all the wet areas are done and pressure tested then we started the sleeve setting on level three about sixty percent is finished we are waiting for the gate valves from stores they have not been delivered since monday tomorrow we will complete level three sleeves and start block c riser we need twelve pipes and three valves",
+  "slab pouring finished on block a level four the cubes are cast and sent for testing curing has started we had a shortage of cement in the afternoon only forty bags left so the second pour is on hold tomorrow morning we need one truck of cement to continue",
+  "there was a near miss at the material hoist a worker was standing under the load we stopped work re-sited the barricade and did a toolbox talk with twenty two people no injury everyone is fine electrical conduit work on level three is going on as planned",
+  "rebar inspection completed for level two the consultant signed off all the corrections from last week are closed we are continuing with the shuttering on the same level about half is done the crane was down for two hours in the morning for servicing",
+  "block work on the east side is finished plastering started today around thirty percent complete water supply to the upper floors was cut for three hours so we lost some time tomorrow we plan to finish the plastering on level one and start level two",
+];
+
 const pick = <T>(r: () => number, xs: readonly T[]): T =>
   xs[Math.floor(r() * xs.length)];
 const between = (r: () => number, lo: number, hi: number) => lo + r() * (hi - lo);
@@ -851,6 +864,8 @@ export function buildDemoData(now = Date.now()): DemoData {
                 at: outAt,
                 coords: gate.center,
                 place: gate.name,
+                transcript: pick(r, VOICE_TRANSCRIPTS),
+                transcriptLang: "en-IN",
               }
             : undefined,
       });

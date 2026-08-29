@@ -56,6 +56,12 @@
 
     <!-- Check-in / checkout selfies and work-update photos. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Checkout voice notes. Capacitor's WebChromeClient asks for BOTH of
+         these when the page calls getUserMedia({audio}), and treats the
+         request as denied unless every one is granted — so MODIFY_AUDIO_SETTINGS
+         has to be declared here even though it is an install-time permission. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
     <!-- The multi-select crew picker: Android has no multi-select system
@@ -68,4 +74,5 @@
     <!-- GPS is essential to the product; a device without it cannot check in. -->
     <uses-feature android:name="android.hardware.location.gps" android:required="true" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
 </manifest>

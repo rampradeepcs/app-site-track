@@ -562,12 +562,20 @@ export interface BreakEntry {
 
 /** The optional checkout voice note, recorded on the device. */
 export interface VoiceNote {
-  /** data-URL of the audio (webm/ogg/mp4 per browser). */
+  /**
+   * data-URL of the audio (webm/ogg/mp4 per browser). Empty when the phone
+   * would not give the recorder and the speech recogniser the microphone at
+   * the same time — the transcript survives, the audio does not.
+   */
   dataUrl: string;
   seconds: number;
   at: number;
   coords?: LatLng;
   place?: string;
+  /** What the worker said, as dictated on-device. */
+  transcript?: string;
+  /** BCP-47 tag the recogniser was listening in. */
+  transcriptLang?: string;
 }
 
 export type OvertimeStatus = "auto-approved" | "pending" | "approved" | "rejected";
