@@ -35,6 +35,31 @@
    when someone switches to light.
    ============================================================ */
 
+/* ------------------------------------------------------------ scale */
+/*
+ * One size drives the whole app, and it is fluid in two directions.
+ *
+ * `rem` inside this declaration resolves against the *user's* root size,
+ * not against itself — so when someone raises the system font size on
+ * their phone, every measurement here moves with it. The `vw` term adds
+ * the second direction: a 360px handset and a 430px one no longer render
+ * identical type in different amounts of room. The previous rule pinned
+ * the body to a flat 17px, which defeated both — the comment claimed it
+ * scaled with the reader's setting and the value made sure it could not.
+ *
+ * The floor is deliberately 1rem: an input below 16px makes iOS zoom the
+ * viewport on focus, and every control here inherits from this.
+ *
+ * Everything downstream is expressed in rem or em, so type, spacing,
+ * control heights and letter-spacing all follow from this single value.
+ */
+html {
+  /* 16px on a 342px handset, ~17px at 390, 18px at 430, capped at 18.4.
+     A slope this size is the point — the first attempt moved half a pixel
+     across the whole phone range, which is not adaptation, it is noise. */
+  font-size: clamp(1rem, 0.52rem + 2.25vw, 1.15rem);
+}
+
 .wf {
   /* ---- surfaces (dark) ----
      True black canvas with charcoal cards stepped above it. The steps are
@@ -181,11 +206,14 @@
      56px of content plus its own bottom padding — max(safe-area, 0.75rem) —
      so this is measured rather than guessed, and everything that sits above
      the bar shares one definition instead of each picking its own number. */
-  /* TabBar writes --wf-tabbar-h as it compacts (56 → 44), and 0 on screens
-     with no bar at all, so a floating chip never hovers over a gap where a
-     tab bar used to be. */
+  /* The bar's two heights live here, in rem, so they scale with the type
+     inside them. TabBar switches --wf-tabbar-h between these two (and to
+     0 where there is no bar) rather than writing pixel numbers that would
+     drift from the CSS the moment either changed. */
+  --wf-tabbar-h-full: 3.5rem;
+  --wf-tabbar-h-compact: 2.75rem;
   --wf-above-tabbar: calc(
-    max(var(--wf-safe-bottom), 0.75rem) + var(--wf-tabbar-h, 56px) + 10px
+    max(var(--wf-safe-bottom), 0.75rem) + var(--wf-tabbar-h, 3.5rem) + 0.625rem
   );
 
   /* Every screen starts below the status bar rather than under the clock. */
@@ -199,9 +227,9 @@
      every platform substitute its own would dissolve the identity. */
   font-family: var(--font-sans), -apple-system, BlinkMacSystemFont,
     system-ui, "Segoe UI", Roboto, sans-serif;
-  /* Body size. Everything else is a ratio of it, so the whole app
-     scales with the reader's text-size setting. */
-  font-size: 17px;
+  /* Body size. Everything else is a ratio of it — see the fluid root
+     below, which is what actually makes that true. */
+  font-size: 1rem;
   line-height: 1.35;
   letter-spacing: -0.011em;
   -webkit-font-smoothing: antialiased;
@@ -397,7 +425,7 @@ html[data-theme="light"] .wf {
   gap: 0.5rem;
   /* Taller than the iOS minimum on purpose: this is pressed with a gloved
      thumb, and the slab is the signature of the language. */
-  min-height: 52px;
+  min-height: 3.25rem;
   padding: 0 1.4rem;
   border-radius: 10px;
   font-weight: 700;
@@ -483,14 +511,14 @@ html[data-theme="light"] .wf {
 }
 
 .wf-btn-sm {
-  min-height: 40px;
+  min-height: 2.5rem;
   padding: 0 1rem;
   font-size: 0.882rem;
   border-radius: 8px;
 }
 
 .wf-btn-lg {
-  min-height: 56px;
+  min-height: 3.5rem;
   font-size: 1rem;
   border-radius: 12px;
   font-weight: 700;
@@ -502,7 +530,7 @@ html[data-theme="light"] .wf {
 
 .wf-input {
   width: 100%;
-  min-height: 52px;
+  min-height: 3.25rem;
   padding: 0.7rem 1rem;
   border-radius: var(--wf-radius-sm);
   background: var(--wf-fill-3);
@@ -553,7 +581,7 @@ html[data-theme="light"] .wf {
   box-shadow: 0 0 0 2px var(--wf-fg);
 }
 textarea.wf-input {
-  min-height: 84px;
+  min-height: 5.25rem;
   resize: vertical;
 }
 select.wf-input {
@@ -690,7 +718,7 @@ select.wf-input {
 .wf-seg-item {
   position: relative;
   z-index: 1;
-  min-height: 34px;
+  min-height: 2.125rem;
   padding: 0 0.8rem;
   border-radius: 8px;
   font-size: 0.765rem;
@@ -747,7 +775,7 @@ select.wf-input {
   display: flex;
   align-items: center;
   gap: 0.9rem;
-  min-height: 52px;
+  min-height: 3.25rem;
   padding: 0.8rem 1.15rem;
   -webkit-tap-highlight-color: transparent;
 }
@@ -869,7 +897,7 @@ a.wf-row:active, button.wf-row:active {
   align-items: center;
   gap: 4px;
   padding: 0.6rem 0 0.45rem;
-  min-height: 56px;             /* taller bar, bigger targets */
+  min-height: var(--wf-tabbar-h-full);   /* taller bar, bigger targets */
   transition: min-height 0.22s var(--wf-ease-out),
               padding 0.22s var(--wf-ease-out),
               color 0.15s var(--wf-ease-out),
@@ -899,6 +927,12 @@ a.wf-row:active, button.wf-row:active {
 .wf-tab-label {
   max-height: 1.1rem;
   overflow: hidden;
+  /* One line, always. "Team & Roles" wrapped on a 320px handset and the
+     second line was clipped by the max-height, leaving "Team &" over a
+     sliver of the word under it. */
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 100%;
   opacity: 1;
   transition: max-height 0.22s var(--wf-ease-out), opacity 0.16s linear;
 }
@@ -907,7 +941,7 @@ a.wf-row:active, button.wf-row:active {
   opacity: 0;
 }
 .wf-tabbar[data-compact="true"] .wf-tab {
-  min-height: 44px;
+  min-height: var(--wf-tabbar-h-compact);
   padding: 0.55rem 0;
 }
 

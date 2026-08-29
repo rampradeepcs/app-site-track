@@ -281,7 +281,7 @@ export function TabBar({ role }: { role: Role }) {
   useEffect(() => {
     document.documentElement.style.setProperty(
       "--wf-tabbar-h",
-      compact ? "44px" : "56px",
+      compact ? "var(--wf-tabbar-h-compact)" : "var(--wf-tabbar-h-full)",
     );
   }, [compact]);
 
@@ -317,7 +317,7 @@ export function TabBar({ role }: { role: Role }) {
           <Link
             key={t.href}
             href={t.href}
-            className="wf-tab"
+            className="wf-tab min-w-0"
             data-active={active}
             aria-current={active ? "page" : undefined}
           >
