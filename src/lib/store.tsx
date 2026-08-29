@@ -303,6 +303,10 @@ interface StoreApi {
     faceCheck?: { verified: boolean; distance: number },
   ) => { ok: boolean; reason?: string };
   enrollFace: (userId: string, descriptors: number[][]) => void;
+  markPresentFromPhoto: (
+    employeeIds: string[],
+    projectId: string,
+  ) => { marked: number; skipped: number };
   checkOut: (
     selfie: string | null,
     extras?: { voiceNote?: Omit<VoiceNote, "at" | "coords" | "place"> },
@@ -2520,6 +2524,85 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
   );
 
   /**
+   * Mark a group of people present, from a supervisor's photo.
+   *
+   * Not a check-in. There is no selfie of their own and no GPS fix from
+   * their phone, so the record says who marked it and how — a day recorded
+   * this way must never be mistaken for one somebody walked through a gate
+   * for themselves.
+   *
+   * Anyone already marked today is skipped rather than overwritten: the
+   * supervisor photographing a crew does not know who has already checked
+   * in, and a second pass must not move the first one's time.
+   */
+  const markPresentFromPhoto = useCallback(
+    (employeeIds: string[], projectId: string) => {
+      const st = stateRef.current;
+      if (!st || employeeIds.length === 0) return { marked: 0, skipped: 0 };
+      const today = todayISO();
+      const already = new Set(
+        st.attendance.filter((a) => a.date === today).map((a) => a.employeeId),
+      );
+      const fresh = employeeIds.filter((id) => !already.has(id));
+      const project = st.projects.find((p) => p.id === projectId);
+      const at = Date.now();
+      const by = st.session?.userId ?? "system";
+
+      if (fresh.length) {
+        mutate((s) => {
+          const rows: Attendance[] = fresh.map((employeeId) => {
+            const u = s.users.find((x) => x.id === employeeId);
+            return {
+              id: rid("att"),
+              employeeId,
+              projectId,
+              date: today,
+              checkIn: {
+                at,
+                coords: project?.location ?? { lat: 0, lng: 0 },
+                accuracy: 0,
+                selfie: makeSelfie(u?.name ?? "?", u?.avatarHue ?? 0, "Group photo"),
+                place: project?.name ?? "Site",
+                insideGeofence: true,
+                syncedAt: at,
+              },
+              distanceMeters: 0,
+              status: "present",
+              events: [],
+              markedBy: { userId: by, method: "group-photo", at },
+            };
+          });
+          return {
+            ...s,
+            attendance: [...rows, ...s.attendance],
+            audit: [
+              auditLine(
+                s,
+                "attendance.group-photo",
+                `${rows.length} people`,
+                rows
+                  .map((r) => s.users.find((u) => u.id === r.employeeId)?.name ?? r.employeeId)
+                  .join(", ")
+                  .slice(0, 400),
+              ),
+              ...s.audit,
+            ].slice(0, 200),
+          };
+        });
+      }
+
+      const skipped = employeeIds.length - fresh.length;
+      showToast(
+        skipped
+          ? `${fresh.length} marked present · ${skipped} already in`
+          : `${fresh.length} marked present`,
+      );
+      return { marked: fresh.length, skipped };
+    },
+    [mutate],
+  );
+
+  /**
    * Store an enrolled face.
    *
    * Descriptors only — the photographs the samples came from are already
@@ -3078,6 +3161,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     openShift,
     checkIn,
     enrollFace,
+    markPresentFromPhoto,
     checkOut,
     liveTrail,
     startBreak,

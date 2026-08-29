@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
 import { EmployeeEditor } from "@/components/EmployeeEditor";
+import { GroupAttendanceButton } from "@/components/GroupAttendance";
 import { UpgradeNotice, useLimitGuard } from "@/components/FeatureGate";
 import {
   Avatar,
@@ -62,6 +63,14 @@ export default function WorkforcePage() {
         }
       />
       <div className="flex flex-col gap-3.5 px-4">
+        {/* The queue-buster: one photo of the crew instead of forty
+            check-ins. It proposes, the supervisor confirms. */}
+        {state.activeProjectId ? (
+          <div className="flex">
+            <GroupAttendanceButton projectId={state.activeProjectId} />
+          </div>
+        ) : null}
+
         {seats.reached && (
           <UpgradeNotice
             title={seats.message}

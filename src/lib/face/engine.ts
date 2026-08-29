@@ -188,3 +188,63 @@ export function matchAgainst(
       : 0,
   };
 }
+
+/* ------------------------------------------------------------- group */
+
+export interface FaceBox {
+  /** Fractions of the image, so they survive any rendered size. */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface GroupFace extends FaceReading {
+  box: FaceBox;
+}
+
+/**
+ * Every face in a photo, with where it sits.
+ *
+ * A larger input size than the single-face path uses: in a group shot the
+ * faces are small, far away and often turned, and the default is tuned for
+ * someone holding a phone at arm's length. It costs time on a big image
+ * and finds people the smaller size walks straight past.
+ *
+ * Boxes come back as fractions rather than pixels, so the caller can draw
+ * them over the photo at whatever size it ends up rendered.
+ */
+export async function readAllFaces(dataUrl: string): Promise<GroupFace[]> {
+  const mod = await loadFaceEngine();
+  if (!mod) return [];
+  try {
+    const img = await toImage(dataUrl);
+    const found = await mod
+      .detectAllFaces(img, new mod.TinyFaceDetectorOptions({ inputSize: 608 }))
+      .withFaceLandmarks(true)
+      .withFaceDescriptors();
+    return found.map((f) => ({
+      descriptor: Array.from(f.descriptor),
+      score: f.detection.score,
+      box: {
+        x: f.detection.box.x / img.naturalWidth,
+        y: f.detection.box.y / img.naturalHeight,
+        w: f.detection.box.width / img.naturalWidth,
+        h: f.detection.box.height / img.naturalHeight,
+      },
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Distance beyond which a group-photo match is not offered at all.
+ *
+ * Tighter than MATCH_THRESHOLD on purpose. A check-in selfie is one known
+ * person confirming themselves; a group photo is a guess about which of
+ * forty people a small, angled face belongs to, and a wrong name presented
+ * confidently is worse than no name — the supervisor would have to notice
+ * the error to undo it, and the whole point is that they are moving fast.
+ */
+export const GROUP_MATCH_THRESHOLD = 0.52;

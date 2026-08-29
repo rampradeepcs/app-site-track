@@ -605,6 +605,19 @@ export interface Attendance {
   /** Optional voice note captured at checkout. */
   voiceNote?: VoiceNote;
   autoClosed?: boolean;
+  /**
+   * Who recorded this and how, when it was not the worker themselves.
+   *
+   * A day marked from a supervisor's group photo is a different kind of
+   * record from one a person checked into: no selfie of their own, no GPS
+   * fix from their phone, and someone else's judgement in the middle of
+   * it. Saying so is the difference between a register and a guess.
+   */
+  markedBy?: {
+    userId: string;
+    method: "group-photo" | "manual";
+    at: number;
+  };
   note?: string;
 }
 
