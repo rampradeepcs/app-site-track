@@ -121,15 +121,6 @@ export default function ManagerReports() {
               }
             />
             <ReportRow
-              title="Employee movement report"
-              body="Check-in/out, duration, distance, route and major stops per shift."
-              actions={
-                <Link href="/manager/history" className="wf-btn wf-btn-ghost wf-btn-sm">
-                  Open <IArrowR size={13} />
-                </Link>
-              }
-            />
-            <ReportRow
               title="Project workforce report"
               body="Workforce by project, onsite counts and attendance trends."
               actions={
