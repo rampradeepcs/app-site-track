@@ -472,7 +472,7 @@ function ProjectInner() {
       </div>
 
       {/* assignment sheet */}
-      <BottomSheet open={assigning} onClose={() => setAssigning(false)} title="Assign employees" tall>
+      <BottomSheet open={assigning} onClose={() => setAssigning(false)} title="Assign employees" tall fill>
         {unassigned.length === 0 ? (
           <p className="py-6 text-center text-sm text-[var(--wf-muted)]">
             <IUsers size={22} className="mx-auto mb-2" />
@@ -482,6 +482,7 @@ function ProjectInner() {
           /* Single-select: assigning is one tap with nothing to confirm, so
              the row acts immediately rather than building a set. */
           <EmployeePicker
+            fill
             people={unassigned}
             mode="single"
             onToggle={(u) => assignEmployee(u.id, project.id)}

@@ -33,6 +33,14 @@ export function EmployeePicker({
   selected,
   onToggle,
   mode = "multi",
+  /**
+   * Grow to fill the container instead of capping at a height.
+   *
+   * A fixed cap inside a taller sheet leaves dead space under the list and
+   * makes the sheet scroll as well — two scrollers for one gesture. Filling
+   * gives the list every pixel there is and leaves exactly one.
+   */
+  fill = false,
   maxHeight = "18rem",
   emptyLabel = "Nobody matches",
   secondary,
@@ -43,6 +51,7 @@ export function EmployeePicker({
   selected?: Set<string>;
   onToggle: (user: User) => void;
   mode?: "multi" | "single";
+  fill?: boolean;
   maxHeight?: string;
   emptyLabel?: string;
   /** Second line under the name; defaults to designation · code. */
@@ -95,7 +104,7 @@ export function EmployeePicker({
   }, []);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className={`flex min-h-0 flex-col gap-3 ${fill ? "flex-1" : ""}`}>
       <div className="relative">
         <ISearch
           size={15}
@@ -109,10 +118,14 @@ export function EmployeePicker({
         />
       </div>
 
-      <div className="flex gap-1">
+      <div className={`flex gap-1 ${fill ? "min-h-0 flex-1" : ""}`}>
+        {/* The rail is as tall as the list, never taller. Twenty-seven
+            fixed-height letters overflowed a short list and ran on behind
+            the CTA; letting them share the height means the rail always
+            ends where the list does. */}
         <div
           aria-hidden
-          className="flex w-5 shrink-0 flex-col items-center justify-start gap-px py-1"
+          className="flex w-5 min-h-0 shrink-0 flex-col items-center justify-between overflow-hidden py-1"
         >
           {ALPHABET.map((letter) => {
             const has = present.has(letter);
@@ -123,7 +136,7 @@ export function EmployeePicker({
                 tabIndex={-1}
                 disabled={!has}
                 onClick={() => jumpTo(letter)}
-                className={`w-full rounded text-[0.56rem] font-bold leading-[1.28] ${
+                className={`w-full min-h-0 flex-1 rounded text-[0.56rem] font-bold leading-none ${
                   has
                     ? "cursor-pointer text-[var(--wf-muted)] hover:text-[var(--wf-fg)]"
                     : "text-[var(--wf-line-strong)]"
@@ -139,7 +152,7 @@ export function EmployeePicker({
           ref={listRef}
           data-sheet-scroll
           className="min-w-0 flex-1 overflow-y-auto"
-          style={{ maxHeight }}
+          style={fill ? undefined : { maxHeight }}
         >
           {sections.length === 0 ? (
             <p className="px-1.5 py-6 text-center text-[0.82rem] text-[var(--wf-muted)]">

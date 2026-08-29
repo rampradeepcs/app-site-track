@@ -8,9 +8,13 @@
 import { useState } from "react";
 import { useWorkforce } from "@/lib/store";
 import type { User } from "@/lib/types";
-import { BottomSheet, Field, Segmented } from "./ui";
+import { BottomSheet, Field, Segmented, Toggle } from "./ui";
+import { phoneKey } from "./onboarding/InviteCrew";
 
 const DEPARTMENTS = ["Civil", "MEP", "EHS", "Plant", "Quality"];
+
+/** Where the invite points. One place to change when the listing moves. */
+const APP_DOWNLOAD_URL = "https://app-site-track.vercel.app";
 
 export function EmployeeEditor({
   editing,
@@ -23,6 +27,7 @@ export function EmployeeEditor({
 }) {
   const { state } = useWorkforce();
   const base = editing !== "new" && editing ? editing : null;
+  const people = state.users;
   const [name, setName] = useState(base?.name ?? "");
   const [code, setCode] = useState(base?.employeeCode ?? "");
   const [designation, setDesignation] = useState(base?.designation ?? "Worker");
@@ -30,6 +35,7 @@ export function EmployeeEditor({
   const [phone, setPhone] = useState(base?.phone ?? "");
   const [projectIds, setProjectIds] = useState<string[]>(base?.projectIds ?? []);
   const [status, setStatus] = useState<User["status"]>(base?.status ?? "active");
+  const [appAccess, setAppAccess] = useState(base?.appAccess ?? true);
   const [error, setError] = useState("");
 
   return (
@@ -48,10 +54,45 @@ export function EmployeeEditor({
           <Field label="Employee ID">
             <input className="wf-input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="auto" />
           </Field>
-          <Field label="Phone">
-            <input className="wf-input" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          {/* Required: the phone number is the sign-in identity. Someone
+              added without one exists in the roster and can never open the
+              app, which is a worse outcome than refusing to save. */}
+          <Field label="Phone" required>
+            <input
+              className="wf-input"
+              type="tel"
+              inputMode="numeric"
+              autoComplete="tel"
+              maxLength={10}
+              placeholder="10-digit mobile"
+              value={phone}
+              onChange={(e) => {
+                const d = e.target.value.replace(/\D/g, "").slice(-10);
+                e.target.value = d;
+                setPhone(d);
+                setError("");
+              }}
+            />
           </Field>
         </div>
+        {/* App access. The number above is the identity they sign in with,
+            so it doubles as the unique id across the org. */}
+        <div className="wf-card2 flex items-center justify-between gap-3 px-3.5 py-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">Access to the mobile app</p>
+            <p className="mt-0.5 text-[0.72rem] leading-relaxed text-[var(--wf-muted)]">
+              {appAccess
+                ? "They sign in with the number above — it is their unique ID."
+                : "They stay on the roster and are still paid, but cannot sign in."}
+            </p>
+          </div>
+          <Toggle
+            checked={appAccess}
+            onChange={setAppAccess}
+            label="Access to the mobile app"
+          />
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <Field label="Designation">
             <input className="wf-input" value={designation} onChange={(e) => setDesignation(e.target.value)} />
@@ -96,8 +137,13 @@ export function EmployeeEditor({
                     )
                   }
                 >
-                  {p.name}
-                  <span className="text-[0.68rem]">{on ? "Assigned" : "Tap to assign"}</span>
+                  {/* The name takes the room it needs and truncates; the
+                      hint holds its line rather than being squeezed to one
+                      word per row beside a wrapping project name. */}
+                  <span className="min-w-0 truncate">{p.name}</span>
+                  <span className="ml-3 shrink-0 whitespace-nowrap text-[0.68rem]">
+                    {on ? "Assigned" : "Tap to assign"}
+                  </span>
                 </button>
               );
             })}
@@ -110,18 +156,56 @@ export function EmployeeEditor({
               setError("Enter the employee's full name.");
               return;
             }
+            const key = phoneKey(phone);
+            if (key.length !== 10) {
+              setError("Enter a 10-digit mobile number — it is how they sign in.");
+              return;
+            }
+            // Sign-in resolves a person *by* this number, so two people
+            // sharing one is not a duplicate row, it is an ambiguous login.
+            const clash = people.find(
+              (u) => u.id !== base?.id && phoneKey(u.phone) === key,
+            );
+            if (clash) {
+              setError(`${clash.name} already uses that number.`);
+              return;
+            }
             onSave(
               {
                 name: name.trim(),
                 employeeCode: code.trim() || undefined,
                 designation,
                 department,
-                phone,
+                phone: phoneKey(phone),
+                appAccess,
                 projectIds,
                 status,
               },
               base?.id,
             );
+
+            /*
+             * Hand the invite to WhatsApp with the message written, and let
+             * the admin press send there.
+             *
+             * Deliberately not sent for them: this is a message going out
+             * under their name to a real person's phone, and composing it
+             * is the part software should do. It also means no gateway,
+             * no credentials and no delivery to get wrong — WhatsApp is
+             * already on the phone of everyone this is aimed at.
+             */
+            if (appAccess && !base?.appAccess) {
+              const text = encodeURIComponent(
+                `Hi ${name.trim().split(" ")[0]}, you have been added to the team on Workfence.\n\n` +
+                  `Install the app: ${APP_DOWNLOAD_URL}\n\n` +
+                  `Sign in with this number (${phoneKey(phone)}) — it is your ID.`,
+              );
+              window.open(
+                `https://wa.me/91${phoneKey(phone)}?text=${text}`,
+                "_blank",
+                "noopener",
+              );
+            }
           }}
         >
           {base ? "Save changes" : "Add employee"}

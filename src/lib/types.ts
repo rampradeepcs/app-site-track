@@ -44,6 +44,15 @@ export interface User {
   shiftEnd: number;
   joinedAt: number;
   supervisorRating?: number;
+  /**
+   * Whether this person may sign in to the mobile app.
+   *
+   * Their phone number is the identity they sign in with, so it doubles as
+   * the unique id across the org — two people cannot share one. Someone
+   * without app access still appears in the roster, is still marked
+   * present, and is still paid; they simply do not carry a phone.
+   */
+  appAccess?: boolean;
   /** Assigned vehicle — decides the petrol rate that applies to their travel. */
   vehicle?: Vehicle;
 }

@@ -776,6 +776,24 @@ a.wf-row:active, button.wf-row:active {
   border: none;
 }
 
+/* ---- scrollbars ----
+   This is a phone app, not a desktop document. A visible scrollbar here
+   is chrome nobody asked for: it sits over content in the narrow columns,
+   changes the width of a scroller when it appears, and is not how either
+   native platform presents a scrolling list. The content still scrolls;
+   only the indicator is gone. */
+.wf,
+.wf * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.wf::-webkit-scrollbar,
+.wf *::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
 .wf-scroll-x {
   overflow-x: auto;
   scrollbar-width: thin;

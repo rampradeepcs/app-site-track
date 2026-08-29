@@ -237,6 +237,7 @@ export default function ManagerShifts() {
         onClose={() => setAssigning(null)}
         title={assigning ? `Assign — ${assigning.name}` : ""}
         tall
+        fill
       >
         {assigning ? (
           <AssignSheet shift={assigning} onDone={() => setAssigning(null)} />
@@ -833,7 +834,10 @@ function AssignSheet({ shift, onDone }: { shift: ShiftDef; onDone: () => void })
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    /* One scroll region, and it is the people list. The controls above stay
+       put and the CTA stays reachable, so nothing here scrolls except the
+       thing that is longer than the screen. */
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <Field
         label="Effective from"
         hint="Future dates schedule the change; the current shift applies until then."
@@ -879,13 +883,14 @@ function AssignSheet({ shift, onDone }: { shift: ShiftDef; onDone: () => void })
       ) : null}
 
       <EmployeePicker
+        fill
         people={people}
         selected={chosen}
         onToggle={(u) => toggle(u.id)}
       />
 
       <button
-        className="wf-btn wf-btn-primary wf-btn-lg"
+        className="wf-btn wf-btn-primary wf-btn-lg shrink-0"
         disabled={chosen.size === 0 || !effectiveFrom}
         onClick={() => {
           wf.assignShift([...chosen], shift.id, effectiveFrom);

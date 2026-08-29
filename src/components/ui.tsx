@@ -368,6 +368,7 @@ export function BottomSheet({
   title,
   children,
   tall,
+  fill,
   wide,
 }: {
   open: boolean;
@@ -375,6 +376,8 @@ export function BottomSheet({
   title?: string;
   children: React.ReactNode;
   tall?: boolean;
+  /** Let the child own the single scroll region instead of the sheet. */
+  fill?: boolean;
   /** Roomier column for the desktop platform console. */
   wide?: boolean;
 }) {
@@ -578,9 +581,18 @@ export function BottomSheet({
             <div className="h-2" />
           )}
           {/* Marked so the drag handler lets the scroll win in here. */}
+          {/* `fill` hands the scrolling to the child.
+              A sheet that scrolls *and* contains a list that scrolls gives
+              the same gesture two meanings, and the inner one usually wins
+              by accident. With fill the body is a plain flex column and the
+              child owns the single scroll region. */}
           <div
             data-sheet-scroll
-            className="wf-safe-bottom min-h-0 flex-1 touch-pan-y overflow-y-auto px-5 pb-5"
+            className={
+              fill
+                ? "wf-safe-bottom flex min-h-0 flex-1 flex-col overflow-hidden px-5 pb-5"
+                : "wf-safe-bottom min-h-0 flex-1 touch-pan-y overflow-y-auto px-5 pb-5"
+            }
           >
             {children}
           </div>
