@@ -194,9 +194,66 @@ export function TabBar({ role }: { role: Role }) {
         : MANAGER_TABS;
   const base =
     effective === "employee" ? "/employee" : effective === "admin" ? "/admin" : "/manager";
+
+  /*
+   * The bar belongs to the tab roots only.
+   *
+   * A detail screen — a project, a person, the shift editor — is somewhere
+   * you went *into*, and on a phone the way out of it is the back button,
+   * not a second navigation surface competing with it. Every page this
+   * hides the bar on has a back affordance; the three that did not have one
+   * now do.
+   */
+  const here = pathname.replace(/\/$/, "") || "/";
+  const isTabRoot = tabs.some((t) => here === t.href.replace(/\/$/, ""));
+
+  /*
+   * Scrolling down compacts the bar to its icons; scrolling back up brings
+   * the labels down again. Reading a long list is when the content matters
+   * most and the labels least, and the height it gives back is real estate
+   * on a phone. The 6px threshold keeps a jittery finger from flickering
+   * it, and being near the top always shows the full bar — there is
+   * nothing to reclaim up there.
+   */
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    let last = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      const dy = y - last;
+      if (Math.abs(dy) < 6) return;
+      last = y;
+      setCompact(y > 64 && dy > 0);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  /* Anything floating above the bar measures from its live height. */
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--wf-tabbar-h",
+      compact ? "44px" : "56px",
+    );
+  }, [compact]);
+
+  // Reset the offset when the bar is not on screen at all, so a floating
+  // chip on a detail page does not hover where a tab bar used to be.
+  useEffect(() => {
+    if (!isTabRoot) {
+      document.documentElement.style.setProperty("--wf-tabbar-h", "0px");
+    }
+    return () => {
+      document.documentElement.style.setProperty("--wf-tabbar-h", "56px");
+    };
+  }, [isTabRoot]);
+
+  if (!isTabRoot) return null;
+
   return (
     <nav
       aria-label="Primary"
+      data-compact={compact}
       className="wf-tabbar wf-safe-bottom sticky bottom-0 z-40"
     >
       {tabs.map((t) => {
@@ -217,7 +274,7 @@ export function TabBar({ role }: { role: Role }) {
             aria-current={active ? "page" : undefined}
           >
             <Icon size={21} />
-            {t.label}
+            <span className="wf-tab-label">{t.label}</span>
           </Link>
         );
       })}
@@ -290,7 +347,13 @@ export function ScreenHeader({
 }: {
   title: string;
   sub?: string;
-  back?: string;
+  /**
+   * Where the back button goes. A path pushes it; `true` steps back through
+   * history instead — which is what a page reachable from more than one
+   * place needs, since Shifts opens from the manager's More menu and the
+   * admin's, and hard-coding either one strands the other.
+   */
+  back?: string | true;
   action?: React.ReactNode;
 }) {
   const router = useRouter();
@@ -321,7 +384,7 @@ export function ScreenHeader({
       {back ? (
         <button
           aria-label="Go back"
-          onClick={() => router.push(back)}
+          onClick={() => (back === true ? router.back() : router.push(back))}
           className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl border border-[var(--wf-line)] bg-[var(--wf-surface)] text-[var(--wf-muted)] transition hover:text-[var(--wf-fg)]"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

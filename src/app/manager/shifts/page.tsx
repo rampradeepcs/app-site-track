@@ -87,6 +87,7 @@ export default function ManagerShifts() {
       <ScreenHeader
         title="Shifts"
         sub={`${shifts.length} active shift${shifts.length === 1 ? "" : "s"}`}
+        back
         action={
           <button
             className="wf-btn wf-btn-primary wf-btn-sm"

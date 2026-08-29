@@ -175,7 +175,12 @@
      56px of content plus its own bottom padding — max(safe-area, 0.75rem) —
      so this is measured rather than guessed, and everything that sits above
      the bar shares one definition instead of each picking its own number. */
-  --wf-above-tabbar: calc(max(var(--wf-safe-bottom), 0.75rem) + 56px + 10px);
+  /* TabBar writes --wf-tabbar-h as it compacts (56 → 44), and 0 on screens
+     with no bar at all, so a floating chip never hovers over a gap where a
+     tab bar used to be. */
+  --wf-above-tabbar: calc(
+    max(var(--wf-safe-bottom), 0.75rem) + var(--wf-tabbar-h, 56px) + 10px
+  );
 
   /* Every screen starts below the status bar rather than under the clock. */
   padding-top: var(--wf-safe-top);
@@ -840,6 +845,10 @@ a.wf-row:active, button.wf-row:active {
   gap: 4px;
   padding: 0.6rem 0 0.45rem;
   min-height: 56px;             /* taller bar, bigger targets */
+  transition: min-height 0.22s var(--wf-ease-out),
+              padding 0.22s var(--wf-ease-out),
+              color 0.15s var(--wf-ease-out),
+              opacity 60ms linear;
   /* Text over a material wants a touch more weight than it would need
      on a solid ground. */
   font-size: 0.647rem;
@@ -855,6 +864,33 @@ a.wf-row:active, button.wf-row:active {
 }
 .wf-tab[data-active="true"] {
   color: var(--wf-amber);
+}
+
+/* ---- the compacted bar ----
+   Scrolling down drops the labels and the height they occupied. The label
+   collapses via max-height rather than `display: none` so it animates, and
+   the icon stays put — the tap target only loses the strip under it, and
+   never falls below the 44px minimum a thumb needs. */
+.wf-tab-label {
+  max-height: 1.1rem;
+  overflow: hidden;
+  opacity: 1;
+  transition: max-height 0.22s var(--wf-ease-out), opacity 0.16s linear;
+}
+.wf-tabbar[data-compact="true"] .wf-tab-label {
+  max-height: 0;
+  opacity: 0;
+}
+.wf-tabbar[data-compact="true"] .wf-tab {
+  min-height: 44px;
+  padding: 0.55rem 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wf-tab,
+  .wf-tab-label {
+    transition: none;
+  }
 }
 .wf-tab:hover {
   color: var(--wf-fg);

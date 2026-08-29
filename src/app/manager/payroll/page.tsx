@@ -268,7 +268,11 @@ export default function ManagerPayroll() {
       {/* Three export buttons in the header action slot left the title about
           180px and broke "August 2026 · Draft" across two lines. They get
           their own row, beside the data they export. */}
-      <ScreenHeader title="Payroll" sub={`${monthLabel} · ${STATUS_LABEL[status]}`} />
+      <ScreenHeader
+        title="Payroll"
+        sub={`${monthLabel} · ${STATUS_LABEL[status]}`}
+        back
+      />
 
       <div className="flex flex-col gap-4 px-4">
         <FeatureGate feature="payroll">

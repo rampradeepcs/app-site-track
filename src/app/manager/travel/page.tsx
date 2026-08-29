@@ -83,7 +83,11 @@ export default function ManagerTravel() {
 
   return (
     <div>
-      <ScreenHeader title="Travel & Allowance" sub="Work travel, petrol and food rules" />
+      <ScreenHeader
+        title="Travel & Allowance"
+        sub="Work travel, petrol and food rules"
+        back
+      />
       <div className="flex flex-col gap-4 px-4">
         <FeatureGate feature="petrolAllowance">
           {/* today, across the workforce (spec §13) */}
