@@ -1015,6 +1015,64 @@ a.wf-row:active, button.wf-row:active {
   background: var(--wf-amber);
 }
 
+/* ------------------------------------------------------ countdown button */
+/*
+ * A button that has been armed rather than pressed. The fill is the clock:
+ * it sweeps left to right over the commit window, and the button stays a
+ * cancel target the whole way across.
+ *
+ * The fill sits behind the label via z-index rather than opacity, so the
+ * text keeps its full contrast as the colour passes under it.
+ */
+
+.wf-countdown {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  /* The label swaps between "Approve" and "Cancel 3s" mid-press. Without a
+     floor the button resizes and shoves the row around at the exact moment
+     the user is aiming at it, so it is sized for the wider of the two and
+     never reflows. */
+  min-width: 6.5rem;
+  white-space: nowrap;
+}
+.wf-countdown[data-armed="true"] {
+  /* Armed reads as "not yet done": the success fill is coming, so the base
+     goes quiet rather than staying the colour of a finished action. */
+  background: var(--wf-fill-2);
+  color: var(--wf-fg);
+}
+.wf-countdown-fill {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: var(--wf-green);
+  opacity: 0.55;
+  animation-name: wf-countdown-sweep;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+.wf-countdown-label {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes wf-countdown-sweep {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* With reduced motion the sweep is stepped rather than smooth — the
+   remaining seconds are also written into the label, so nothing is
+   communicated by movement alone. */
+@media (prefers-reduced-motion: reduce) {
+  .wf-countdown-fill {
+    animation-timing-function: step-end;
+  }
+}
+
 /* --------------------------------------------------------------- toast */
 /* Confirmation, not conversation: it appears where the thumb already is,
    says what happened, and leaves. Same measured tab-bar clearance as the

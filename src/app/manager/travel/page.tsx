@@ -236,7 +236,7 @@ function ReviewSheet({ trip, onDone }: { trip: TravelAllowance; onDone: () => vo
         <div className="flex items-center gap-2 border-t border-[var(--wf-line)] pt-4">
           <Field label="Approved distance (km)">
             <input
-              className="wf-input w-32 text-center"
+              className="wf-input wf-input-num shrink-0"
               type="number"
               min={0}
               step={0.1}

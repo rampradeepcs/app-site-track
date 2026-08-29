@@ -10,6 +10,7 @@
  */
 
 import { useMemo, useState } from "react";
+import { CountdownButton } from "@/components/CountdownButton";
 import { FeatureGate } from "@/components/FeatureGate";
 import { ScreenHeader } from "@/components/shell";
 import { Avatar, BottomSheet, Chip, Field, KpiCard } from "@/components/ui";
@@ -492,9 +493,12 @@ function OvertimeApprovalRow({ att }: { att: Attendance }) {
           </span>
         </span>
       </div>
-      <div className="mt-3 flex items-center gap-2">
+      {/* The minutes box, its unit, and two 104px buttons do not fit one
+          phone line. Wrapping keeps the pair together on a second row
+          rather than pushing Reject off the card. */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <input
-          className="wf-input w-24 text-center"
+          className="wf-input wf-input-num shrink-0"
           type="number"
           min={0}
           max={att.overtime.minutes}
@@ -503,9 +507,16 @@ function OvertimeApprovalRow({ att }: { att: Attendance }) {
           onChange={(e) => setMinutes(Number(e.target.value) || 0)}
         />
         <span className="text-[0.74rem] text-[var(--wf-muted)]">min</span>
-        <button
-          className="wf-btn wf-btn-success wf-btn-sm ml-auto"
-          onClick={() =>
+        <div className="ml-auto flex gap-2">
+        {/* Approving is a decision about someone's pay, so the tap arms a
+            three-second window rather than committing outright — long
+            enough to catch a mis-tap on a long list, short enough that
+            clearing forty of them is not a chore. */}
+        <CountdownButton
+          className="wf-btn wf-btn-success wf-btn-sm"
+          label="Approve"
+          armedLabel="Cancel"
+          onCommit={() =>
             wf.decideOvertime(
               att.id,
               "approved",
@@ -513,15 +524,14 @@ function OvertimeApprovalRow({ att }: { att: Attendance }) {
               minutes !== att.overtime!.minutes ? "Edited on approval" : undefined,
             )
           }
-        >
-          Approve
-        </button>
-        <button
+        />
+        <CountdownButton
           className="wf-btn wf-btn-ghost wf-btn-sm text-[var(--wf-red)]"
-          onClick={() => wf.decideOvertime(att.id, "rejected")}
-        >
-          Reject
-        </button>
+          label="Reject"
+          armedLabel="Cancel"
+          onCommit={() => wf.decideOvertime(att.id, "rejected")}
+        />
+        </div>
       </div>
     </div>
   );
