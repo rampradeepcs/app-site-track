@@ -172,7 +172,8 @@ export interface DictationOptions {
   language: string;
   /** Everything recognised so far — committed segments plus the live one. */
   onText: (text: string) => void;
-  onFailure: (reason: SpeechFailure) => void;
+  /** `detail` is the recogniser's own words, for the message shown. */
+  onFailure: (reason: SpeechFailure, detail?: string) => void;
 }
 
 export interface DictationSession {
@@ -180,7 +181,21 @@ export interface DictationSession {
 }
 
 /** Errors that just mean "they stopped talking"; the session continues. */
-const BENIGN = /no match|speech timeout|didn't understand|no speech/i;
+const BENIGN = /no match|speech timeout|didn.t understand|no speech/i;
+
+/**
+ * Android reports "nobody spoke" and "this service is broken" with the same
+ * error code, and the only thing that tells them apart is the clock: a real
+ * silence takes seconds to time out, while a broken service rejects in
+ * milliseconds. Anything faster than this was not listening.
+ */
+const TOO_FAST_MS = 900;
+
+/** Consecutive instant failures before the recogniser is declared unusable. */
+const MAX_INSTANT_FAILURES = 3;
+
+/** Nothing recognised in this long, from the top, and dictation gives up. */
+const WATCHDOG_MS = 15_000;
 
 export async function startDictation(
   opts: DictationOptions,
@@ -217,6 +232,7 @@ async function startNative(
   let current = "";
   let active = true;
   let restart: number | null = null;
+  let watchdog: number | null = null;
   const handles: ListenerHandle[] = [];
 
   const emit = () => onText([...segments, current].join(" ").replace(/\s+/g, " ").trim());
@@ -229,8 +245,20 @@ async function startNative(
     current = "";
   };
 
+  let heard = false;
+  let instantFailures = 0;
+
+  const give_up = (reason: SpeechFailure, detail?: string) => {
+    active = false;
+    if (restart !== null) window.clearTimeout(restart);
+    if (watchdog !== null) window.clearTimeout(watchdog);
+    void plugin.stop?.().catch(() => {});
+    onFailure(reason, detail);
+  };
+
   const listen = async () => {
     if (!active) return;
+    const startedAt = Date.now();
     try {
       await plugin.start?.({
         language,
@@ -242,17 +270,33 @@ async function startNative(
       if (!active) return;
       const msg = String((err as Error)?.message ?? err);
       if (/permission/i.test(msg)) {
-        active = false;
-        onFailure("denied");
+        give_up("denied", msg);
         return;
       }
-      if (!BENIGN.test(msg)) {
-        active = false;
-        onFailure("error");
+
+      /* The bug this replaces: ERROR_NO_MATCH was treated as ordinary
+         silence and retried after 250ms. On a phone whose recogniser is
+         not working, that rejects instantly and retries forever — four
+         native recognisers a second, a transcript stuck on "Listening…",
+         and an app too busy to notice a tap on Stop. */
+      const instant = Date.now() - startedAt < TOO_FAST_MS;
+      if (BENIGN.test(msg) && !instant) {
+        instantFailures = 0;
+        restart = window.setTimeout(() => void listen(), 400);
         return;
       }
-      // Silence. Go round again.
-      restart = window.setTimeout(() => void listen(), 250);
+      if (!BENIGN.test(msg) && !heard) {
+        give_up("error", msg);
+        return;
+      }
+
+      instantFailures += 1;
+      if (instantFailures >= MAX_INSTANT_FAILURES) {
+        give_up(heard ? "error" : "unsupported", msg);
+        return;
+      }
+      // Back off rather than spin: 600ms, 1200ms.
+      restart = window.setTimeout(() => void listen(), 600 * instantFailures);
     }
   };
 
@@ -261,6 +305,8 @@ async function startNative(
       await plugin.addListener!("partialResults", (d) => {
         const text = d.matches?.[0];
         if (typeof text === "string") {
+          heard = true;
+          instantFailures = 0;
           current = text;
           emit();
         }
@@ -281,12 +327,19 @@ async function startNative(
     return null;
   }
 
+  /* A recogniser that neither errors nor produces a word is the worst
+     case, because the UI has nothing to say. Give it a deadline. */
+  watchdog = window.setTimeout(() => {
+    if (active && !heard) give_up("unsupported");
+  }, WATCHDOG_MS);
+
   void listen();
 
   return {
     stop: async () => {
       active = false;
       if (restart !== null) window.clearTimeout(restart);
+      if (watchdog !== null) window.clearTimeout(watchdog);
       try {
         await plugin.stop?.();
       } catch {

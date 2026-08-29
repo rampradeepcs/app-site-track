@@ -70,6 +70,7 @@ export function VoiceRecorder({
   const lang = useSyncExternalStore(subscribeLanguage, readLanguage, serverLanguage);
   const [dictation, setDictation] = useState<Dictation>("off");
   const [live, setLive] = useState("");
+  const [dictationNote, setDictationNote] = useState<string | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -230,14 +231,17 @@ export function VoiceRecorder({
       return;
     }
     setDictation("listening");
+    setDictationNote(null);
     sessionRef.current = await startDictation({
       language: readLanguage(),
       onText: (t) => {
         transcriptRef.current = t;
         setLive(t);
       },
-      onFailure: (reason) =>
-        setDictation(reason === "denied" ? "denied" : "unavailable"),
+      onFailure: (reason, detail) => {
+        setDictation(reason === "denied" ? "denied" : "unavailable");
+        setDictationNote(detail ?? null);
+      },
     });
   }, [canDictate, onChange]);
 
@@ -251,11 +255,25 @@ export function VoiceRecorder({
     startTimer();
     setPhase("recording");
   };
-  const stop = async () => {
-    await sessionRef.current?.stop();
+  /**
+   * Stop the recorder first, always.
+   *
+   * This used to await the dictation session before touching the recorder,
+   * which made Stop dead on any phone where the recogniser hung — exactly
+   * the phones where dictation was already failing. The recorder is the
+   * artifact; nothing about the transcript is allowed to block it.
+   */
+  const stop = () => {
+    recorderRef.current?.stop();
+    const session = sessionRef.current;
     sessionRef.current = null;
     setDictation("off");
-    recorderRef.current?.stop();
+    if (!session) return;
+    /* Its final words are worth waiting a moment for, but not forever. */
+    void Promise.race([
+      session.stop(),
+      new Promise((r) => setTimeout(r, 1500)),
+    ]).catch(() => {});
   };
 
   const discard = () => {
@@ -364,10 +382,9 @@ export function VoiceRecorder({
             defaultOpen
           />
         ) : dictation === "denied" || dictation === "unavailable" ? (
-          <p className="px-1 text-[0.7rem] leading-snug text-[var(--wf-faint)]">
-            {dictation === "denied"
-              ? "Speech recognition was blocked, so this note has no transcript."
-              : "This device can't transcribe speech, so this note has no transcript."}
+          <p className="px-1 text-[0.72rem] leading-snug text-[var(--wf-faint)]">
+            {dictationFailureText(dictation, languageLabel(lang))}
+            {dictationNote ? ` (${dictationNote})` : ""}
           </p>
         ) : null}
       </div>
@@ -420,6 +437,17 @@ export function VoiceRecorder({
               )}
             </p>
           </div>
+        ) : dictation === "denied" || dictation === "unavailable" ? (
+          /* It used to sit on "Listening…" forever when the recogniser was
+             not working. Saying so, mid-recording, is the whole point. */
+          <div className="wf-inset px-3.5 py-3">
+            <p className="text-[0.78rem] leading-snug text-[var(--wf-muted)]">
+              {dictationFailureText(dictation, languageLabel(lang))}
+            </p>
+            <p className="mt-1 text-[0.7rem] text-[var(--wf-faint)]">
+              The recording itself is unaffected — keep talking.
+            </p>
+          </div>
         ) : null}
       </div>
     );
@@ -431,10 +459,16 @@ export function VoiceRecorder({
         <IMic size={17} /> Record Voice Note
       </button>
       {canDictate ? (
-        <label className="flex items-center gap-2 px-1">
-          <span className="text-[0.7rem] text-[var(--wf-muted)]">Speaking in</span>
+        /* Deliberately not a <label> wrapping the <select>. Android's WebView
+           re-dispatches the label's click into the control, so the picker
+           opened and closed again in the same tap and read as dead. The
+           select carries its own aria-label instead. */
+        <div className="flex items-center gap-2.5 px-1">
+          <span className="shrink-0 text-[0.74rem] text-[var(--wf-muted)]">
+            Speaking in
+          </span>
           <select
-            className="wf-input h-8 flex-1 py-0 text-[0.78rem]"
+            className="wf-input flex-1"
             aria-label="Voice note language"
             value={lang}
             onChange={(e) => writeLanguage(e.target.value)}
@@ -445,10 +479,25 @@ export function VoiceRecorder({
               </option>
             ))}
           </select>
-        </label>
+        </div>
       ) : null}
     </div>
   );
+}
+
+/**
+ * What to say when dictation fails.
+ *
+ * "Speech recognition is unavailable" tells a supervisor nothing they can
+ * do. On Android the usual cause is that the phone has no offline language
+ * pack for the chosen language and no signal to reach the online one, and
+ * that is fixable — so the message says where to fix it.
+ */
+function dictationFailureText(state: "denied" | "unavailable", language: string): string {
+  if (state === "denied") {
+    return "Speech recognition is blocked for Workfence, so there's no transcript. Allow the microphone in Settings › Apps › Workfence › Permissions.";
+  }
+  return `This phone's speech recognition didn't respond in ${language}, so there's no transcript. Open the Google app › Settings › Voice › Offline speech recognition and download ${language}, or try another language here.`;
 }
 
 /**

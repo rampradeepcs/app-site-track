@@ -395,6 +395,24 @@ export function BottomSheet({
   wide?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+
+  /*
+   * onClose is read through a ref so the effect below can depend on `open`
+   * alone.
+   *
+   * It used to have `onClose` in its deps, and every caller passes an inline
+   * arrow — so the effect tore down and set up again on every render of the
+   * parent. Setup calls sheet.focus(). On a screen that re-renders on a
+   * timer, that meant focus was yanked back to the sheet roughly once a
+   * second, and anything focusable inside it was unusable: the language
+   * dropdown opened its picker and had it dismissed in the same tap, and
+   * text inputs would have lost focus mid-word.
+   */
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
     const sheet = ref.current;
@@ -402,7 +420,7 @@ export function BottomSheet({
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
       // Trap Tab inside the dialog: without this, focus walks onto the page
@@ -436,7 +454,7 @@ export function BottomSheet({
       // at the top of the document.
       restoreTo?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   /* ------------------------------------------------------- the drag */
   /*
