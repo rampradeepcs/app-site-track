@@ -44,6 +44,7 @@ export default function AuditPage() {
           a.detail ?? "",
         ]),
       ),
+      "Platform audit log",
     );
 
   return (

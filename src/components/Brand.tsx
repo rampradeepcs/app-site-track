@@ -12,16 +12,13 @@
  */
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
+import { MARK_ASPECT, MARK_PATHS, MARK_VIEWBOX } from "@/lib/brand";
 
-/* The supplied artwork, tightened to its content box. */
-const VIEWBOX = "90 330 820 340";
-const ASPECT = 820 / 340;
-
-const STROKES = [
-  "M103 345H192.521L286.537 507.232L317.224 453.285L357.685 523.651L281.846 654.805L103 345Z",
-  "M281.846 345H371.367L461.279 499.805L506.039 422.598L461.279 345H896.178L852.004 422.598H595.56L460.693 654.805L281.846 345Z",
-  "M640.32 499.218H814.084L768.737 577.011H685.08L640.515 655L595.364 577.207L640.32 499.218Z",
-];
+/* The artwork lives in lib/brand.ts, because exported documents draw the
+   same strokes and the two must not drift apart. */
+const VIEWBOX = MARK_VIEWBOX;
+const ASPECT = MARK_ASPECT;
+const STROKES = MARK_PATHS;
 
 export function WorkfenceMark({
   size = 48,

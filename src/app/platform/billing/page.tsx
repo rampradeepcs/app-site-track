@@ -59,6 +59,7 @@ export default function BillingPage() {
           inv.paymentMethod,
         ]),
       ),
+      "Invoices",
     );
 
   return (

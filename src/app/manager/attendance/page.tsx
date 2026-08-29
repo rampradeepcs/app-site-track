@@ -149,6 +149,7 @@ function AttendanceInner() {
                 downloadCSV(
                   `attendance-${date}.csv`,
                   attendanceCSV(state, date, projectId === "all" ? undefined : projectId),
+                  `Daily attendance — ${fmtDateLong(date)}`,
                 )
               }
             >

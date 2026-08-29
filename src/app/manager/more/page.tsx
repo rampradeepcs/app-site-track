@@ -125,6 +125,7 @@ function MoreInner() {
           Math.round(perf.overall),
         ]),
       ),
+      "Performance report",
     );
 
   const workforcePdf = () =>

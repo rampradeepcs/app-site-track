@@ -223,12 +223,12 @@ export default function ManagerPayroll() {
   /* Export — three formats off the same table, each logged (spec §25). */
   const employeeIds = rows.map((r) => r.user.id);
   const exportCSV = () => {
-    downloadCSV(`payroll-${month}.csv`, payrollCSV(state, month, employeeIds));
+    downloadCSV(`payroll-${month}.csv`, payrollCSV(state, month, employeeIds), `Payroll — ${month}`);
     wf.logAudit("payroll.export", month, "CSV");
   };
   const exportExcel = () => {
     const t = payrollTable(state, month, employeeIds);
-    downloadExcel(`payroll-${month}.xls`, `Payroll ${month}`, t.headers, t.rows);
+    downloadExcel(`payroll-${month}.xlsx`, `Payroll ${month}`, t.headers, t.rows);
     wf.logAudit("payroll.export", month, "Excel");
   };
   const exportPDF = () => {

@@ -169,6 +169,7 @@ export default function AdminGovernance() {
                       a.detail ?? "",
                     ]),
                   ),
+                  "Audit log",
                 )
               }
             >

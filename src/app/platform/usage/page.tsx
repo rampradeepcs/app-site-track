@@ -42,6 +42,7 @@ export default function UsagePage() {
           r.checkIns, r.trackingSessions, r.workUpdates, r.storageGb, r.apiCalls,
         ]),
       ),
+      "Platform usage by client",
     );
 
   return (

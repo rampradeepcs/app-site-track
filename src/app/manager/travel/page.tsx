@@ -805,6 +805,7 @@ function ReportsTab() {
           ];
         }),
       ),
+      `Petrol allowance — ${month}`,
     );
     wf.logAudit("allowance.export", month, "Petrol CSV");
   };
@@ -829,6 +830,7 @@ function ReportsTab() {
           ];
         }),
       ),
+      `Food allowance — ${month}`,
     );
     wf.logAudit("allowance.export", month, "Food CSV");
   };

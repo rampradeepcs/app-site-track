@@ -57,6 +57,7 @@ export default function ManagerReports() {
           Math.round(perf.overall),
         ]),
       ),
+      "Performance report",
     );
 
   const workforcePdf = () =>
@@ -110,7 +111,7 @@ export default function ManagerReports() {
                   <button
                     className="wf-btn wf-btn-ghost wf-btn-sm"
                     disabled={!canExport}
-                    onClick={() => downloadCSV(`attendance-${todayISO(now)}.csv`, attendanceCSV(state, todayISO(now)))}
+                    onClick={() => downloadCSV(`attendance-${todayISO(now)}.csv`, attendanceCSV(state, todayISO(now)), `Daily attendance — ${fmtDateLong(now)}`)}
                   >
                     <IDownload size={14} /> CSV
                   </button>
@@ -145,7 +146,7 @@ export default function ManagerReports() {
                 <button
                   className="wf-btn wf-btn-ghost wf-btn-sm"
                   disabled={!canExport}
-                  onClick={() => downloadCSV("attendance-all.csv", attendanceCSV(state))}
+                  onClick={() => downloadCSV("attendance-all.csv", attendanceCSV(state), "Full attendance history")}
                 >
                   <IDownload size={14} /> CSV
                 </button>
