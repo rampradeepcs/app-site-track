@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ScreenHeader } from "@/components/shell";
+import { StatusPills, countByStatus } from "@/components/StatusPills";
 import { ProgressRing, ScoreBars, Sparkline } from "@/components/charts";
 import {
   Avatar,
@@ -51,6 +52,7 @@ function EmployeeInner() {
   const user = state.users.find((u) => u.id === id) ?? null;
   const now = useNowTick(15);
   const [editing, setEditing] = useState<User | null | "new">(null);
+  const [attStatus, setAttStatus] = useState<string | null>(null);
 
   const perf = useMemo(
     () => (user ? performanceFor(state, user, 14, now) : null),
@@ -78,6 +80,11 @@ function EmployeeInner() {
   const history = state.attendance
     .filter((a) => a.employeeId === user.id && a.checkIn)
     .sort((a, b) => (a.date < b.date ? 1 : -1));
+  // Counts over the whole history; the table shows what the pill selects.
+  const historyCounts = countByStatus(history, (a) => a.status);
+  const historyRows = attStatus
+    ? history.filter((a) => a.status === attStatus)
+    : history;
   const updates = state.updates.filter((u) => u.employeeId === user.id).slice(0, 8);
   const hoursSeries = history
     .slice(0, 10)
@@ -181,6 +188,12 @@ function EmployeeInner() {
         <div className="wf-card overflow-hidden">
           <div className="px-4 pt-4">
             <SectionTitle>Attendance & routes</SectionTitle>
+            <StatusPills
+              counts={historyCounts}
+              value={attStatus}
+              onChange={setAttStatus}
+              emptyLabel="No attendance recorded."
+            />
           </div>
           <div className="wf-scroll-x">
             <table className="wf-table">
@@ -196,7 +209,7 @@ function EmployeeInner() {
                 </tr>
               </thead>
               <tbody>
-                {history.slice(0, 14).map((a) => (
+                {historyRows.slice(0, 14).map((a) => (
                   <tr key={a.id}>
                     <td className="font-semibold tabular-nums">{a.date.slice(5)}</td>
                     <td className="tabular-nums">{a.checkIn ? fmtTime(a.checkIn.at) : "—"}</td>

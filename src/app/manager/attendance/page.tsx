@@ -10,6 +10,7 @@ import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ScreenHeader } from "@/components/shell";
 import { Avatar, KpiCard, StatusChip } from "@/components/ui";
+import { StatusPills, countByStatus } from "@/components/StatusPills";
 import {
   fmtDateLong,
   fmtDistance,
@@ -27,16 +28,8 @@ import {
   IDownload,
   IFile,
   IRoute,
+  ISearch,
 } from "@/components/WfIcons";
-
-const STATUSES: Array<AttendanceStatus | "all"> = [
-  "all",
-  "present",
-  "late",
-  "early-checkout",
-  "missing-checkout",
-  "absent",
-];
 
 export default function AttendanceModule() {
   return (
@@ -52,14 +45,20 @@ function AttendanceInner() {
   const [date, setDate] = useState(() => params.get("date") ?? todayISO());
   const [projectId, setProjectId] = useState(params.get("project") ?? "all");
   const [department, setDepartment] = useState("all");
-  const [status, setStatus] = useState<AttendanceStatus | "all">("all");
+  const [status, setStatus] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const departments = useMemo(
     () => [...new Set(state.users.filter((u) => u.role === "employee").map((u) => u.department))],
     [state.users],
   );
 
-  const rows = useMemo(() => {
+  /*
+   * Everything except the status filter. The pills count this set, so
+   * picking one narrows the table without zeroing the other counts — see
+   * the note in StatusPills.
+   */
+  const scoped = useMemo(() => {
     return state.attendance
       .filter((a) => a.date === date)
       .map((a) => ({
@@ -70,9 +69,27 @@ function AttendanceInner() {
       .filter((r) => r.user)
       .filter((r) => projectId === "all" || r.att.projectId === projectId)
       .filter((r) => department === "all" || r.user!.department === department)
-      .filter((r) => status === "all" || r.att.status === status)
+      .filter(
+        (r) =>
+          !search.trim() ||
+          [r.user!.name, r.user!.employeeCode, r.user!.designation]
+            .filter(Boolean)
+            .some((f) =>
+              String(f).toLowerCase().includes(search.trim().toLowerCase()),
+            ),
+      )
       .sort((a, b) => (a.att.checkIn?.at ?? Infinity) - (b.att.checkIn?.at ?? Infinity));
-  }, [state, date, projectId, department, status]);
+  }, [state, date, projectId, department, search]);
+
+  const statusCounts = useMemo(
+    () => countByStatus(scoped, (r) => r.att.status),
+    [scoped],
+  );
+
+  const rows = useMemo(
+    () => scoped.filter((r) => status === null || r.att.status === status),
+    [scoped, status],
+  );
 
   const kpis = useMemo(() => {
     const day = state.attendance.filter(
@@ -190,19 +207,22 @@ function AttendanceInner() {
               <option key={d} value={d}>{d}</option>
             ))}
           </select>
-          <select
-            aria-label="Status filter"
-            className="wf-input w-auto min-w-32"
-            value={status}
-            onChange={(e) => setStatus(e.target.value as AttendanceStatus | "all")}
-          >
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s === "all" ? "All statuses" : s.replace("-", " ")}
-              </option>
-            ))}
-          </select>
         </div>
+
+        <div className="relative">
+          <ISearch
+            size={15}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]"
+          />
+          <input
+            className="wf-input wf-input-search"
+            placeholder="Search name, code, trade…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        <StatusPills counts={statusCounts} value={status} onChange={setStatus} />
 
         {/* KPIs */}
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
@@ -239,7 +259,7 @@ function AttendanceInner() {
                 )}
                 {rows.map((r) => (
                   <tr key={r.att.id}>
-                    <td>
+                    <td className="whitespace-nowrap">
                       <span className="flex items-center gap-2">
                         <Avatar name={r.user!.name} hue={r.user!.avatarHue} size={28} />
                         <span>
@@ -250,17 +270,17 @@ function AttendanceInner() {
                         </span>
                       </span>
                     </td>
-                    <td className="text-[var(--wf-muted)]">
+                    <td className="whitespace-nowrap text-[var(--wf-muted)]">
                       {r.project?.name.split(" ").slice(0, 2).join(" ")}
                     </td>
-                    <td className="tabular-nums">{r.att.checkIn ? fmtTime(r.att.checkIn.at) : "—"}</td>
-                    <td className="tabular-nums">
+                    <td className="whitespace-nowrap tabular-nums">{r.att.checkIn ? fmtTime(r.att.checkIn.at) : "—"}</td>
+                    <td className="whitespace-nowrap tabular-nums">
                       {r.att.checkOut ? fmtTime(r.att.checkOut.at) : r.att.checkIn ? "…" : "—"}
                     </td>
-                    <td className="tabular-nums">
+                    <td className="whitespace-nowrap tabular-nums">
                       {r.att.workedMinutes != null ? fmtDuration(r.att.workedMinutes) : "—"}
                     </td>
-                    <td className="tabular-nums">{fmtDistance(r.att.distanceMeters)}</td>
+                    <td className="whitespace-nowrap tabular-nums">{fmtDistance(r.att.distanceMeters)}</td>
                     <td><StatusChip status={r.att.status} /></td>
                     <td>
                       {r.att.checkIn ? (

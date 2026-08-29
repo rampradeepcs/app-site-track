@@ -13,6 +13,7 @@ import { ScreenHeader } from "@/components/shell";
 import { SiteMap, type MapMarker } from "@/components/SiteMap";
 import { BarTrend } from "@/components/charts";
 import { EmployeePicker } from "@/components/EmployeePicker";
+import { STATUS_TEXT, StatusPills } from "@/components/StatusPills";
 import {
   Avatar,
   BottomSheet,
@@ -47,17 +48,6 @@ import {
 } from "@/components/WfIcons";
 
 type Tab = "overview" | "geofence" | "team" | "attendance" | "updates";
-
-/** Short status labels for the totals strip — the chip is already narrow. */
-const STATUS_TEXT: Record<string, string> = {
-  present: "Present",
-  late: "Late",
-  absent: "Absent",
-  "early-checkout": "Early out",
-  "missing-checkout": "No checkout",
-  "on-leave": "On leave",
-  holiday: "Holiday",
-};
 
 export default function ProjectPage() {
   return (
@@ -164,10 +154,6 @@ function ProjectInner() {
     return by;
   }, [attendance, attDate, attQuery, state.users]);
 
-  const attTotalCount = useMemo(
-    () => [...attTotals.values()].reduce((t, n) => t + n, 0),
-    [attTotals],
-  );
 
   /** Only dates this project actually has records for. */
   const attDates = useMemo(
@@ -386,55 +372,11 @@ function ProjectInner() {
 
               {/* Totals for the rows below, not for the project — see the
                   note where they are computed. */}
-              {/* The pills are the status filter, not just a readout —
-                  tapping one narrows the table, tapping it again clears
-                  it. "All" is always present so there is a way back to the
-                  whole day without hunting for the pill you pressed. */}
-              {/* Vertical padding inside the scroller, cancelled by the
-                  negative margin. `overflow-x: auto` makes the y-axis clip
-                  too, so the selected pill's ring was being sliced off top
-                  and bottom; it needs real room, not just a bottom pad. */}
-              <div className="wf-scroll-x -mx-1 -my-1.5 flex items-center gap-2 px-1 py-1.5">
-                <button
-                  aria-pressed={attStatus === null}
-                  onClick={() => setAttStatus(null)}
-                  className="wf-chip shrink-0 cursor-pointer whitespace-nowrap font-bold"
-                  style={{
-                    background:
-                      attStatus === null ? "var(--wf-amber)" : "var(--wf-fill-2)",
-                    color:
-                      attStatus === null ? "var(--wf-on-amber)" : "var(--wf-fg)",
-                  }}
-                >
-                  All {attTotalCount}
-                </button>
-                {[...attTotals.entries()].map(([status, count]) => {
-                  const on = attStatus === status;
-                  return (
-                    <button
-                      key={status}
-                      aria-pressed={on}
-                      onClick={() => setAttStatus(on ? null : status)}
-                      className="shrink-0 cursor-pointer rounded-full"
-                      style={
-                        on
-                          ? { boxShadow: "0 0 0 1.5px var(--wf-fg)" }
-                          : undefined
-                      }
-                    >
-                      <StatusChip
-                        status={status as Parameters<typeof StatusChip>[0]["status"]}
-                        label={`${STATUS_TEXT[status] ?? status} ${count}`}
-                      />
-                    </button>
-                  );
-                })}
-                {attTotalCount === 0 ? (
-                  <span className="text-[0.78rem] text-[var(--wf-muted)]">
-                    Nothing recorded here.
-                  </span>
-                ) : null}
-              </div>
+              <StatusPills
+                counts={attTotals}
+                value={attStatus}
+                onChange={setAttStatus}
+              />
             </div>
 
             <div className="wf-card overflow-hidden">
