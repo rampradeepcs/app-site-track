@@ -92,7 +92,8 @@ import {
 } from "./supabase/repository";
 import { persist, uid } from "./supabase/sync";
 import { nextTeamCode } from "./teams";
-import { canCaptureGroupAttendance } from "./access";
+import { canCaptureGroupAttendance, canSeeNote } from "./access";
+import { dueReminders } from "./notes";
 import type {
   AppNotification,
   Attendance,
@@ -134,6 +135,7 @@ import type {
   ProjectNote,
   ProjectNoteAttachment,
   NoteStatus,
+  WorkCategory,
 } from "./types";
 
 // Derived, not written by hand: the key said v3 while the shape was at v5,
@@ -427,6 +429,11 @@ interface StoreApi {
   /* group attendance */
   submitGroupAttendance: (input: GroupAttendanceInput) => { ok: boolean; groupId?: string; marked: number; reason?: string };
 
+  /** A work update about a whole gang, authored by whoever wrote it. */
+  submitTeamUpdate: (input: TeamUpdateInput) => { ok: boolean; reason?: string };
+  /** Announce note reminders that have come due, to the people who may read them. */
+  fireDueReminders: () => number;
+
   /* project notes */
   saveNote: (patch: Partial<ProjectNote> & { projectId: string; title: string }, id?: string) => ProjectNote;
   setNotePinned: (noteId: string, pinned: boolean) => void;
@@ -452,6 +459,14 @@ interface StoreApi {
  * inferred from the face matching, because they are allowed to disagree
  * with it — and when they do, that disagreement is the record.
  */
+export interface TeamUpdateInput {
+  teamId: string;
+  category: WorkCategory;
+  description: string;
+  photos?: string[];
+  voiceNoteSeconds?: number;
+}
+
 export interface GroupAttendanceInput {
   projectId: string;
   teamId: string;
@@ -3102,6 +3117,145 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     [mutate],
   );
 
+  /**
+   * A work update about a gang.
+   *
+   * Written by a person — the site engineer standing in front of the team —
+   * and tagged with the team it describes. Everything else is picked up from
+   * where and when it was written rather than typed: the project, the zone
+   * the author is standing in, the time and the fix. A supervisor recording
+   * what a gang did should be answering one question, not filling a form.
+   */
+  const submitTeamUpdate = useCallback(
+    (input: TeamUpdateInput) => {
+      const st = stateRef.current;
+      if (!st?.session) return { ok: false, reason: "Not signed in" };
+      const author = st.users.find((u) => u.id === st.session!.userId);
+      const team = st.labourTeams.find((t) => t.id === input.teamId);
+      if (!author || !team) return { ok: false, reason: "Team not found" };
+      if (!canCaptureGroupAttendance(st, author.id, team.projectId)) {
+        return { ok: false, reason: "Not permitted on this project" };
+      }
+      if (input.description.trim().length < 4) {
+        return { ok: false, reason: "Say what the team did." };
+      }
+
+      const project = st.projects.find((p) => p.id === team.projectId);
+      const f = fixRef.current;
+      const isOffline = !(navigator.onLine && !st.settings.forceOffline);
+      const zone = project?.zones.find((z) => z.id === team.workZoneId);
+
+      const update: WorkUpdate = {
+        id: uid(),
+        employeeId: author.id,
+        projectId: team.projectId,
+        teamId: team.id,
+        date: todayISO(),
+        at: Date.now(),
+        category: input.category,
+        kind: "shift",
+        description: input.description.trim(),
+        photos: input.photos ?? [],
+        voiceNoteSeconds: input.voiceNoteSeconds,
+        coords: f?.coords,
+        /* The team's zone when it has one — that is where the gang works,
+           and it is more useful than where the author happens to stand. */
+        place:
+          zone?.name ??
+          (f && project
+            ? resolvePlace(f.coords, project.zones, project.location)
+            : undefined),
+        status: isOffline ? "queued" : "synced",
+      };
+
+      mutate((prev) => ({
+        ...prev,
+        updates: [update, ...prev.updates],
+        outbox: isOffline
+          ? [
+              ...prev.outbox,
+              {
+                id: rid("ob"),
+                at: update.at,
+                kind: "work-update",
+                label: `${team.name} update`,
+                payloadId: update.id,
+              },
+            ]
+          : prev.outbox,
+        audit: [
+          auditLine(prev, "team.update.log", team.name, input.category),
+          ...prev.audit,
+        ].slice(0, 200),
+      }));
+
+      if (!isOffline) {
+        persist("record the team update", () => insertWorkUpdate(update, author.orgId));
+      }
+      showToast(`Logged against ${team.name}`);
+      return { ok: true };
+    },
+    [mutate],
+  );
+
+  /**
+   * Announce note reminders that have fallen due.
+   *
+   * Two rules. A reminder is announced once — `reminderSent` is the latch,
+   * and without it a screen that polls would re-announce the same note every
+   * few seconds. And it reaches only people entitled to read the note: the
+   * reminder repeats the title, so a reminder with a wider audience than its
+   * note would leak the note.
+   */
+  const fireDueReminders = useCallback(() => {
+    const st = stateRef.current;
+    if (!st) return 0;
+    const due = dueReminders(st);
+    if (due.length === 0) return 0;
+
+    mutate((s) => {
+      const notes: AppNotification[] = [];
+      for (const n of due) {
+        const project = s.projects.find((p) => p.id === n.projectId);
+        for (const u of s.users) {
+          if (!canSeeNote(s, n, u.id)) continue;
+          notes.push({
+            id: rid("ntf"),
+            audience: u.role,
+            userId: u.id,
+            kind: "reminder",
+            title: n.title,
+            body: `${project?.name ?? "Project"}${n.body ? ` · ${n.body.slice(0, 90)}` : ""}`,
+            at: Date.now(),
+            read: false,
+            severity:
+              n.priority === "critical"
+                ? "critical"
+                : n.priority === "important"
+                  ? "warning"
+                  : "info",
+            link: `/manager/notes?project=${n.projectId}&note=${n.id}`,
+          });
+        }
+      }
+      const dueIds = new Set(due.map((n) => n.id));
+      return {
+        ...s,
+        projectNotes: s.projectNotes.map((n) =>
+          dueIds.has(n.id) ? { ...n, reminderSent: true } : n,
+        ),
+        notifications: [...notes, ...s.notifications].slice(0, 300),
+      };
+    });
+
+    for (const n of due) {
+      persist("mark the reminder sent", () =>
+        upsertProjectNote({ ...n, reminderSent: true }),
+      );
+    }
+    return due.length;
+  }, [mutate]);
+
   /* --------------------------------------------------------- project notes */
 
   const saveNote = useCallback(
@@ -3813,6 +3967,8 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     transferMember,
     setTeamLeader,
     submitGroupAttendance,
+    submitTeamUpdate,
+    fireDueReminders,
     saveNote,
     setNotePinned,
     setNoteStatus,

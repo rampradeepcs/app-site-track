@@ -713,6 +713,14 @@ export interface WorkUpdate {
   employeeId: string;
   projectId: string;
   attendanceId?: string;
+  /**
+   * Logged against a whole gang rather than one worker.
+   *
+   * `employeeId` still names the author — a site engineer writing on behalf
+   * of the team — because someone is always accountable for a statement
+   * about work. The team is what the statement is *about*.
+   */
+  teamId?: string;
   date: string;
   at: number;
   category: WorkCategory;

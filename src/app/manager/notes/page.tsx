@@ -13,6 +13,7 @@ import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
 import { NoteEditor } from "@/components/notes/NoteEditor";
+import { NoteAttachments } from "@/components/notes/NoteAttachments";
 import { Avatar, BottomSheet, Chip, Segmented } from "@/components/ui";
 import { canCreateNote, canEditNote, canPinNote } from "@/lib/access";
 import { fmtDateLong, fmtTime } from "@/lib/format";
@@ -229,6 +230,8 @@ export default function NotesPage() {
               ) : null}
             </div>
 
+            <NoteAttachments noteId={open.id} canEdit={canEditNote(state, open, me)} />
+
             {mayPin ? (
               <button
                 className="wf-btn wf-btn-ghost"
@@ -302,6 +305,9 @@ export default function NotesPage() {
           <span className="truncate">{author?.name ?? "—"}</span>
           <span>·</span>
           <span>{note.category}</span>
+          {state.noteAttachments.some((a) => a.noteId === note.id) ? (
+            <span aria-label="has attachments">📎</span>
+          ) : null}
           <span className="ml-auto tabular-nums">{fmtDateLong(note.createdAt)}</span>
         </div>
       </button>

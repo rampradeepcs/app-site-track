@@ -8,6 +8,7 @@ import { DemoBar } from "@/components/demo/DemoBar";
 import { NativeChrome } from "@/components/NativeChrome";
 import { ToastHost } from "@/components/ToastHost";
 import { TileCache } from "@/components/TileCache";
+import { NoteReminders } from "@/components/NoteReminders";
 
 /*
  * The face is the identity, so the webfont leads the stack (workforce.css
@@ -58,6 +59,7 @@ export default function RootLayout({
               {children}
               <NativeChrome />
               <TileCache />
+              <NoteReminders />
               <ToastHost />
               <DemoBar />
             </WorkforceProvider>

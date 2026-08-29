@@ -15,6 +15,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
 import { TeamEditor } from "@/components/teams/TeamEditor";
+import { TeamUpdateForm } from "@/components/teams/TeamUpdateForm";
 import { EmployeePicker } from "@/components/EmployeePicker";
 import {
   Avatar,
@@ -42,6 +43,7 @@ import type { User } from "@/lib/types";
 import {
   ICamera,
   ICheck,
+  IClipboard,
   IEdit,
   IMapPin,
   IPlus,
@@ -64,6 +66,7 @@ export default function TeamPage() {
   const [adding, setAdding] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [moving, setMoving] = useState<User | null>(null);
+  const [logging, setLogging] = useState(false);
 
   const team = state.labourTeams.find((t) => t.id === teamId);
   const mayManage = canManageTeams(state, state.session?.userId);
@@ -87,7 +90,11 @@ export default function TeamPage() {
     if (!team) return [];
     const ids = new Set(activeMembers(state, team.id).map((m) => m.employeeId));
     return state.updates
-      .filter((u) => ids.has(u.employeeId) && u.projectId === team.projectId)
+      .filter(
+        (u) =>
+          u.teamId === team.id ||
+          (ids.has(u.employeeId) && u.projectId === team.projectId),
+      )
       .sort((a, b) => b.at - a.at)
       .slice(0, 12);
   }, [state, team]);
@@ -164,12 +171,17 @@ export default function TeamPage() {
         </div>
 
         {mayCapture ? (
-          <Link
-            href={`/manager/group-attendance?project=${team.projectId}&team=${team.id}`}
-            className="wf-btn wf-btn-primary"
-          >
-            <ICamera size={16} /> Group attendance
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href={`/manager/group-attendance?project=${team.projectId}&team=${team.id}`}
+              className="wf-btn wf-btn-primary flex-1"
+            >
+              <ICamera size={16} /> Group attendance
+            </Link>
+            <button className="wf-btn wf-btn-ghost flex-1" onClick={() => setLogging(true)}>
+              <IClipboard size={16} /> Log update
+            </button>
+          </div>
         ) : null}
 
         <Segmented
@@ -272,7 +284,9 @@ export default function TeamPage() {
                     <div className="flex items-center gap-2">
                       <Avatar name={who?.name ?? "?"} hue={who?.avatarHue ?? 0} size={22} />
                       <span className="text-[0.8rem] font-semibold">{who?.name}</span>
-                      <Chip tone="neutral">{u.category}</Chip>
+                      <Chip tone={u.teamId === team.id ? "blue" : "neutral"}>
+                        {u.teamId === team.id ? `Team · ${u.category}` : u.category}
+                      </Chip>
                       <span className="ml-auto text-[0.66rem] tabular-nums text-[var(--wf-faint)]">
                         {fmtTime(u.at)}
                       </span>
@@ -342,6 +356,13 @@ export default function TeamPage() {
           </>
         ) : null}
       </div>
+
+      <TeamUpdateForm
+        key={logging ? "log-open" : "log-closed"}
+        open={logging}
+        team={team}
+        onClose={() => setLogging(false)}
+      />
 
       <TeamEditor
         key={editing ? "edit-open" : "edit-closed"}

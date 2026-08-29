@@ -16,9 +16,13 @@ import { fmtShiftTime, todayISO } from "@/lib/format";
 import { shiftFor } from "@/lib/payroll";
 import { useWorkforce } from "@/lib/store";
 import { useFeature } from "@/components/FeatureGate";
+import { teamsOf } from "@/lib/teams";
+import { readableNotes } from "@/lib/notes";
 import {
   IBell,
   IChevronR,
+  IClipboard,
+  IUsers,
   IClock,
   INav,
   ISettings,
@@ -46,6 +50,22 @@ export default function EmployeeMore() {
     [state, currentUser],
   );
 
+  const myTeamLabel = useMemo(() => {
+    if (!currentUser) return "";
+    const teams = teamsOf(state, currentUser.id);
+    return teams.length === 0
+      ? "Not on a gang yet"
+      : teams.map((t) => t.name).join(" · ");
+  }, [state, currentUser]);
+
+  const noticeCount = useMemo(() => {
+    if (!currentUser) return 0;
+    return currentUser.projectIds.reduce(
+      (n, pid) => n + readableNotes(state, currentUser.id, { projectId: pid }).length,
+      0,
+    );
+  }, [state, currentUser]);
+
   if (!currentUser) return null;
 
   const items: Array<{
@@ -60,6 +80,19 @@ export default function EmployeeMore() {
       icon: <IUser size={18} />,
       label: "Profile",
       sub: `${currentUser.designation} · ${currentUser.employeeCode}`,
+    },
+    {
+      href: "/employee/team",
+      icon: <IUsers size={18} />,
+      label: "My team",
+      sub: myTeamLabel,
+    },
+    {
+      href: "/employee/notes",
+      icon: <IClipboard size={18} />,
+      label: "Site notices",
+      sub: noticeCount ? `${noticeCount} shared with you` : "Nothing right now",
+      badge: noticeCount || undefined,
     },
     {
       href: "/employee/profile?tab=privacy",
