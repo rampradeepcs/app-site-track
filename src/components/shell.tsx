@@ -10,6 +10,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
+import { homeFor } from "@/lib/routes";
 import type { Role } from "@/lib/types";
 import { roleLabel } from "@/lib/format";
 import { canEnter, rememberDestination } from "@/lib/routes";
@@ -177,6 +178,19 @@ const ADMIN_TABS = [
   },
 ];
 
+/**
+ * Every top-level destination across all three navigations.
+ *
+ * The invariant this protects: a screen must always offer a way out —
+ * either the tab bar or a back button. Anything not in this set is a
+ * detail screen, and every one of those carries a back affordance.
+ */
+const ALL_TAB_ROOTS = new Set(
+  [...EMPLOYEE_TABS, ...MANAGER_TABS, ...ADMIN_TABS].map((t) =>
+    t.href.replace(/\/$/, ""),
+  ),
+);
+
 export function TabBar({ role }: { role: Role }) {
   const pathname = usePathname();
   const { state } = useWorkforce();
@@ -205,7 +219,15 @@ export function TabBar({ role }: { role: Role }) {
    * now do.
    */
   const here = pathname.replace(/\/$/, "") || "/";
-  const isTabRoot = tabs.some((t) => here === t.href.replace(/\/$/, ""));
+  /*
+   * Tested against every role's roots, not just this one's.
+   *
+   * `/manager` is a tab for a manager and not for an admin, so an admin who
+   * followed a link there got no bar — and that page has no back button, so
+   * there was no way out of it at all. A top-level surface is top-level
+   * whoever is looking at it; the bar it shows is still this role's.
+   */
+  const isTabRoot = ALL_TAB_ROOTS.has(here);
 
   /*
    * Scrolling down compacts the bar to its icons; scrolling back up brings
@@ -357,6 +379,7 @@ export function ScreenHeader({
   action?: React.ReactNode;
 }) {
   const router = useRouter();
+  const { state } = useWorkforce();
 
   /*
    * The iOS scroll edge effect: the header is transparent over the top of
@@ -384,7 +407,14 @@ export function ScreenHeader({
       {back ? (
         <button
           aria-label="Go back"
-          onClick={() => (back === true ? router.back() : router.push(back))}
+          onClick={() => {
+            if (back !== true) return router.push(back);
+            // A cold deep link has nothing behind it, and router.back()
+            // on an empty history does nothing at all — which is the
+            // dead end this button exists to prevent.
+            if (window.history.length > 1) router.back();
+            else router.push(homeFor(state.session?.role ?? "employee"));
+          }}
           className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl border border-[var(--wf-line)] bg-[var(--wf-surface)] text-[var(--wf-muted)] transition hover:text-[var(--wf-fg)]"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

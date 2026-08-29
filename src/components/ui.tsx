@@ -58,7 +58,7 @@ const STATUS_STYLES: Record<
 > = {
   present: { bg: "var(--wf-green-soft)", fg: "var(--wf-green)", label: "Present" },
   absent: { bg: "var(--wf-red-soft)", fg: "var(--wf-red)", label: "Absent" },
-  late: { bg: "var(--wf-amber-soft)", fg: "var(--wf-amber)", label: "Late" },
+  late: { bg: "var(--wf-warn-soft)", fg: "var(--wf-warn)", label: "Late" },
   "early-checkout": { bg: "var(--wf-blue-soft)", fg: "var(--wf-blue)", label: "Early Out" },
   "missing-checkout": { bg: "var(--wf-red-soft)", fg: "var(--wf-red)", label: "No Checkout" },
   "on-leave": { bg: "var(--wf-violet-soft)", fg: "var(--wf-violet)", label: "On Leave" },

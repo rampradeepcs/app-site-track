@@ -68,6 +68,11 @@
   --wf-green: #06c167;                 /* on site / success */
   --wf-green-dim: #05944f;
   --wf-red: #ff5c49;                   /* something is wrong */
+  /* Late is not an error and not fine — it is the one state between them,
+     and it needs a colour of its own. `--wf-amber` cannot serve: this
+     language repurposed it as ink, so "late" rendered in the same white as
+     every neutral chip and carried no warning at all. */
+  --wf-warn: #ff9f0a;                  /* late — needs attention, not alarm */
   --wf-blue: #6da2ff;                  /* a link or a route */
   --wf-violet: #a8a8a8;                /* was purple; now a quiet grey */
   --wf-slate: #a8a8a8;
@@ -100,6 +105,7 @@
   --wf-amber-edge: color-mix(in srgb, var(--wf-amber) var(--wf-tint-edge), transparent);
   --wf-green-soft: color-mix(in srgb, var(--wf-green) var(--wf-tint-soft), transparent);
   --wf-green-edge: color-mix(in srgb, var(--wf-green) var(--wf-tint-edge), transparent);
+  --wf-warn-soft: color-mix(in srgb, var(--wf-warn) var(--wf-tint-soft), transparent);
   --wf-red-soft: color-mix(in srgb, var(--wf-red) var(--wf-tint-soft), transparent);
   --wf-red-edge: color-mix(in srgb, var(--wf-red) var(--wf-tint-edge), transparent);
   --wf-blue-soft: color-mix(in srgb, var(--wf-blue) var(--wf-tint-soft), transparent);
@@ -228,6 +234,7 @@ html[data-theme="light"] .wf {
   --wf-green: #05803f;
   --wf-green-dim: #03612f;
   --wf-red: #d31500;
+  --wf-warn: #b35309;                  /* late — darker, for ink on paper */
   --wf-blue: #1757d6;
   --wf-violet: #595959;                /* was purple; now a quiet grey */
   --wf-slate: #595959;

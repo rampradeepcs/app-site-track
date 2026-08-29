@@ -77,7 +77,7 @@ function LiveInner() {
   return (
     <div>
       <ScreenHeader
-        back="/manager"
+        back
         title="Live Workforce Map"
         sub={`${working.length} employee${working.length === 1 ? "" : "s"} on site right now`}
       />

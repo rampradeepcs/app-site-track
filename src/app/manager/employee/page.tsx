@@ -63,11 +63,14 @@ function EmployeeInner() {
 
   if (!user || !perf) {
     return (
-      <div className="px-4 pt-10 text-center text-sm text-[var(--wf-muted)]">
-        Employee not found.{" "}
-        <Link href="/manager/workforce" className="font-semibold text-[var(--wf-amber)]">
-          Back to workforce
-        </Link>
+      <div>
+        <ScreenHeader back title="Employee not found" />
+        <p className="px-4 pt-6 text-center text-sm text-[var(--wf-muted)]">
+          They may have been removed.{" "}
+          <Link href="/manager/workforce" className="font-semibold text-[var(--wf-amber)]">
+            Back to workforce
+          </Link>
+        </p>
       </div>
     );
   }
@@ -84,7 +87,7 @@ function EmployeeInner() {
   return (
     <div>
       <ScreenHeader
-        back="/manager/workforce"
+        back
         title={user.name}
         sub={`${user.designation} · ${user.department} · ${user.employeeCode}`}
         action={

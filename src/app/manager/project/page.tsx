@@ -87,12 +87,18 @@ function ProjectInner() {
   );
 
   if (!project) {
+    // The header carries the back button here too. A not-found state is
+    // exactly when someone most needs the ordinary way out, and it is the
+    // one screen that hides the tab bar without offering one.
     return (
-      <div className="px-4 pt-10 text-center text-sm text-[var(--wf-muted)]">
-        Project not found.{" "}
-        <Link href="/manager/projects" className="font-semibold text-[var(--wf-amber)]">
-          Back to projects
-        </Link>
+      <div>
+        <ScreenHeader back title="Project not found" />
+        <p className="px-4 pt-6 text-center text-sm text-[var(--wf-muted)]">
+          It may have been removed.{" "}
+          <Link href="/manager/projects" className="font-semibold text-[var(--wf-amber)]">
+            Back to projects
+          </Link>
+        </p>
       </div>
     );
   }
@@ -113,18 +119,20 @@ function ProjectInner() {
   // which on a quiet morning would show an empty table and zero totals.
   const [attDate, setAttDate] = useState(() => attendance[0]?.date ?? "");
   const [attQuery, setAttQuery] = useState("");
+  const [attStatus, setAttStatus] = useState<string | null>(null);
 
   const attRows = useMemo(() => {
     const q = attQuery.trim().toLowerCase();
     return attendance.filter((a) => {
       if (attDate && a.date !== attDate) return false;
+      if (attStatus && a.status !== attStatus) return false;
       if (!q) return true;
       const u = state.users.find((x) => x.id === a.employeeId);
       return [u?.name, u?.employeeCode, u?.designation]
         .filter(Boolean)
         .some((f) => String(f).toLowerCase().includes(q));
     });
-  }, [attendance, attDate, attQuery, state.users]);
+  }, [attendance, attDate, attQuery, attStatus, state.users]);
 
   /*
    * Totals describe exactly the rows below them.
@@ -133,11 +141,33 @@ function ProjectInner() {
    * be worse than no total at all — the number would look like a summary of
    * what you are reading and would not be one.
    */
+  /*
+   * The pills count the day and the search, deliberately *not* the status
+   * they filter by. Counting the filtered rows would zero every other pill
+   * the moment you picked one, leaving no way to see what else was there
+   * or to compare — the strip has to keep describing the whole day.
+   */
   const attTotals = useMemo(() => {
+    const q = attQuery.trim().toLowerCase();
     const by = new Map<string, number>();
-    for (const a of attRows) by.set(a.status, (by.get(a.status) ?? 0) + 1);
+    for (const a of attendance) {
+      if (attDate && a.date !== attDate) continue;
+      if (q) {
+        const u = state.users.find((x) => x.id === a.employeeId);
+        const hit = [u?.name, u?.employeeCode, u?.designation]
+          .filter(Boolean)
+          .some((f) => String(f).toLowerCase().includes(q));
+        if (!hit) continue;
+      }
+      by.set(a.status, (by.get(a.status) ?? 0) + 1);
+    }
     return by;
-  }, [attRows]);
+  }, [attendance, attDate, attQuery, state.users]);
+
+  const attTotalCount = useMemo(
+    () => [...attTotals.values()].reduce((t, n) => t + n, 0),
+    [attTotals],
+  );
 
   /** Only dates this project actually has records for. */
   const attDates = useMemo(
@@ -160,7 +190,7 @@ function ProjectInner() {
   return (
     <div>
       <ScreenHeader
-        back="/manager/projects"
+        back
         title={project.name}
         sub={`${project.code} · ${project.client}`}
         action={
@@ -356,19 +386,46 @@ function ProjectInner() {
 
               {/* Totals for the rows below, not for the project — see the
                   note where they are computed. */}
+              {/* The pills are the status filter, not just a readout —
+                  tapping one narrows the table, tapping it again clears
+                  it. "All" is always present so there is a way back to the
+                  whole day without hunting for the pill you pressed. */}
               <div className="wf-scroll-x -mx-1 flex items-center gap-2 px-1 pb-1">
-                <span className="wf-chip shrink-0 whitespace-nowrap bg-[var(--wf-fill-2)] font-bold text-[var(--wf-fg)]">
-                  {attRows.length} record{attRows.length === 1 ? "" : "s"}
-                </span>
-                {[...attTotals.entries()].map(([status, count]) => (
-                  <span key={status} className="shrink-0">
-                    <StatusChip
-                      status={status as Parameters<typeof StatusChip>[0]["status"]}
-                      label={`${STATUS_TEXT[status] ?? status} ${count}`}
-                    />
-                  </span>
-                ))}
-                {attRows.length === 0 ? (
+                <button
+                  aria-pressed={attStatus === null}
+                  onClick={() => setAttStatus(null)}
+                  className="wf-chip shrink-0 cursor-pointer whitespace-nowrap font-bold"
+                  style={{
+                    background:
+                      attStatus === null ? "var(--wf-amber)" : "var(--wf-fill-2)",
+                    color:
+                      attStatus === null ? "var(--wf-on-amber)" : "var(--wf-fg)",
+                  }}
+                >
+                  All {attTotalCount}
+                </button>
+                {[...attTotals.entries()].map(([status, count]) => {
+                  const on = attStatus === status;
+                  return (
+                    <button
+                      key={status}
+                      aria-pressed={on}
+                      onClick={() => setAttStatus(on ? null : status)}
+                      className="shrink-0 cursor-pointer rounded-full"
+                      style={
+                        on
+                          ? { boxShadow: "0 0 0 1.5px var(--wf-fg)" }
+                          : undefined
+                      }
+                    >
+                      <StatusChip
+                        status={status as Parameters<typeof StatusChip>[0]["status"]}
+                        label={`${STATUS_TEXT[status] ?? status} ${count}`}
+                      />
+                    </button>
+                  );
+                })}
+                {attTotalCount === 0 ? (
                   <span className="text-[0.78rem] text-[var(--wf-muted)]">
                     Nothing recorded here.
                   </span>
@@ -391,6 +448,13 @@ function ProjectInner() {
                   </tr>
                 </thead>
                 <tbody>
+                  {attRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-[var(--wf-muted)]">
+                        No {attStatus ? (STATUS_TEXT[attStatus] ?? attStatus).toLowerCase() : ""} records match.
+                      </td>
+                    </tr>
+                  ) : null}
                   {attRows.slice(0, 60).map((a) => {
                     const u = state.users.find((x) => x.id === a.employeeId);
                     return (

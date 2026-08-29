@@ -72,7 +72,7 @@ function HistoryInner() {
   return (
     <div>
       <ScreenHeader
-        back="/manager"
+        back
         title="Movement History"
         sub="Where did an employee go between check-in and checkout?"
       />
