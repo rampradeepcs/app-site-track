@@ -489,6 +489,21 @@ html[data-theme="light"] .wf {
   letter-spacing: -0.015em;
   transition: box-shadow 0.18s var(--wf-ease-out), background-color 0.18s var(--wf-ease-out);
 }
+/*
+ * A number box sized to its content.
+ *
+ * This file is unlayered, so it beats Tailwind's utilities layer: `w-16` on
+ * a .wf-input loses to the `width: 100%` above, every time. Fixed-width
+ * inputs therefore need a class that lives here, next to the rule it is
+ * overriding, rather than a utility that looks like it works and does not.
+ */
+.wf-input-num {
+  width: 4.75rem;
+  min-width: 4.75rem;
+  padding-inline: 0.5rem;
+  text-align: center;
+}
+
 .wf-input::placeholder {
   color: var(--wf-faint);
 }

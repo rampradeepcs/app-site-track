@@ -7,7 +7,7 @@
  * nothing about pay is decided anywhere else.
  */
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { FeatureGate } from "@/components/FeatureGate";
 import { ScreenHeader } from "@/components/shell";
 import {
@@ -19,8 +19,15 @@ import {
 } from "@/components/ui";
 import { fmtDateLong, fmtShiftTime, todayISO } from "@/lib/format";
 import { useWorkforce } from "@/lib/store";
-import type { BreakRule, OvertimeTier, ShiftDef, ShiftKind } from "@/lib/types";
+import type {
+  BreakRule,
+  OvertimeTier,
+  Project,
+  ShiftDef,
+  ShiftKind,
+} from "@/lib/types";
 import {
+  ICheck,
   IClock,
   ICoffee,
   IPlus,
@@ -536,7 +543,11 @@ function ShiftEditor({ base, onDone }: { base: ShiftDef | null; onDone: () => vo
         </label>
         {ot.enabled ? (
           <div className="mt-3 flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-3">
+            {/* Two long labels in half a phone width left the Approval
+                control scrolling sideways, so "Manager approval" sat off
+                the edge and read as clipped. They get a row each until
+                there is room for two. */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="OT grace after shift end (min)">
                 <input
                   className="wf-input"
@@ -613,10 +624,17 @@ function ShiftEditor({ base, onDone }: { base: ShiftDef | null; onDone: () => vo
                 </div>
                 <div className="flex flex-col gap-2">
                   {ot.tiers.map((t: OvertimeTier, i: number) => (
-                    <div key={i} className="flex items-center gap-2 text-[0.82rem]">
-                      <span className="text-[var(--wf-muted)]">After</span>
+                    /* Fixed-width inputs plus three text labels overflow a
+                       phone, and flex answers that by shrinking the text —
+                       which wrapped "h of OT →" onto three lines, one word
+                       each. The labels hold together and the row wraps. */
+                    <div
+                      key={i}
+                      className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[0.82rem]"
+                    >
+                      <span className="whitespace-nowrap text-[var(--wf-muted)]">After</span>
                       <input
-                        className="wf-input w-16 text-center"
+                        className="wf-input wf-input-num shrink-0"
                         type="number"
                         min={0}
                         aria-label="Tier threshold hours"
@@ -630,9 +648,9 @@ function ShiftEditor({ base, onDone }: { base: ShiftDef | null; onDone: () => vo
                           }))
                         }
                       />
-                      <span className="text-[var(--wf-muted)]">h of OT →</span>
+                      <span className="whitespace-nowrap text-[var(--wf-muted)]">h of OT →</span>
                       <input
-                        className="wf-input w-16 text-center"
+                        className="wf-input wf-input-num shrink-0"
                         type="number"
                         step={0.25}
                         min={0}
@@ -647,7 +665,7 @@ function ShiftEditor({ base, onDone }: { base: ShiftDef | null; onDone: () => vo
                           }))
                         }
                       />
-                      <span className="text-[var(--wf-muted)]">× hourly rate</span>
+                      <span className="whitespace-nowrap text-[var(--wf-muted)]">× hourly rate</span>
                       {ot.tiers.length > 1 ? (
                         <button
                           className="ml-auto cursor-pointer p-1.5 text-[var(--wf-faint)] hover:text-[var(--wf-red)]"
@@ -775,10 +793,55 @@ function AssignSheet({ shift, onDone }: { shift: ShiftDef; onDone: () => void })
       return next;
     });
 
-  const selectProject = (projectId: string) => {
-    const p = state.projects.find((x) => x.id === projectId);
-    if (!p) return;
-    setChosen((prev) => new Set([...prev, ...p.employeeIds]));
+  /*
+   * Project quick-select.
+   *
+   * A chip is "on" when everyone it covers is currently ticked — derived
+   * rather than stored, so it stays honest: unticking one person by hand
+   * turns the chip off instead of leaving it lit over a partial selection.
+   * That also means several projects can be on at once, which is the point.
+   *
+   * Only people actually in the list count. A project's employeeIds can
+   * name someone inactive or since removed, and counting those would leave
+   * a chip that could never reach "on" no matter how many you ticked.
+   */
+  const shownIds = useMemo(() => new Set(people.map((u) => u.id)), [people]);
+
+  const membersOf = useCallback(
+    (proj: Project) => proj.employeeIds.filter((id) => shownIds.has(id)),
+    [shownIds],
+  );
+
+  const isProjectOn = useCallback(
+    (proj: Project) => {
+      const members = membersOf(proj);
+      return members.length > 0 && members.every((id) => chosen.has(id));
+    },
+    [membersOf, chosen],
+  );
+
+  const toggleProject = (proj: Project) => {
+    const members = membersOf(proj);
+    if (members.length === 0) return;
+
+    if (!isProjectOn(proj)) {
+      setChosen((prev) => new Set([...prev, ...members]));
+      return;
+    }
+
+    // Turning a project off removes its people — except anyone another
+    // switched-on project still covers, who would otherwise vanish from a
+    // selection the user never touched.
+    const keep = new Set<string>();
+    for (const other of state.projects) {
+      if (other.id === proj.id || !isProjectOn(other)) continue;
+      for (const id of membersOf(other)) keep.add(id);
+    }
+    setChosen((prev) => {
+      const next = new Set(prev);
+      for (const id of members) if (!keep.has(id)) next.delete(id);
+      return next;
+    });
   };
 
   return (
@@ -796,20 +859,33 @@ function AssignSheet({ shift, onDone }: { shift: ShiftDef; onDone: () => void })
       </Field>
 
       {state.projects.length > 0 ? (
-        <Field label="Quick select — everyone on a project">
+        <Field
+          label="Quick select — everyone on a project"
+          hint="Tap to add the crew, tap again to remove them. Several projects can be on at once."
+        >
           {/* One row that scrolls sideways. Wrapping stacked four full
               project names down the sheet and pushed the people — the
               actual subject — below the fold. */}
           <div className="wf-scroll-x -mx-1 flex gap-2 px-1 pb-1">
-            {state.projects.map((p) => (
-              <button
-                key={p.id}
-                className="wf-btn wf-btn-ghost wf-btn-sm shrink-0 whitespace-nowrap"
-                onClick={() => selectProject(p.id)}
-              >
-                {p.name}
-              </button>
-            ))}
+            {state.projects.map((proj) => {
+              const members = membersOf(proj);
+              const on = isProjectOn(proj);
+              return (
+                <button
+                  key={proj.id}
+                  aria-pressed={on}
+                  disabled={members.length === 0}
+                  className={`wf-btn wf-btn-sm shrink-0 whitespace-nowrap ${
+                    on ? "wf-btn-primary" : "wf-btn-ghost"
+                  }`}
+                  onClick={() => toggleProject(proj)}
+                >
+                  {on ? <ICheck size={14} /> : null}
+                  {proj.name}
+                  <span className="opacity-60 tabular-nums">{members.length}</span>
+                </button>
+              );
+            })}
           </div>
         </Field>
       ) : null}
