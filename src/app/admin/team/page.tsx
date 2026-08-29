@@ -23,7 +23,7 @@ import { fmtClock, pct } from "@/lib/format";
 import { liveBoard, performanceFor } from "@/lib/metrics";
 import { useWorkforce } from "@/lib/store";
 import type { Role, User } from "@/lib/types";
-import { IArrowR, IPlus, ISearch, IShield, IUsers } from "@/components/WfIcons";
+import { IArrowR, IEdit, IPlus, ISearch, IShield, IUsers } from "@/components/WfIcons";
 
 /** Role names read as labels, not as enum values. */
 const ROLE_LABEL: Record<string, string> = {
@@ -159,6 +159,19 @@ export default function AdminTeam() {
                   </Chip>
                 </span>
                 <div className="col-span-3 flex flex-wrap items-center gap-2">
+                  {/* Edit comes first, and applies to everyone.
+                      Restricting it to employees meant a manager's or an
+                      admin's details could not be corrected at all — and
+                      since the phone number is now the identity they sign
+                      in with, a typo in one locked them out with no way to
+                      fix it from here. Role and status stay separately
+                      guarded below. */}
+                  <button
+                    className="wf-btn wf-btn-ghost wf-btn-sm"
+                    onClick={() => setEditing(u)}
+                  >
+                    <IEdit size={13} /> Edit
+                  </button>
                   {!isOwner && u.role !== "admin" && (
                     <button
                       className="wf-btn wf-btn-ghost wf-btn-sm"
@@ -182,14 +195,6 @@ export default function AdminTeam() {
                       }
                     >
                       {u.status === "active" ? "Deactivate" : "Activate"}
-                    </button>
-                  )}
-                  {u.role === "employee" && (
-                    <button
-                      className="wf-btn wf-btn-ghost wf-btn-sm"
-                      onClick={() => setEditing(u)}
-                    >
-                      Edit
                     </button>
                   )}
                 </div>
