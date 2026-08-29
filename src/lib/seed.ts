@@ -74,6 +74,12 @@ export function buildSeedState(): WorkforceState {
     petrolRules: [],
     foodRules: [],
     allowanceDecisions: [],
+    labourTeams: [],
+    teamMembers: [],
+    groupAttendance: [],
+    groupAttendanceMembers: [],
+    projectNotes: [],
+    noteAttachments: [],
     permissions: {
       location: "prompt",
       backgroundLocation: "prompt",

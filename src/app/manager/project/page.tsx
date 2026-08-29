@@ -32,8 +32,12 @@ import {
   fmtShiftTime,
   fmtTime,
   initialsOf,
+  todayISO,
 } from "@/lib/format";
 import { attendanceTrend, liveBoard } from "@/lib/metrics";
+import { activeMembers, groupCaptures, teamsForProject } from "@/lib/teams";
+import { noteSummary } from "@/lib/notes";
+import { ProjectHints } from "@/components/notes/ProjectHints";
 import { useWorkforce } from "@/lib/store";
 import {
   IArrowR,
@@ -74,6 +78,31 @@ function ProjectInner() {
   const trend = useMemo(
     () => (project ? attendanceTrend(state, 10, project.id, now) : []),
     [state, project, now],
+  );
+
+  /* team-based workforce, notes and today's captures */
+  const projectTeams = useMemo(
+    () => (project ? teamsForProject(state, project.id) : []),
+    [state, project],
+  );
+  const teamWorkers = useMemo(
+    () =>
+      projectTeams.reduce((n, t) => n + activeMembers(state, t.id).length, 0),
+    [projectTeams, state],
+  );
+  const todaysCaptures = useMemo(
+    () =>
+      project
+        ? groupCaptures(state, { projectId: project.id, date: todayISO(now) })
+        : [],
+    [state, project, now],
+  );
+  const notes = useMemo(
+    () =>
+      project
+        ? noteSummary(state, state.session?.userId, project.id)
+        : { open: 0, important: 0, critical: 0, pinned: 0 },
+    [state, project],
   );
 
   if (!project) {
@@ -203,6 +232,9 @@ function ProjectInner() {
 
         {tab === "overview" && (
           <>
+            {/* What the site needs to know before anything else on the page. */}
+            <ProjectHints projectId={project.id} />
+
             <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
               <KpiCard label="On site now" value={working.length} tone="green" />
               <KpiCard label="Present today" value={board.filter((b) => b.attendance).length} tone="blue" sub={`of ${team.length} assigned`} />
@@ -230,6 +262,37 @@ function ProjectInner() {
                 {fmtDateLong(project.startDate)} → {project.endDate ? fmtDateLong(project.endDate) : "TBD"}
               </p>
             </div>
+            <div className="grid grid-cols-3 gap-2.5">
+              <Link href={`/manager/teams?project=${project.id}`} className="wf-card2 px-3 py-2.5">
+                <p className="text-[1.05rem] font-bold tabular-nums">{projectTeams.length}</p>
+                <p className="text-[0.62rem] uppercase tracking-wider text-[var(--wf-muted)]">
+                  Labour teams
+                </p>
+                <p className="mt-0.5 text-[0.66rem] text-[var(--wf-faint)]">
+                  {teamWorkers} workers
+                </p>
+              </Link>
+              <Link
+                href={`/manager/group-attendance/history?project=${project.id}`}
+                className="wf-card2 px-3 py-2.5"
+              >
+                <p className="text-[1.05rem] font-bold tabular-nums">{todaysCaptures.length}</p>
+                <p className="text-[0.62rem] uppercase tracking-wider text-[var(--wf-muted)]">
+                  Group captures
+                </p>
+                <p className="mt-0.5 text-[0.66rem] text-[var(--wf-faint)]">today</p>
+              </Link>
+              <Link href={`/manager/notes?project=${project.id}`} className="wf-card2 px-3 py-2.5">
+                <p className="text-[1.05rem] font-bold tabular-nums">{notes.open}</p>
+                <p className="text-[0.62rem] uppercase tracking-wider text-[var(--wf-muted)]">
+                  Open notes
+                </p>
+                <p className="mt-0.5 text-[0.66rem] text-[var(--wf-faint)]">
+                  {notes.critical} critical · {notes.important} important
+                </p>
+              </Link>
+            </div>
+
             <div className="wf-card p-4">
               <SectionTitle>Attendance trend</SectionTitle>
               <BarTrend

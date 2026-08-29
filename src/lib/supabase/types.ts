@@ -214,6 +214,108 @@ export type UsageRow = {
   gps_errors: number;
 }
 
+
+/* ------------------------------------- labour teams, captures and notes -- */
+
+export type LabourTeamRow = {
+  id: string;
+  org_id: string;
+  project_id: string;
+  name: string;
+  type: string;
+  code: string;
+  leader_id: string | null;
+  site_engineer_id: string | null;
+  supervisor_id: string | null;
+  description: string | null;
+  status: string;
+  start_date: string | null;
+  end_date: string | null;
+  work_zone_id: string | null;
+  shift_id: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type LabourTeamMemberRow = {
+  id: string;
+  org_id: string;
+  team_id: string;
+  employee_id: string;
+  joined_at: string;
+  left_at: string | null;
+  status: string;
+  transferred_to_team_id: string | null;
+};
+
+export type GroupAttendanceRow = {
+  id: string;
+  org_id: string;
+  project_id: string;
+  team_id: string;
+  shift_id: string | null;
+  site_engineer_id: string;
+  photos: string[];
+  captured_at: string;
+  lat: number | null;
+  lng: number | null;
+  geofence_status: string;
+  face_count: number;
+  matched_count: number;
+  status: string;
+  confirmed_by: string | null;
+  confirmed_at: string | null;
+  note: string | null;
+};
+
+export type GroupAttendanceMemberRow = {
+  id: string;
+  org_id: string;
+  group_attendance_id: string;
+  employee_id: string;
+  detection_status: string;
+  match_status: string;
+  attendance_status: string;
+  review_status: string;
+  distance: number | null;
+  attendance_id: string | null;
+};
+
+export type ProjectNoteRow = {
+  id: string;
+  org_id: string;
+  project_id: string;
+  author_id: string;
+  title: string;
+  body: string;
+  category: string;
+  priority: string;
+  visibility: string;
+  visible_to: string[];
+  status: string;
+  due_date: string | null;
+  remind_at: string | null;
+  reminder_sent: boolean;
+  pinned: boolean;
+  lat: number | null;
+  lng: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProjectNoteAttachmentRow = {
+  id: string;
+  org_id: string;
+  note_id: string;
+  file: string;
+  name: string;
+  type: string;
+  size: number;
+  created_by: string;
+  created_at: string;
+};
+
 type Table<Row> = {
   Row: Row;
   Insert: Partial<Row>;
@@ -244,6 +346,12 @@ export type Database = {
       petrol_rules: Table<PetrolRuleRow>;
       food_rules: Table<FoodRuleRow>;
       allowance_decisions: Table<AllowanceDecisionRow>;
+      labour_teams: Table<LabourTeamRow>;
+      labour_team_members: Table<LabourTeamMemberRow>;
+      group_attendance: Table<GroupAttendanceRow>;
+      group_attendance_members: Table<GroupAttendanceMemberRow>;
+      project_notes: Table<ProjectNoteRow>;
+      project_note_attachments: Table<ProjectNoteAttachmentRow>;
     };
     // Canonical "empty" form used by `supabase gen types`; `Record<string, never>`
     // does not satisfy GenericSchema and silently collapses Insert to `never`.

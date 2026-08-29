@@ -83,8 +83,16 @@ import {
   upsertShift,
   upsertTravelSession,
   upsertUser,
+  upsertLabourTeam,
+  upsertTeamMembers,
+  insertGroupAttendance,
+  upsertProjectNote,
+  deleteProjectNote,
+  fetchTeamWorld,
 } from "./supabase/repository";
 import { persist, uid } from "./supabase/sync";
+import { nextTeamCode } from "./teams";
+import { canCaptureGroupAttendance } from "./access";
 import type {
   AppNotification,
   Attendance,
@@ -114,6 +122,18 @@ import type {
   VoiceNote,
   WorkUpdate,
   WorkforceState,
+  LabourTeam,
+  LabourTeamStatus,
+  LabourTeamMember,
+  TeamMemberStatus,
+  GroupAttendanceRecord,
+  GroupAttendanceMember,
+  FaceDetectionStatus,
+  FaceMatchStatus,
+  GeofenceCheck,
+  ProjectNote,
+  ProjectNoteAttachment,
+  NoteStatus,
 } from "./types";
 
 // Derived, not written by hand: the key said v3 while the shape was at v5,
@@ -396,6 +416,25 @@ interface StoreApi {
   updateSettings: (patch: Partial<Settings>) => void;
   markNotificationsRead: (audience: Role) => void;
   pushNotification: (n: Omit<AppNotification, "id" | "at" | "read">) => void;
+  /* labour teams */
+  saveTeam: (patch: Partial<LabourTeam> & { name: string; projectId: string }, id?: string) => LabourTeam;
+  setTeamStatus: (teamId: string, status: LabourTeamStatus) => void;
+  addTeamMembers: (teamId: string, employeeIds: string[]) => { added: number; skipped: number };
+  removeTeamMember: (teamId: string, employeeId: string, status?: TeamMemberStatus) => void;
+  transferMember: (employeeId: string, fromTeamId: string, toTeamId: string) => { ok: boolean; reason?: string };
+  setTeamLeader: (teamId: string, employeeId: string | undefined) => void;
+
+  /* group attendance */
+  submitGroupAttendance: (input: GroupAttendanceInput) => { ok: boolean; groupId?: string; marked: number; reason?: string };
+
+  /* project notes */
+  saveNote: (patch: Partial<ProjectNote> & { projectId: string; title: string }, id?: string) => ProjectNote;
+  setNotePinned: (noteId: string, pinned: boolean) => void;
+  setNoteStatus: (noteId: string, status: NoteStatus) => void;
+  deleteNote: (noteId: string) => void;
+  addNoteAttachment: (noteId: string, file: Omit<ProjectNoteAttachment, "id" | "orgId" | "noteId" | "createdBy" | "createdAt">) => void;
+  removeNoteAttachment: (attachmentId: string) => void;
+
   /**
    * Wipe this device's copy of everything and start from an empty install.
    *
@@ -404,6 +443,32 @@ interface StoreApi {
    * undo. Callers must confirm before calling it.
    */
   eraseLocalData: () => void;
+}
+
+/**
+ * One confirmed group capture, as the review screen hands it over.
+ *
+ * The reviewer's decision travels with every member rather than being
+ * inferred from the face matching, because they are allowed to disagree
+ * with it — and when they do, that disagreement is the record.
+ */
+export interface GroupAttendanceInput {
+  projectId: string;
+  teamId: string;
+  shiftId?: string;
+  photos: string[];
+  coords?: LatLng;
+  geofenceStatus: GeofenceCheck;
+  faceCount: number;
+  note?: string;
+  members: Array<{
+    employeeId: string;
+    detectionStatus: FaceDetectionStatus;
+    matchStatus: FaceMatchStatus;
+    attendanceStatus: "present" | "absent";
+    reviewStatus: "proposed" | "confirmed" | "corrected";
+    distance?: number;
+  }>;
 }
 
 const Ctx = createContext<StoreApi | null>(null);
@@ -469,6 +534,14 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
             petrolRules: parsed.petrolRules ?? [],
             foodRules: parsed.foodRules ?? [],
             allowanceDecisions: parsed.allowanceDecisions ?? [],
+            // Labour teams, group attendance and project notes arrived after
+            // v6 shipped; same bargain as above.
+            labourTeams: parsed.labourTeams ?? [],
+            teamMembers: parsed.teamMembers ?? [],
+            groupAttendance: parsed.groupAttendance ?? [],
+            groupAttendanceMembers: parsed.groupAttendanceMembers ?? [],
+            projectNotes: parsed.projectNotes ?? [],
+            noteAttachments: parsed.noteAttachments ?? [],
           };
         }
       }
@@ -555,6 +628,34 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
               .catch((err) => {
                 console.error(
                   "[Workfence] Shift/payroll/allowance hydration failed; keeping local state.",
+                  err,
+                );
+              });
+
+            // Teams, captures and notes get their own round for the same
+            // reason: note visibility is enforced in the database, so a
+            // labourer's session legitimately reads fewer notes than a
+            // manager's, and a short answer here is not a failure.
+            fetchTeamWorld()
+              .then((tw) => {
+                if (cancelled) return;
+                setState((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        labourTeams: tw.labourTeams,
+                        teamMembers: tw.teamMembers,
+                        groupAttendance: tw.groupAttendance,
+                        groupAttendanceMembers: tw.groupAttendanceMembers,
+                        projectNotes: tw.projectNotes,
+                        noteAttachments: tw.noteAttachments,
+                      }
+                    : prev,
+                );
+              })
+              .catch((err) => {
+                console.error(
+                  "[Workfence] Team/notes hydration failed; keeping local state.",
                   err,
                 );
               });
@@ -2602,6 +2703,535 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     [mutate],
   );
 
+  /* ------------------------------------------------------ labour teams */
+
+  /**
+   * Create or amend a gang.
+   *
+   * Teams are amended, never replaced: the code stays put once issued
+   * because it is painted on a board and read aloud, and the members live
+   * in their own dated rows so editing a team never disturbs its history.
+   */
+  const saveTeam = useCallback(
+    (patch: Partial<LabourTeam> & { name: string; projectId: string }, id?: string) => {
+      const st = stateRef.current!;
+      const now = Date.now();
+      const orgId = st.users.find((u) => u.id === st.session?.userId)?.orgId ?? "";
+      const existing = id ? st.labourTeams.find((t) => t.id === id) : undefined;
+
+      const team: LabourTeam = {
+        id: existing?.id ?? rid("team"),
+        orgId: existing?.orgId ?? orgId,
+        projectId: patch.projectId,
+        name: patch.name.trim(),
+        type: (patch.type ?? existing?.type ?? "General Labour").trim(),
+        code: existing?.code ?? patch.code ?? nextTeamCode(st, patch.projectId),
+        leaderId: patch.leaderId ?? existing?.leaderId,
+        siteEngineerId: patch.siteEngineerId ?? existing?.siteEngineerId,
+        supervisorId: patch.supervisorId ?? existing?.supervisorId,
+        description: patch.description ?? existing?.description,
+        status: patch.status ?? existing?.status ?? "active",
+        startDate: patch.startDate ?? existing?.startDate,
+        endDate: patch.endDate ?? existing?.endDate,
+        workZoneId: patch.workZoneId ?? existing?.workZoneId,
+        shiftId: patch.shiftId ?? existing?.shiftId,
+        notes: patch.notes ?? existing?.notes,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      };
+
+      mutate((s) => ({
+        ...s,
+        labourTeams: existing
+          ? s.labourTeams.map((t) => (t.id === team.id ? team : t))
+          : [team, ...s.labourTeams],
+        audit: [
+          auditLine(
+            s,
+            existing ? "team.update" : "team.create",
+            team.name,
+            `${team.type} · ${s.projects.find((p) => p.id === team.projectId)?.name ?? team.projectId}`,
+          ),
+          ...s.audit,
+        ].slice(0, 200),
+      }));
+      persist(existing ? "save the team" : "create the team", () =>
+        upsertLabourTeam(team),
+      );
+      showToast(existing ? "Team updated" : `${team.name} created`);
+      return team;
+    },
+    [mutate],
+  );
+
+  const setTeamStatus = useCallback(
+    (teamId: string, status: LabourTeamStatus) => {
+      mutate((s) => {
+        const team = s.labourTeams.find((t) => t.id === teamId);
+        if (!team) return s;
+        return {
+          ...s,
+          labourTeams: s.labourTeams.map((t) =>
+            t.id === teamId ? { ...t, status, updatedAt: Date.now() } : t,
+          ),
+          audit: [auditLine(s, "team.status", team.name, status), ...s.audit].slice(0, 200),
+        };
+      });
+      showToast(`Team ${status}`);
+    },
+    [mutate],
+  );
+
+  const addTeamMembers = useCallback(
+    (teamId: string, employeeIds: string[]) => {
+      const st = stateRef.current!;
+      const already = new Set(
+        st.teamMembers.filter((m) => m.teamId === teamId && !m.leftAt).map((m) => m.employeeId),
+      );
+      const fresh = employeeIds.filter((id) => !already.has(id));
+      if (fresh.length === 0) {
+        showToast("Already on this team", "info");
+        return { added: 0, skipped: employeeIds.length };
+      }
+      const now = Date.now();
+      const orgId = st.labourTeams.find((t) => t.id === teamId)?.orgId ?? "";
+
+      /* Built here, not read back from state after the mutation: stateRef is
+         synced in an effect and so lags a render, and a push that reads it
+         immediately would send the previous state. */
+      const rows: LabourTeamMember[] = fresh.map((employeeId) => ({
+        id: rid("tm"),
+        orgId,
+        teamId,
+        employeeId,
+        joinedAt: now,
+        status: "active" as const,
+      }));
+
+      mutate((s) => ({
+        ...s,
+        teamMembers: [...rows, ...s.teamMembers],
+        audit: [
+          auditLine(
+            s,
+            "team.member.add",
+            s.labourTeams.find((t) => t.id === teamId)?.name ?? teamId,
+            fresh.map((id) => s.users.find((u) => u.id === id)?.name ?? id).join(", ").slice(0, 400),
+          ),
+          ...s.audit,
+        ].slice(0, 200),
+      }));
+      persist("add labour to the team", () => upsertTeamMembers(rows));
+      showToast(`${fresh.length} added to the team`);
+      return { added: fresh.length, skipped: employeeIds.length - fresh.length };
+    },
+    [mutate],
+  );
+
+  /** End a spell. The row stays; only its end date and reason are written. */
+  const removeTeamMember = useCallback(
+    (teamId: string, employeeId: string, status: TeamMemberStatus = "inactive") => {
+      const now = Date.now();
+      const closed = (stateRef.current?.teamMembers ?? [])
+        .filter((m) => m.teamId === teamId && m.employeeId === employeeId && !m.leftAt)
+        .map((m) => ({ ...m, leftAt: now, status }));
+      mutate((s) => ({
+        ...s,
+        teamMembers: s.teamMembers.map((m) =>
+          m.teamId === teamId && m.employeeId === employeeId && !m.leftAt
+            ? { ...m, leftAt: now, status }
+            : m,
+        ),
+        // A leader who has left the gang is not its leader.
+        labourTeams: s.labourTeams.map((t) =>
+          t.id === teamId && t.leaderId === employeeId
+            ? { ...t, leaderId: undefined, updatedAt: now }
+            : t,
+        ),
+        audit: [
+          auditLine(
+            s,
+            "team.member.remove",
+            s.labourTeams.find((t) => t.id === teamId)?.name ?? teamId,
+            `${s.users.find((u) => u.id === employeeId)?.name ?? employeeId} · ${status}`,
+          ),
+          ...s.audit,
+        ].slice(0, 200),
+      }));
+      persist("remove from the team", () => upsertTeamMembers(closed));
+      showToast("Removed from team");
+    },
+    [mutate],
+  );
+
+  const transferMember = useCallback(
+    (employeeId: string, fromTeamId: string, toTeamId: string) => {
+      const st = stateRef.current!;
+      if (fromTeamId === toTeamId) return { ok: false, reason: "Same team" };
+      const to = st.labourTeams.find((t) => t.id === toTeamId);
+      if (!to) return { ok: false, reason: "Team not found" };
+      const now = Date.now();
+      const joined: LabourTeamMember = {
+        id: rid("tm"),
+        orgId: to.orgId,
+        teamId: toTeamId,
+        employeeId,
+        joinedAt: now,
+        status: "active",
+      };
+      const left = (stateRef.current?.teamMembers ?? [])
+        .filter((m) => m.teamId === fromTeamId && m.employeeId === employeeId && !m.leftAt)
+        .map((m) => ({
+          ...m,
+          leftAt: now,
+          status: "transferred" as const,
+          transferredToTeamId: toTeamId,
+        }));
+
+      mutate((s) => ({
+        ...s,
+        teamMembers: [
+          joined,
+          ...s.teamMembers.map((m) =>
+            m.teamId === fromTeamId && m.employeeId === employeeId && !m.leftAt
+              ? { ...m, leftAt: now, status: "transferred" as const, transferredToTeamId: toTeamId }
+              : m,
+          ),
+        ],
+        labourTeams: s.labourTeams.map((t) =>
+          t.id === fromTeamId && t.leaderId === employeeId
+            ? { ...t, leaderId: undefined, updatedAt: now }
+            : t,
+        ),
+        audit: [
+          auditLine(
+            s,
+            "team.member.transfer",
+            s.users.find((u) => u.id === employeeId)?.name ?? employeeId,
+            `${s.labourTeams.find((t) => t.id === fromTeamId)?.name ?? fromTeamId} → ${to.name}`,
+          ),
+          ...s.audit,
+        ].slice(0, 200),
+      }));
+      persist("transfer the worker", () => upsertTeamMembers([...left, joined]));
+      showToast(`Transferred to ${to.name}`);
+      return { ok: true };
+    },
+    [mutate],
+  );
+
+  const setTeamLeader = useCallback(
+    (teamId: string, employeeId: string | undefined) => {
+      mutate((s) => ({
+        ...s,
+        labourTeams: s.labourTeams.map((t) =>
+          t.id === teamId ? { ...t, leaderId: employeeId, updatedAt: Date.now() } : t,
+        ),
+        audit: [
+          auditLine(
+            s,
+            "team.leader",
+            s.labourTeams.find((t) => t.id === teamId)?.name ?? teamId,
+            employeeId ? (s.users.find((u) => u.id === employeeId)?.name ?? employeeId) : "cleared",
+          ),
+          ...s.audit,
+        ].slice(0, 200),
+      }));
+      showToast("Team leader updated");
+    },
+    [mutate],
+  );
+
+  /* -------------------------------------------------- group attendance */
+
+  /**
+   * Commit one reviewed group capture.
+   *
+   * Three rules, and each exists because breaking it produces a register
+   * that lies:
+   *
+   *  - Nothing is written for a worker who already has a day today. A gang
+   *    photographed after individual check-ins must not create a second
+   *    record; the capture still stores what it saw, so the evidence is
+   *    kept without the headcount being counted twice (spec §16).
+   *  - Only workers on the team are marked. The reviewer can correct a
+   *    match, but they cannot conjure attendance for someone who is not on
+   *    the gang from a screen that is meant to reduce proxy marking.
+   *  - The attendance row records that a person marked it and from what.
+   *    A day from a photograph is a different kind of record from a day
+   *    someone checked into, and it says so.
+   */
+  const submitGroupAttendance = useCallback(
+    (input: GroupAttendanceInput) => {
+      const st = stateRef.current;
+      if (!st) return { ok: false, marked: 0, reason: "Not ready" };
+      const by = st.session?.userId;
+      if (!by) return { ok: false, marked: 0, reason: "Not signed in" };
+      if (!canCaptureGroupAttendance(st, by, input.projectId)) {
+        return { ok: false, marked: 0, reason: "Not permitted on this project" };
+      }
+
+      const team = st.labourTeams.find((t) => t.id === input.teamId);
+      if (!team) return { ok: false, marked: 0, reason: "Team not found" };
+
+      const roster = new Set(
+        st.teamMembers
+          .filter((m) => m.teamId === input.teamId && !m.leftAt)
+          .map((m) => m.employeeId),
+      );
+      const onTeam = input.members.filter((m) => roster.has(m.employeeId));
+
+      const today = todayISO();
+      const alreadyIn = new Set(
+        st.attendance.filter((a) => a.date === today).map((a) => a.employeeId),
+      );
+
+      const at = Date.now();
+      const groupId = rid("ga");
+      const project = st.projects.find((p) => p.id === input.projectId);
+      const orgId = team.orgId;
+
+      const toMark = onTeam.filter(
+        (m) => m.attendanceStatus === "present" && !alreadyIn.has(m.employeeId),
+      );
+
+      /* Everything is built from the state we already hold, before the
+         mutation, so the same objects go into local state and into the
+         push. Reading them back afterwards would read a render too early. */
+      const rows: Attendance[] = toMark.map((m) => {
+          const u = st.users.find((x) => x.id === m.employeeId);
+          return {
+            id: rid("att"),
+            employeeId: m.employeeId,
+            projectId: input.projectId,
+            date: today,
+            checkIn: {
+              at,
+              /* The engineer's fix, not the worker's — they were not holding
+                 the phone. Attributed rather than invented (spec §18). */
+              coords: input.coords ?? project?.location ?? { lat: 0, lng: 0 },
+              accuracy: 0,
+              selfie: makeSelfie(u?.name ?? "?", u?.avatarHue ?? 0, "Group photo"),
+              place: project?.name ?? "Site",
+              insideGeofence: input.geofenceStatus === "inside",
+              syncedAt: at,
+            },
+            distanceMeters: 0,
+            status: "present",
+            events: [],
+            shiftId: input.shiftId ?? team.shiftId,
+            markedBy: {
+              userId: by,
+              method: "group-photo",
+              at,
+              groupAttendanceId: groupId,
+              teamId: input.teamId,
+            },
+          };
+      });
+
+      const attendanceByEmployee = new Map(rows.map((r) => [r.employeeId, r.id]));
+
+      const record: GroupAttendanceRecord = {
+          id: groupId,
+          orgId,
+          projectId: input.projectId,
+          teamId: input.teamId,
+          shiftId: input.shiftId ?? team.shiftId,
+          siteEngineerId: by,
+          photos: input.photos,
+          capturedAt: at,
+          coords: input.coords,
+          geofenceStatus: input.geofenceStatus,
+          faceCount: input.faceCount,
+          matchedCount: onTeam.filter((m) => m.matchStatus === "matched").length,
+          status: "confirmed",
+          confirmedBy: by,
+          confirmedAt: at,
+          note: input.note,
+        };
+
+      const members: GroupAttendanceMember[] = onTeam.map((m) => ({
+          id: rid("gam"),
+          orgId,
+          groupAttendanceId: groupId,
+          employeeId: m.employeeId,
+          detectionStatus: m.detectionStatus,
+          matchStatus: m.matchStatus,
+          attendanceStatus: m.attendanceStatus,
+          reviewStatus: m.reviewStatus,
+          distance: m.distance,
+        attendanceId:
+          attendanceByEmployee.get(m.employeeId) ??
+          st.attendance.find(
+            (a) => a.employeeId === m.employeeId && a.date === today,
+          )?.id,
+      }));
+
+      mutate((s) => {
+        return {
+          ...s,
+          attendance: [...rows, ...s.attendance],
+          groupAttendance: [record, ...s.groupAttendance],
+          groupAttendanceMembers: [...members, ...s.groupAttendanceMembers],
+          audit: [
+            auditLine(
+              s,
+              "attendance.group",
+              `${team.name} · ${record.id}`,
+              `${input.faceCount} faces · ${rows.length} marked · geofence ${input.geofenceStatus}`,
+            ),
+            ...s.audit,
+          ].slice(0, 200),
+        };
+      });
+
+      const skipped = onTeam.filter(
+        (m) => m.attendanceStatus === "present" && alreadyIn.has(m.employeeId),
+      ).length;
+      persist("record the group attendance", () =>
+        insertGroupAttendance(record, members),
+      );
+      showToast(
+        skipped
+          ? `${toMark.length} marked · ${skipped} already in`
+          : `${toMark.length} marked present`,
+      );
+      return { ok: true, groupId, marked: toMark.length };
+    },
+    [mutate],
+  );
+
+  /* --------------------------------------------------------- project notes */
+
+  const saveNote = useCallback(
+    (patch: Partial<ProjectNote> & { projectId: string; title: string }, id?: string) => {
+      const st = stateRef.current!;
+      const now = Date.now();
+      const author = st.session?.userId ?? "system";
+      const orgId = st.users.find((u) => u.id === author)?.orgId ?? "";
+      const existing = id ? st.projectNotes.find((n) => n.id === id) : undefined;
+
+      const note: ProjectNote = {
+        id: existing?.id ?? rid("note"),
+        orgId: existing?.orgId ?? orgId,
+        projectId: patch.projectId,
+        authorId: existing?.authorId ?? author,
+        title: patch.title.trim(),
+        body: (patch.body ?? existing?.body ?? "").trim(),
+        category: patch.category ?? existing?.category ?? "General",
+        priority: patch.priority ?? existing?.priority ?? "normal",
+        /* Default-closed: a note nobody chose an audience for is a note for
+           the people who run the job, not for the whole site. */
+        visibility: patch.visibility ?? existing?.visibility ?? "managers-engineers",
+        visibleTo: patch.visibleTo ?? existing?.visibleTo,
+        status: patch.status ?? existing?.status ?? "open",
+        dueDate: patch.dueDate ?? existing?.dueDate,
+        remindAt: patch.remindAt ?? existing?.remindAt,
+        reminderSent: existing?.reminderSent,
+        pinned: patch.pinned ?? existing?.pinned ?? false,
+        coords: patch.coords ?? existing?.coords,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      };
+
+      mutate((s) => ({
+        ...s,
+        projectNotes: existing
+          ? s.projectNotes.map((n) => (n.id === note.id ? note : n))
+          : [note, ...s.projectNotes],
+        audit: [
+          auditLine(
+            s,
+            existing ? "note.update" : "note.create",
+            note.title,
+            `${note.category} · ${note.priority} · ${note.visibility}`,
+          ),
+          ...s.audit,
+        ].slice(0, 200),
+      }));
+      persist(existing ? "save the note" : "add the note", () => upsertProjectNote(note));
+      showToast(existing ? "Note updated" : "Note added");
+      return note;
+    },
+    [mutate],
+  );
+
+  const setNotePinned = useCallback(
+    (noteId: string, pinned: boolean) => {
+      mutate((s) => ({
+        ...s,
+        projectNotes: s.projectNotes.map((n) =>
+          n.id === noteId ? { ...n, pinned, updatedAt: Date.now() } : n,
+        ),
+      }));
+      showToast(pinned ? "Pinned to the project" : "Unpinned");
+    },
+    [mutate],
+  );
+
+  const setNoteStatus = useCallback(
+    (noteId: string, status: NoteStatus) => {
+      mutate((s) => ({
+        ...s,
+        projectNotes: s.projectNotes.map((n) =>
+          n.id === noteId ? { ...n, status, updatedAt: Date.now() } : n,
+        ),
+      }));
+      showToast(status === "done" ? "Marked done" : `Note ${status}`);
+    },
+    [mutate],
+  );
+
+  const deleteNote = useCallback(
+    (noteId: string) => {
+      mutate((s) => {
+        const note = s.projectNotes.find((n) => n.id === noteId);
+        return {
+          ...s,
+          projectNotes: s.projectNotes.filter((n) => n.id !== noteId),
+          noteAttachments: s.noteAttachments.filter((a) => a.noteId !== noteId),
+          audit: note
+            ? [auditLine(s, "note.delete", note.title, note.category), ...s.audit].slice(0, 200)
+            : s.audit,
+        };
+      });
+      persist("delete the note", () => deleteProjectNote(noteId));
+      showToast("Note deleted");
+    },
+    [mutate],
+  );
+
+  const addNoteAttachment = useCallback(
+    (
+      noteId: string,
+      file: Omit<ProjectNoteAttachment, "id" | "orgId" | "noteId" | "createdBy" | "createdAt">,
+    ) => {
+      const st = stateRef.current!;
+      const by = st.session?.userId ?? "system";
+      const orgId = st.projectNotes.find((n) => n.id === noteId)?.orgId ?? "";
+      mutate((s) => ({
+        ...s,
+        noteAttachments: [
+          ...s.noteAttachments,
+          { ...file, id: rid("att"), orgId, noteId, createdBy: by, createdAt: Date.now() },
+        ],
+      }));
+      showToast("Attached");
+    },
+    [mutate],
+  );
+
+  const removeNoteAttachment = useCallback(
+    (attachmentId: string) => {
+      mutate((s) => ({
+        ...s,
+        noteAttachments: s.noteAttachments.filter((a) => a.id !== attachmentId),
+      }));
+    },
+    [mutate],
+  );
+
   /**
    * Store an enrolled face.
    *
@@ -3176,6 +3806,19 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     setPayrollStatus,
     addPayrollAdjustment,
     logAudit,
+    saveTeam,
+    setTeamStatus,
+    addTeamMembers,
+    removeTeamMember,
+    transferMember,
+    setTeamLeader,
+    submitGroupAttendance,
+    saveNote,
+    setNotePinned,
+    setNoteStatus,
+    deleteNote,
+    addNoteAttachment,
+    removeNoteAttachment,
     isDemo: demoActive(),
     enterDemo,
     switchPersona,

@@ -625,6 +625,9 @@ export interface Attendance {
     userId: string;
     method: "group-photo" | "manual";
     at: number;
+    /** The capture this came from, so the photo is always one hop away. */
+    groupAttendanceId?: string;
+    teamId?: string;
   };
   note?: string;
 }
@@ -802,6 +805,239 @@ export interface Settings {
   units: "metric" | "imperial";
 }
 
+/* ---------------------------------------------------------- labour teams */
+
+/**
+ * The trades a construction crew is actually organised by.
+ *
+ * A site does not think in individuals, it thinks in gangs: the plumbing
+ * team turned up, the mason team is on Level 3. This list is the vocabulary
+ * a manager already uses, offered so nobody has to type it — but it is only
+ * a starting list, never a closed set. `type` is a plain string precisely so
+ * a site with a False Ceiling gang is not told its own trade is invalid.
+ */
+export const LABOUR_TEAM_TYPES = [
+  "Plumbing",
+  "Painting",
+  "Electrical",
+  "Mason",
+  "Carpentry",
+  "Welding",
+  "Flooring",
+  "HVAC",
+  "Steel / Rebar",
+  "Concrete",
+  "Tile",
+  "Fabrication",
+  "Scaffolding",
+  "Civil",
+  "Waterproofing",
+  "Landscaping",
+  "General Labour",
+] as const;
+
+export type LabourTeamStatus = "active" | "paused" | "completed" | "archived";
+
+export interface LabourTeam {
+  id: string;
+  /** Owning tenant — every team read is scoped by this. */
+  orgId: string;
+  projectId: string;
+  name: string;
+  /** One of LABOUR_TEAM_TYPES, or whatever this site calls its trade. */
+  type: string;
+  code: string;
+  /** The ganger: a worker who leads, not a manager account. */
+  leaderId?: string;
+  /** Site engineer accountable for the team's attendance and work. */
+  siteEngineerId?: string;
+  /** Supervisor over the team, where the org runs one. */
+  supervisorId?: string;
+  description?: string;
+  status: LabourTeamStatus;
+  startDate?: string;
+  endDate?: string;
+  /** A zone on the project geofence, so "where" is a place not a sentence. */
+  workZoneId?: string;
+  /** Default shift for the crew; individual assignments still win. */
+  shiftId?: string;
+  notes?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type TeamMemberStatus =
+  | "active"
+  | "inactive"
+  | "on-leave"
+  | "transferred"
+  | "completed";
+
+/**
+ * One worker's spell in one team.
+ *
+ * Membership is a record with a start and an end rather than a field on the
+ * worker, because the question a manager asks is almost always historical:
+ * who was in this gang in March, which team was this man on when that pour
+ * went wrong. Overwriting a `teamId` answers neither.
+ */
+export interface LabourTeamMember {
+  id: string;
+  orgId: string;
+  teamId: string;
+  employeeId: string;
+  joinedAt: number;
+  /** Set when they leave; absent while they are still on the team. */
+  leftAt?: number;
+  status: TeamMemberStatus;
+  /** Where they went, when this ended in a transfer. */
+  transferredToTeamId?: string;
+}
+
+/* ------------------------------------------------------ group attendance */
+
+/**
+ * Whether a face was found in the photograph at all.
+ *
+ * Kept apart from `matchStatus` on purpose. Detecting a face and knowing
+ * whose it is are different claims, and collapsing them is how a register
+ * ends up asserting an identity the software never established.
+ */
+export type FaceDetectionStatus = "detected" | "not-detected";
+
+/** How confidently the detected face was attributed to this worker. */
+export type FaceMatchStatus =
+  | "matched"
+  | "low-confidence"
+  | "unmatched"
+  /** No face involved: a person the reviewer marked present themselves. */
+  | "manual";
+
+export type GroupAttendanceStatus = "draft" | "confirmed" | "discarded";
+
+export type GeofenceCheck = "inside" | "outside" | "unknown";
+
+/**
+ * One capture event: a supervisor, a crew, a place, a moment, and the
+ * photographs that stand as evidence for it.
+ *
+ * The individual Attendance rows it produces reference this by id, so a
+ * day marked from a group photo can always be traced back to the picture,
+ * the person who confirmed it, and where they were standing.
+ */
+export interface GroupAttendanceRecord {
+  id: string;
+  orgId: string;
+  projectId: string;
+  teamId: string;
+  shiftId?: string;
+  /** The site engineer or supervisor who took and confirmed the capture. */
+  siteEngineerId: string;
+  /** data-URLs. More than one, because a large gang will not fit in a frame. */
+  photos: string[];
+  capturedAt: number;
+  coords?: LatLng;
+  /** Whether the capturing device was inside the project geofence. */
+  geofenceStatus: GeofenceCheck;
+  /** Faces found across all photos, after de-duplication. */
+  faceCount: number;
+  matchedCount: number;
+  status: GroupAttendanceStatus;
+  confirmedBy?: string;
+  confirmedAt?: number;
+  note?: string;
+}
+
+export interface GroupAttendanceMember {
+  id: string;
+  orgId: string;
+  groupAttendanceId: string;
+  employeeId: string;
+  detectionStatus: FaceDetectionStatus;
+  matchStatus: FaceMatchStatus;
+  /** What the reviewer decided. Nothing is written until they decide. */
+  attendanceStatus: "present" | "absent";
+  /** Whether a human touched this row, and how. */
+  reviewStatus: "proposed" | "confirmed" | "corrected";
+  /** Euclidean distance of the winning descriptor, for audit. */
+  distance?: number;
+  /** The individual Attendance row this produced, once confirmed. */
+  attendanceId?: string;
+}
+
+/* ---------------------------------------------------------- project notes */
+
+export const NOTE_CATEGORIES = [
+  "General",
+  "Safety",
+  "Material",
+  "Labour",
+  "Client",
+  "Quality",
+  "Schedule",
+  "Payment",
+  "Inspection",
+  "Important",
+  "Handover",
+  "Other",
+] as const;
+
+export type NotePriority = "low" | "normal" | "important" | "critical";
+
+/**
+ * Who may read a note.
+ *
+ * Default-closed, and deliberately so: a project's notes carry commercial
+ * terms, payment disputes and things said about people. A safety
+ * instruction should reach the whole site; a note about a subcontractor's
+ * invoice should not reach the subcontractor's crew.
+ */
+export type NoteVisibility =
+  | "management"
+  | "managers-engineers"
+  | "project-team"
+  | "selected";
+
+export type NoteStatus = "open" | "done" | "archived";
+
+export interface ProjectNote {
+  id: string;
+  orgId: string;
+  projectId: string;
+  authorId: string;
+  title: string;
+  body: string;
+  /** One of NOTE_CATEGORIES, or a category this org invented. */
+  category: string;
+  priority: NotePriority;
+  visibility: NoteVisibility;
+  /** User ids, when visibility is "selected". */
+  visibleTo?: string[];
+  status: NoteStatus;
+  dueDate?: string;
+  /** Epoch ms for the reminder, if one was set. */
+  remindAt?: number;
+  reminderSent?: boolean;
+  pinned: boolean;
+  /** Where the note was written, when the author allowed it. */
+  coords?: LatLng;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ProjectNoteAttachment {
+  id: string;
+  orgId: string;
+  noteId: string;
+  /** data-URL for images and voice notes; a name for documents. */
+  file: string;
+  name: string;
+  type: "image" | "pdf" | "document" | "voice";
+  size: number;
+  createdBy: string;
+  createdAt: number;
+}
+
 /* ------------------------------------------------------------------ store */
 
 export interface Session {
@@ -831,6 +1067,13 @@ export interface WorkforceState {
   petrolRules: PetrolRule[];
   foodRules: FoodRule[];
   allowanceDecisions: AllowanceDecision[];
+  /* team-based workforce */
+  labourTeams: LabourTeam[];
+  teamMembers: LabourTeamMember[];
+  groupAttendance: GroupAttendanceRecord[];
+  groupAttendanceMembers: GroupAttendanceMember[];
+  projectNotes: ProjectNote[];
+  noteAttachments: ProjectNoteAttachment[];
   permissions: Permissions;
   settings: Settings;
   session: Session | null;

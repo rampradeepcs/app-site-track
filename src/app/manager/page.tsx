@@ -21,6 +21,7 @@ import {
 } from "@/lib/format";
 import {
   attendanceTrend,
+  attendanceSources,
   dashboardStats,
   liveBoard,
   needsAttention,
@@ -44,6 +45,7 @@ export default function ManagerDashboard() {
   const { state, currentUser } = useWorkforce();
   const now = useNowTick(15);
   const stats = useMemo(() => dashboardStats(state, now), [state, now]);
+  const sources = useMemo(() => attendanceSources(state), [state]);
   const payrollOn = useFeature("payroll");
   const shiftKpis = useMemo(() => todayShiftKpis(state, now), [state, now]);
   const board = useMemo(() => liveBoard(state, undefined, now), [state, now]);
@@ -91,6 +93,17 @@ export default function ManagerDashboard() {
           <KpiCard label="Missing checkout" value={stats.missingCheckout} tone={stats.missingCheckout ? "red" : "neutral"} sub="all time" />
           <KpiCard label="Early outs" value={stats.earlyOutToday} sub="today" />
           <KpiCard label="Work updates" value={stats.updatesToday} tone="blue" sub="today" />
+        </div>
+
+        {/*
+         * How today's register was actually recorded. Individual and group
+         * are the same attendance rows split by who marked them, so the
+         * three numbers reconcile by construction (spec §16).
+         */}
+        <div className="grid grid-cols-3 gap-2.5">
+          <KpiCard label="Individual check-ins" value={sources.individual} sub="today" />
+          <KpiCard label="Group attendance" value={sources.group} tone="blue" sub="from team photos" />
+          <KpiCard label="Total present" value={sources.total} tone="green" sub="no double counting" />
         </div>
 
         {/* shift & payroll KPIs — the workforce as money, live */}

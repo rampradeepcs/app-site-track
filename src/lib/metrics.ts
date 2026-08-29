@@ -385,3 +385,46 @@ export function liveBoard(s: WorkforceState, projectId?: string, now = Date.now(
       };
     });
 }
+
+/**
+ * Today's register, split by how each day was recorded.
+ *
+ * Derived from the attendance rows themselves rather than counted
+ * separately, which is the only way the arithmetic can be trusted: a group
+ * capture does not create a parallel register, it creates ordinary
+ * attendance rows that happen to say who marked them. So "individual +
+ * group = total" holds by construction, and a worker photographed after
+ * they had already checked in is still one person.
+ */
+export interface AttendanceSources {
+  individual: number;
+  group: number;
+  manual: number;
+  total: number;
+}
+
+export function attendanceSources(
+  s: WorkforceState,
+  date?: string,
+  projectId?: string,
+): AttendanceSources {
+  const day = date ?? todayISO();
+  const rows = s.attendance.filter(
+    (a) =>
+      a.date === day &&
+      !!a.checkIn &&
+      (!projectId || a.projectId === projectId),
+  );
+  let group = 0;
+  let manual = 0;
+  for (const a of rows) {
+    if (a.markedBy?.method === "group-photo") group += 1;
+    else if (a.markedBy?.method === "manual") manual += 1;
+  }
+  return {
+    individual: rows.length - group - manual,
+    group,
+    manual,
+    total: rows.length,
+  };
+}

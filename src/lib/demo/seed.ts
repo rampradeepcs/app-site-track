@@ -38,6 +38,14 @@ import type {
   User,
   WorkUpdate,
   WorkforceState,
+  LabourTeam,
+  LabourTeamMember,
+  GroupAttendanceRecord,
+  GroupAttendanceMember,
+  ProjectNote,
+  ProjectNoteAttachment,
+  NotePriority,
+  NoteVisibility,
 } from "../types";
 import type { Invoice, Organization, PlatformState, Subscription } from "../saas-types";
 import { seedPlatform } from "../saas-seed";
@@ -1193,6 +1201,231 @@ export function buildDemoData(now = Date.now()): DemoData {
 
   /* ------------------------------------------------------------- state */
 
+  /* -------------------------------------------------- labour teams */
+
+  /*
+   * Gangs, not individuals. Each team is built from the crew already on
+   * the project and the trade they actually do, so the team screens and
+   * the workforce screens describe the same people rather than two
+   * parallel fictions.
+   */
+  const labourTeams: LabourTeam[] = [];
+  const teamMembers: LabourTeamMember[] = [];
+
+  const TEAM_PLAN: Array<{ type: string; designations: string[] }> = [
+    { type: "Plumbing", designations: ["Plumber"] },
+    { type: "Electrical", designations: ["Electrician"] },
+    { type: "Mason", designations: ["Mason"] },
+    { type: "Carpentry", designations: ["Carpenter"] },
+    { type: "Fabrication", designations: ["Welder"] },
+    { type: "General Labour", designations: ["General Worker", "Driver"] },
+  ];
+
+  let teamSeq = 1;
+  for (const project of projects) {
+    const onProject = users.filter(
+      (u) => u.role === "employee" && u.projectIds.includes(project.id),
+    );
+    const engineer =
+      onProject.find((u) => u.designation === "Site Engineer") ??
+      users.find((u) => u.id === DEMO_IDS.supervisor);
+
+    for (const planned of TEAM_PLAN) {
+      const crew = onProject.filter((u) =>
+        planned.designations.includes(u.designation),
+      );
+      if (crew.length === 0) continue;
+
+      const id = `demo-team-${teamSeq}`;
+      const zone = project.zones[teamSeq % Math.max(project.zones.length, 1)];
+      labourTeams.push({
+        id,
+        orgId,
+        projectId: project.id,
+        name: `${planned.type} Team`,
+        type: planned.type,
+        code: `T-${String(teamSeq).padStart(3, "0")}`,
+        leaderId: crew[0]?.id,
+        siteEngineerId: engineer?.id,
+        supervisorId: DEMO_IDS.supervisor,
+        description: `${planned.type} works for ${project.name}.`,
+        status: "active",
+        startDate: new Date(now - 90 * DAY).toISOString().slice(0, 10),
+        workZoneId: zone?.id,
+        shiftId: crew[0] ? shiftAssignments.find((a) => a.employeeId === crew[0].id)?.shiftId : undefined,
+        createdAt: now - 90 * DAY,
+        updatedAt: now - 3 * DAY,
+      });
+
+      crew.forEach((member, i) => {
+        teamMembers.push({
+          id: `demo-tm-${teamSeq}-${i}`,
+          orgId,
+          teamId: id,
+          employeeId: member.id,
+          joinedAt: now - (80 - i) * DAY,
+          status: "active",
+        });
+      });
+      teamSeq += 1;
+    }
+
+    /*
+     * Gangs of one are not gangs. The specialists above are the core of
+     * each team; the general hands on the project are then spread across
+     * them, which is what actually happens on a site and what makes the
+     * team screens worth looking at.
+     */
+    const claimed = new Set(teamMembers.map((m) => m.employeeId));
+    const spare = onProject.filter((u) => !claimed.has(u.id));
+    const projectTeams = labourTeams.filter((t) => t.projectId === project.id);
+    spare.forEach((u, i) => {
+      const target = projectTeams[i % Math.max(projectTeams.length, 1)];
+      if (!target) return;
+      teamMembers.push({
+        id: `demo-tm-spare-${project.id}-${i}`,
+        orgId,
+        teamId: target.id,
+        employeeId: u.id,
+        joinedAt: now - (60 - (i % 40)) * DAY,
+        status: "active",
+      });
+    });
+  }
+
+  /* One completed spell, so the history the model exists for is visible. */
+  const firstTeam = labourTeams[0];
+  const secondTeam = labourTeams.find((t) => t.id !== firstTeam?.id);
+  if (firstTeam && secondTeam) {
+    const moved = teamMembers.find((m) => m.teamId === secondTeam.id);
+    if (moved) {
+      teamMembers.push({
+        id: "demo-tm-history-1",
+        orgId,
+        teamId: firstTeam.id,
+        employeeId: moved.employeeId,
+        joinedAt: now - 150 * DAY,
+        leftAt: now - 82 * DAY,
+        status: "transferred",
+        transferredToTeamId: secondTeam.id,
+      });
+    }
+  }
+
+  /* --------------------------------------------- group attendance */
+
+  const groupAttendance: GroupAttendanceRecord[] = [];
+  const groupAttendanceMembers: GroupAttendanceMember[] = [];
+
+  /*
+   * This morning's capture for the first two gangs. One worker in each is
+   * left "not detected" on purpose: a review screen where everything always
+   * matches teaches a supervisor to stop reading it.
+   */
+  labourTeams.slice(0, 2).forEach((team, t) => {
+    const roster = teamMembers.filter(
+      (m) => m.teamId === team.id && !m.leftAt,
+    );
+    if (roster.length === 0) return;
+    const project = projects.find((p) => p.id === team.projectId)!;
+    const today = new Date(now);
+    today.setHours(8, 4 + t * 11, 0, 0);
+    const capturedAt = today.getTime();
+    const gaId = `GA-${new Date(capturedAt).getFullYear()}-${String(128 + t).padStart(6, "0")}`;
+    const missing = roster.length > 2 ? roster[roster.length - 1].employeeId : null;
+    const matched = roster.filter((m) => m.employeeId !== missing).length;
+
+    groupAttendance.push({
+      id: gaId,
+      orgId,
+      projectId: team.projectId,
+      teamId: team.id,
+      shiftId: team.shiftId,
+      siteEngineerId: team.siteEngineerId ?? DEMO_IDS.supervisor,
+      photos: [makeSelfie(`${team.name}`, 190 + t * 40, "Group photo")],
+      capturedAt,
+      coords: project.geofence.center ?? project.location,
+      geofenceStatus: "inside",
+      faceCount: matched,
+      matchedCount: matched,
+      status: "confirmed",
+      confirmedBy: team.siteEngineerId ?? DEMO_IDS.supervisor,
+      confirmedAt: capturedAt + 90 * 1000,
+    });
+
+    roster.forEach((m, i) => {
+      const detected = m.employeeId !== missing;
+      groupAttendanceMembers.push({
+        id: `demo-gam-${t}-${i}`,
+        orgId,
+        groupAttendanceId: gaId,
+        employeeId: m.employeeId,
+        detectionStatus: detected ? "detected" : "not-detected",
+        matchStatus: detected ? "matched" : "unmatched",
+        attendanceStatus: detected ? "present" : "absent",
+        reviewStatus: "confirmed",
+        distance: detected ? 0.32 + (i % 5) * 0.03 : undefined,
+        attendanceId: attendance.find(
+          (a) => a.employeeId === m.employeeId && a.date === dateISO(new Date(now)),
+        )?.id,
+      });
+    });
+  });
+
+  /* ---------------------------------------------- project notes */
+
+  const noteAttachments: ProjectNoteAttachment[] = [];
+  const mkNote = (
+    n: number,
+    projectId: string,
+    title: string,
+    body: string,
+    category: string,
+    priority: NotePriority,
+    visibility: NoteVisibility,
+    extra: Partial<ProjectNote> = {},
+  ): ProjectNote => ({
+    id: `demo-note-${n}`,
+    orgId,
+    projectId,
+    authorId: DEMO_IDS.projectManager,
+    title,
+    body,
+    category,
+    priority,
+    visibility,
+    status: "open",
+    pinned: false,
+    createdAt: now - n * 6 * 60 * 60 * 1000,
+    updatedAt: now - n * 6 * 60 * 60 * 1000,
+    ...extra,
+  });
+
+  const projectNotes: ProjectNote[] = [
+    mkNote(1, metro.id, "Concrete pour at 07:00 tomorrow",
+      "Block B raft pour starts 7:00 AM. Pump on site from 6:30. Nobody in the pour zone without a banksman.",
+      "Schedule", "critical", "project-team", { pinned: true }),
+    mkNote(2, metro.id, "Block B painting on hold",
+      "Do not start painting Level 3 until electrical first fix is signed off by the consultant.",
+      "Quality", "important", "project-team", { pinned: true }),
+    mkNote(3, metro.id, "Client inspection Friday 3 PM",
+      "Client walkthrough of Levels 1-3. Site to be cleared and barricades straightened by 2 PM.",
+      "Client", "important", "managers-engineers",
+      { dueDate: new Date(now + 2 * DAY).toISOString().slice(0, 10), remindAt: now + 2 * DAY - 60 * 60 * 1000 }),
+    mkNote(4, metro.id, "Material delivery tomorrow morning",
+      "12 tonnes of rebar expected 09:00 at the material yard gate. Keep the access road clear.",
+      "Material", "normal", "project-team"),
+    mkNote(5, tower.id, "Safety inspection 10 AM",
+      "EHS walkdown of scaffolding on the east elevation. All harnesses to be inspected beforehand.",
+      "Safety", "important", "project-team", { authorId: DEMO_IDS.supervisor }),
+    mkNote(6, tower.id, "Retention release pending",
+      "Second retention tranche is unpaid past 30 days. Do not discuss commercially with the subcontractor on site.",
+      "Payment", "important", "management", { authorId: DEMO_IDS.clientOwner }),
+    mkNote(7, residential.id, "Waterproofing started on Block C",
+      "Block C terrace waterproofing began today. Curing for 72 hours — keep foot traffic off.",
+      "General", "normal", "project-team", { status: "done" }),
+  ];
+
   const workforce: WorkforceState = {
     version: SEED_VERSION,
     users,
@@ -1237,6 +1470,12 @@ export function buildDemoData(now = Date.now()): DemoData {
     petrolRules,
     foodRules,
     allowanceDecisions: [],
+    labourTeams,
+    teamMembers,
+    groupAttendance,
+    groupAttendanceMembers,
+    projectNotes,
+    noteAttachments,
     permissions: {
       location: "granted",
       backgroundLocation: "granted",

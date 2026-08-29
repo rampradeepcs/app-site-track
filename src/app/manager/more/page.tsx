@@ -47,19 +47,21 @@ import {
   IAlert,
   IArrowR,
   IBell,
+  ICamera,
   IChart,
   ICheckCircle,
   IChevronR,
+  IClipboard,
   IClock,
   IDownload,
   IFile,
   IInfo,
   IMapPin,
   INav,
-  IClipboard,
   IRefresh,
   ISettings,
   IShield,
+  IUsers,
   IWallet,
 } from "@/components/WfIcons";
 
@@ -198,6 +200,42 @@ function MoreInner() {
               <IChevronR size={16} className="shrink-0 text-[var(--wf-faint)]" />
             </Link>
           )}
+          <Link href="/manager/teams" className="wf-row">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--wf-fill-2)]">
+              <IUsers size={18} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[0.92rem] font-semibold">Labour teams</span>
+              <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
+                Gangs by trade, and who is on them
+              </span>
+            </span>
+            <IChevronR size={16} className="shrink-0 text-[var(--wf-faint)]" />
+          </Link>
+          <Link href="/manager/group-attendance" className="wf-row">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--wf-fill-2)]">
+              <ICamera size={18} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[0.92rem] font-semibold">Group attendance</span>
+              <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
+                Mark a whole gang from one photo
+              </span>
+            </span>
+            <IChevronR size={16} className="shrink-0 text-[var(--wf-faint)]" />
+          </Link>
+          <Link href="/manager/notes" className="wf-row">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--wf-fill-2)]">
+              <IClipboard size={18} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[0.92rem] font-semibold">Project notes</span>
+              <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
+                Instructions, hints and reminders
+              </span>
+            </span>
+            <IChevronR size={16} className="shrink-0 text-[var(--wf-faint)]" />
+          </Link>
           <Link href="/manager/live" className="wf-row">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--wf-fill-2)]">
               <IMapPin size={18} />

@@ -34,6 +34,12 @@ import type {
 } from "./types";
 import type { ProvisionResult, SignupPayload } from "./types";
 import type {
+  LabourTeam,
+  LabourTeamMember,
+  GroupAttendanceRecord,
+  GroupAttendanceMember,
+  ProjectNote,
+  ProjectNoteAttachment,
   AllowanceDecision,
   Attendance,
   AttendanceMark,
@@ -981,4 +987,283 @@ export async function insertAllowanceDecision(
     note: d.note ?? null,
   } as never);
   if (error) throw error;
+}
+
+/* ------------------------------------------- labour teams, captures, notes */
+
+/*
+ * The team-based half of the product.
+ *
+ * Same bargain as everything above: ids are minted on the client, so an
+ * optimistic write and its row have one identity in both places, and a
+ * failed push is reported rather than swallowed. No `org_id` filters on
+ * reads — row-level security applies them in the database, and the policy
+ * is the boundary.
+ */
+
+export async function upsertLabourTeam(t: LabourTeam) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("labour_teams").upsert({
+    id: t.id,
+    org_id: t.orgId,
+    project_id: t.projectId,
+    name: t.name,
+    type: t.type,
+    code: t.code,
+    leader_id: t.leaderId ?? null,
+    site_engineer_id: t.siteEngineerId ?? null,
+    supervisor_id: t.supervisorId ?? null,
+    description: t.description ?? null,
+    status: t.status,
+    start_date: t.startDate ?? null,
+    end_date: t.endDate ?? null,
+    work_zone_id: t.workZoneId ?? null,
+    shift_id: t.shiftId ?? null,
+    notes: t.notes ?? null,
+    updated_at: new Date(t.updatedAt).toISOString(),
+  } as never);
+  if (error) throw error;
+}
+
+export async function upsertTeamMembers(rows: LabourTeamMember[]) {
+  if (rows.length === 0) return;
+  const sb = requireSupabase();
+  const { error } = await sb.from("labour_team_members").upsert(
+    rows.map((m) => ({
+      id: m.id,
+      org_id: m.orgId,
+      team_id: m.teamId,
+      employee_id: m.employeeId,
+      joined_at: new Date(m.joinedAt).toISOString(),
+      left_at: m.leftAt ? new Date(m.leftAt).toISOString() : null,
+      status: m.status,
+      transferred_to_team_id: m.transferredToTeamId ?? null,
+    })) as never,
+  );
+  if (error) throw error;
+}
+
+export async function insertGroupAttendance(
+  record: GroupAttendanceRecord,
+  members: GroupAttendanceMember[],
+) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("group_attendance").insert({
+    id: record.id,
+    org_id: record.orgId,
+    project_id: record.projectId,
+    team_id: record.teamId,
+    shift_id: record.shiftId ?? null,
+    site_engineer_id: record.siteEngineerId,
+    photos: record.photos as never,
+    captured_at: new Date(record.capturedAt).toISOString(),
+    lat: record.coords?.lat ?? null,
+    lng: record.coords?.lng ?? null,
+    geofence_status: record.geofenceStatus,
+    face_count: record.faceCount,
+    matched_count: record.matchedCount,
+    status: record.status,
+    confirmed_by: record.confirmedBy ?? null,
+    confirmed_at: record.confirmedAt ? new Date(record.confirmedAt).toISOString() : null,
+    note: record.note ?? null,
+  } as never);
+  if (error) throw error;
+
+  if (members.length === 0) return;
+  const { error: memberError } = await sb.from("group_attendance_members").insert(
+    members.map((m) => ({
+      id: m.id,
+      org_id: m.orgId,
+      group_attendance_id: m.groupAttendanceId,
+      employee_id: m.employeeId,
+      detection_status: m.detectionStatus,
+      match_status: m.matchStatus,
+      attendance_status: m.attendanceStatus,
+      review_status: m.reviewStatus,
+      distance: m.distance ?? null,
+      attendance_id: m.attendanceId ?? null,
+    })) as never,
+  );
+  if (memberError) throw memberError;
+}
+
+export async function upsertProjectNote(n: ProjectNote) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("project_notes").upsert({
+    id: n.id,
+    org_id: n.orgId,
+    project_id: n.projectId,
+    author_id: n.authorId,
+    title: n.title,
+    body: n.body,
+    category: n.category,
+    priority: n.priority,
+    visibility: n.visibility,
+    visible_to: n.visibleTo ?? [],
+    status: n.status,
+    due_date: n.dueDate ?? null,
+    remind_at: n.remindAt ? new Date(n.remindAt).toISOString() : null,
+    reminder_sent: n.reminderSent ?? false,
+    pinned: n.pinned,
+    lat: n.coords?.lat ?? null,
+    lng: n.coords?.lng ?? null,
+    updated_at: new Date(n.updatedAt).toISOString(),
+  } as never);
+  if (error) throw error;
+}
+
+export async function deleteProjectNote(noteId: string) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("project_notes").delete().eq("id", noteId);
+  if (error) throw error;
+}
+
+export async function insertNoteAttachment(a: ProjectNoteAttachment) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("project_note_attachments").insert({
+    id: a.id,
+    org_id: a.orgId,
+    note_id: a.noteId,
+    file: a.file,
+    name: a.name,
+    type: a.type,
+    size: a.size,
+    created_by: a.createdBy,
+  } as never);
+  if (error) throw error;
+}
+
+export async function deleteNoteAttachment(attachmentId: string) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("project_note_attachments").delete().eq("id", attachmentId);
+  if (error) throw error;
+}
+
+/** Everything team-shaped for one tenant, in the shapes the UI speaks. */
+export async function fetchTeamWorld(): Promise<{
+  labourTeams: LabourTeam[];
+  teamMembers: LabourTeamMember[];
+  groupAttendance: GroupAttendanceRecord[];
+  groupAttendanceMembers: GroupAttendanceMember[];
+  projectNotes: ProjectNote[];
+  noteAttachments: ProjectNoteAttachment[];
+}> {
+  const sb = requireSupabase();
+  const [teams, members, captures, captureMembers, notes, attachments] =
+    await Promise.all([
+      sb.from("labour_teams").select("*"),
+      sb.from("labour_team_members").select("*"),
+      sb.from("group_attendance").select("*").order("captured_at", { ascending: false }),
+      sb.from("group_attendance_members").select("*"),
+      sb.from("project_notes").select("*").order("created_at", { ascending: false }),
+      sb.from("project_note_attachments").select("*"),
+    ]);
+
+  for (const r of [teams, members, captures, captureMembers, notes, attachments]) {
+    if (r.error) throw r.error;
+  }
+
+  const ms = (v: string | null | undefined) => (v ? new Date(v).getTime() : undefined);
+
+  return {
+    labourTeams: (teams.data ?? []).map((r: Record<string, unknown>) => ({
+      id: r.id as string,
+      orgId: r.org_id as string,
+      projectId: r.project_id as string,
+      name: r.name as string,
+      type: r.type as string,
+      code: r.code as string,
+      leaderId: (r.leader_id as string) ?? undefined,
+      siteEngineerId: (r.site_engineer_id as string) ?? undefined,
+      supervisorId: (r.supervisor_id as string) ?? undefined,
+      description: (r.description as string) ?? undefined,
+      status: r.status as LabourTeam["status"],
+      startDate: (r.start_date as string) ?? undefined,
+      endDate: (r.end_date as string) ?? undefined,
+      workZoneId: (r.work_zone_id as string) ?? undefined,
+      shiftId: (r.shift_id as string) ?? undefined,
+      notes: (r.notes as string) ?? undefined,
+      createdAt: ms(r.created_at as string) ?? Date.now(),
+      updatedAt: ms(r.updated_at as string) ?? Date.now(),
+    })),
+    teamMembers: (members.data ?? []).map((r: Record<string, unknown>) => ({
+      id: r.id as string,
+      orgId: r.org_id as string,
+      teamId: r.team_id as string,
+      employeeId: r.employee_id as string,
+      joinedAt: ms(r.joined_at as string) ?? Date.now(),
+      leftAt: ms(r.left_at as string | null),
+      status: r.status as LabourTeamMember["status"],
+      transferredToTeamId: (r.transferred_to_team_id as string) ?? undefined,
+    })),
+    groupAttendance: (captures.data ?? []).map((r: Record<string, unknown>) => ({
+      id: r.id as string,
+      orgId: r.org_id as string,
+      projectId: r.project_id as string,
+      teamId: r.team_id as string,
+      shiftId: (r.shift_id as string) ?? undefined,
+      siteEngineerId: r.site_engineer_id as string,
+      photos: (r.photos as string[]) ?? [],
+      capturedAt: ms(r.captured_at as string) ?? Date.now(),
+      coords:
+        r.lat != null && r.lng != null
+          ? { lat: r.lat as number, lng: r.lng as number }
+          : undefined,
+      geofenceStatus: r.geofence_status as GroupAttendanceRecord["geofenceStatus"],
+      faceCount: (r.face_count as number) ?? 0,
+      matchedCount: (r.matched_count as number) ?? 0,
+      status: r.status as GroupAttendanceRecord["status"],
+      confirmedBy: (r.confirmed_by as string) ?? undefined,
+      confirmedAt: ms(r.confirmed_at as string | null),
+      note: (r.note as string) ?? undefined,
+    })),
+    groupAttendanceMembers: (captureMembers.data ?? []).map(
+      (r: Record<string, unknown>) => ({
+        id: r.id as string,
+        orgId: r.org_id as string,
+        groupAttendanceId: r.group_attendance_id as string,
+        employeeId: r.employee_id as string,
+        detectionStatus: r.detection_status as GroupAttendanceMember["detectionStatus"],
+        matchStatus: r.match_status as GroupAttendanceMember["matchStatus"],
+        attendanceStatus: r.attendance_status as GroupAttendanceMember["attendanceStatus"],
+        reviewStatus: r.review_status as GroupAttendanceMember["reviewStatus"],
+        distance: (r.distance as number) ?? undefined,
+        attendanceId: (r.attendance_id as string) ?? undefined,
+      }),
+    ),
+    projectNotes: (notes.data ?? []).map((r: Record<string, unknown>) => ({
+      id: r.id as string,
+      orgId: r.org_id as string,
+      projectId: r.project_id as string,
+      authorId: r.author_id as string,
+      title: r.title as string,
+      body: (r.body as string) ?? "",
+      category: r.category as string,
+      priority: r.priority as ProjectNote["priority"],
+      visibility: r.visibility as ProjectNote["visibility"],
+      visibleTo: (r.visible_to as string[]) ?? undefined,
+      status: r.status as ProjectNote["status"],
+      dueDate: (r.due_date as string) ?? undefined,
+      remindAt: ms(r.remind_at as string | null),
+      reminderSent: (r.reminder_sent as boolean) ?? false,
+      pinned: (r.pinned as boolean) ?? false,
+      coords:
+        r.lat != null && r.lng != null
+          ? { lat: r.lat as number, lng: r.lng as number }
+          : undefined,
+      createdAt: ms(r.created_at as string) ?? Date.now(),
+      updatedAt: ms(r.updated_at as string) ?? Date.now(),
+    })),
+    noteAttachments: (attachments.data ?? []).map((r: Record<string, unknown>) => ({
+      id: r.id as string,
+      orgId: r.org_id as string,
+      noteId: r.note_id as string,
+      file: r.file as string,
+      name: r.name as string,
+      type: r.type as ProjectNoteAttachment["type"],
+      size: (r.size as number) ?? 0,
+      createdBy: r.created_by as string,
+      createdAt: ms(r.created_at as string) ?? Date.now(),
+    })),
+  };
 }
