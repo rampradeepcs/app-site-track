@@ -8,6 +8,7 @@
 import { Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AccountPanel, ScreenHeader } from "@/components/shell";
+import { FaceEnrolledRow } from "@/components/FaceSetupCard";
 import { ScoreBars, ProgressRing } from "@/components/charts";
 import {
   Avatar,
@@ -82,6 +83,9 @@ function ProfileInner() {
   return (
     <div>
       <ScreenHeader title="Profile" back="/employee/more" />
+      <div className="px-4">
+        <FaceEnrolledRow />
+      </div>
       <div className="flex flex-col gap-4 px-4">
         <div className="px-0">
           <Segmented<Tab>

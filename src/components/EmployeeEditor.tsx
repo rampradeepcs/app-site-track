@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { useWorkforce } from "@/lib/store";
+import { usePlatform } from "@/lib/platform-store";
 import type { User } from "@/lib/types";
 import { BottomSheet, Field, Segmented, Toggle } from "./ui";
 import { phoneKey } from "./onboarding/InviteCrew";
@@ -26,8 +27,24 @@ export function EmployeeEditor({
   onSave: (patch: Partial<User> & { name: string }, id?: string) => void;
 }) {
   const { state } = useWorkforce();
+  const { platform } = usePlatform();
   const base = editing !== "new" && editing ? editing : null;
   const people = state.users;
+  /*
+   * Who the invite is from.
+   *
+   * A message that says "Workfence invited you" is from a company the
+   * worker has never heard of; one that names their employer is from
+   * someone they just met at a gate. The org record is the right source,
+   * with the project's client name as a fallback for a tenant that has
+   * not filled one in.
+   */
+  const employer =
+    platform.organizations.find(
+      (o) => o.id === state.users.find((u) => u.id === state.session?.userId)?.orgId,
+    )?.name ??
+    state.projects[0]?.client ??
+    "";
   const [name, setName] = useState(base?.name ?? "");
   const [code, setCode] = useState(base?.employeeCode ?? "");
   const [designation, setDesignation] = useState(base?.designation ?? "Worker");
@@ -82,7 +99,7 @@ export function EmployeeEditor({
             <p className="text-sm font-semibold">Access to the mobile app</p>
             <p className="mt-0.5 text-[0.72rem] leading-relaxed text-[var(--wf-muted)]">
               {appAccess
-                ? "They sign in with the number above — it is their unique ID."
+                ? "They sign in with their mobile number — it is their unique ID."
                 : "They stay on the roster and are still paid, but cannot sign in."}
             </p>
           </div>
@@ -196,7 +213,9 @@ export function EmployeeEditor({
              */
             if (appAccess && !base?.appAccess) {
               const text = encodeURIComponent(
-                `Hi ${name.trim().split(" ")[0]}, you have been added to the team on Workfence.\n\n` +
+                `Hi ${name.trim().split(" ")[0]},\n\n` +
+                  `${employer || "Your employer"} has invited you to join them on Workfence — ` +
+                  `the app they use for site attendance.\n\n` +
                   `Install the app: ${APP_DOWNLOAD_URL}\n\n` +
                   `Sign in with this number (${phoneKey(phone)}) — it is your ID.`,
               );

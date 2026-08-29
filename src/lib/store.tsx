@@ -298,7 +298,11 @@ interface StoreApi {
 
   /* attendance */
   openShift: Attendance | null;
-  checkIn: (selfie: string | null) => { ok: boolean; reason?: string };
+  checkIn: (
+    selfie: string | null,
+    faceCheck?: { verified: boolean; distance: number },
+  ) => { ok: boolean; reason?: string };
+  enrollFace: (userId: string, descriptors: number[][]) => void;
   checkOut: (
     selfie: string | null,
     extras?: { voiceNote?: Omit<VoiceNote, "at" | "coords" | "place"> },
@@ -1122,7 +1126,15 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
   );
 
   const checkIn = useCallback(
-    (selfie: string | null): { ok: boolean; reason?: string } => {
+    (
+      selfie: string | null,
+      /*
+       * Computed by the caller, not here: reading a face is asynchronous
+       * model inference and this mutation is synchronous. Passing the
+       * verdict in keeps the store the single place that *writes* it.
+       */
+      faceCheck?: { verified: boolean; distance: number },
+    ): { ok: boolean; reason?: string } => {
       const s = stateRef.current;
       const f = fixRef.current;
       if (!s?.session || !f) return { ok: false, reason: "Waiting for a GPS fix." };
@@ -1155,6 +1167,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         place: resolvePlace(f.coords, project.zones, project.location),
         insideGeofence: true,
         syncedAt: isOffline ? undefined : Date.now(),
+        faceCheck,
       };
       // Lateness is judged against the person's assigned shift; the project
       // rules stand in only when no shift has ever been configured.
@@ -2506,6 +2519,46 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     [mutate],
   );
 
+  /**
+   * Store an enrolled face.
+   *
+   * Descriptors only — the photographs the samples came from are already
+   * discarded by the time this is called. Passing an empty array removes
+   * the enrolment, which is how someone withdraws it.
+   */
+  const enrollFace = useCallback(
+    (userId: string, descriptors: number[][]) => {
+      mutate((s) => ({
+        ...s,
+        users: s.users.map((u) =>
+          u.id === userId
+            ? {
+                ...u,
+                face: descriptors.length
+                  ? {
+                      descriptors,
+                      enrolledAt: Date.now(),
+                      enrolledBy: s.session?.userId,
+                    }
+                  : undefined,
+              }
+            : u,
+        ),
+        audit: [
+          auditLine(
+            s,
+            descriptors.length ? "face.enroll" : "face.remove",
+            s.users.find((u) => u.id === userId)?.name ?? userId,
+            descriptors.length ? `${descriptors.length} samples` : "enrolment removed",
+          ),
+          ...s.audit,
+        ].slice(0, 200),
+      }));
+      showToast(descriptors.length ? "Face enrolled" : "Face enrolment removed");
+    },
+    [mutate],
+  );
+
   const saveEmployee = useCallback(
     (patch: Partial<User> & { name: string }, id?: string): User => {
       let saved: User | null = null;
@@ -3024,6 +3077,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     setSimScenario,
     openShift,
     checkIn,
+    enrollFace,
     checkOut,
     liveTrail,
     startBreak,

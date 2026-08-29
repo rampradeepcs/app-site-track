@@ -53,6 +53,22 @@ export interface User {
    * present, and is still paid; they simply do not carry a phone.
    */
   appAccess?: boolean;
+  /**
+   * Enrolled face, for verifying who is checking in.
+   *
+   * Descriptors, not photographs: 128 floats per sample that can be
+   * compared against another face and cannot be turned back into one.
+   * Several samples because a face reads differently in different light,
+   * and the enrolment is worth more than one good frame.
+   *
+   * Biometric data, held on the device that captured it and removed when
+   * the enrolment is deleted.
+   */
+  face?: {
+    descriptors: number[][];
+    enrolledAt: number;
+    enrolledBy?: string;
+  };
   /** Assigned vehicle — decides the petrol rate that applies to their travel. */
   vehicle?: Vehicle;
 }
@@ -514,6 +530,18 @@ export interface AttendanceMark {
   accuracy: number;
   /** Data-URL of the captured selfie (or a generated placeholder). */
   selfie: string;
+  /**
+   * How the check-in selfie compared to the enrolled face.
+   *
+   * Absent when the person has no enrolment or the device cannot run the
+   * model — which is not a failure and must not read as one. `verified:
+   * false` means the comparison ran and disagreed.
+   */
+  faceCheck?: {
+    verified: boolean;
+    /** Distance to the nearest enrolled sample; lower is closer. */
+    distance: number;
+  };
   /** Human-readable zone/landmark resolved from the site plan. */
   place: string;
   insideGeofence: boolean;

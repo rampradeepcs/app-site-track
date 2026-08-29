@@ -12,6 +12,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { SiteMap, type MapMarker } from "@/components/SiteMap";
 import { SelfieCapture } from "@/components/SelfieCapture";
+import { FaceSetupCard } from "@/components/FaceSetupCard";
+import { matchAgainst, readFace } from "@/lib/face/engine";
 import { VoiceRecorder, type RecordedNote } from "@/components/VoiceRecorder";
 import { WorkUpdateForm } from "@/components/WorkUpdateForm";
 import { useFeature } from "@/components/FeatureGate";
@@ -211,9 +213,29 @@ export default function EmployeeHome() {
     );
   };
 
-  const completeSelfie = (dir: "in" | "out", dataUrl: string) => {
+  const completeSelfie = async (dir: "in" | "out", dataUrl: string) => {
     if (dir === "in") {
-      const res = checkIn(dataUrl);
+      /*
+       * Verify the selfie against the enrolled face, when there is one and
+       * the phone can run the model.
+       *
+       * A failure to *run* is not a failure to match: no enrolment, an
+       * unsupported device, or a reading the model could not take all leave
+       * the verdict absent, and the check-in proceeds exactly as it did
+       * before. Only an actual comparison that disagreed records
+       * `verified: false`, which the supervisor sees — nobody is stopped at
+       * the gate by a dusty lens.
+       */
+      let faceCheck: { verified: boolean; distance: number } | undefined;
+      const enrolled = currentUser?.face?.descriptors;
+      if (enrolled?.length) {
+        const reading = await readFace(dataUrl);
+        if (reading) {
+          const m = matchAgainst(reading.descriptor, enrolled);
+          faceCheck = { verified: m.matched, distance: Number(m.distance.toFixed(4)) };
+        }
+      }
+      const res = checkIn(dataUrl, faceCheck);
       if (!res.ok) {
         setFlow({ step: "blocked", reason: res.reason ?? "Check-in failed." });
         return;
@@ -281,6 +303,7 @@ export default function EmployeeHome() {
     const otMinutes = liveMetrics?.overtimeMinutes ?? 0;
     return (
       <div className="flex flex-col gap-4 px-4 pt-4">
+        <FaceSetupCard />
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Avatar
@@ -716,6 +739,7 @@ export default function EmployeeHome() {
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-4">
+      <FaceSetupCard />
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[0.8rem] text-[var(--wf-muted)]">{greeting},</p>
