@@ -9,6 +9,7 @@ import { NativeChrome } from "@/components/NativeChrome";
 import { ToastHost } from "@/components/ToastHost";
 import { TileCache } from "@/components/TileCache";
 import { NoteReminders } from "@/components/NoteReminders";
+import { SsoReturn } from "@/components/SsoReturn";
 
 /*
  * The face is the identity, so the webfont leads the stack (workforce.css
@@ -60,6 +61,7 @@ export default function RootLayout({
               <NativeChrome />
               <TileCache />
               <NoteReminders />
+              <SsoReturn />
               <ToastHost />
               <DemoBar />
             </WorkforceProvider>

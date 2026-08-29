@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkforce } from "@/lib/store";
 import { Field } from "@/components/ui";
+import { SsoButtons } from "@/components/SsoButtons";
 import { IAlert, IArrowR, IChevronL, ILock, IShield } from "@/components/WfIcons";
 import { consumeSignInDirect, landingFor } from "@/lib/routes";
 import { isLiveBackend } from "@/lib/supabase/client";
@@ -246,6 +247,8 @@ function LocalGate() {
           >
             Send code <IArrowR size={17} />
           </button>
+
+          <SsoButtons onError={setError} />
 
           <NewCompanyLink />
 

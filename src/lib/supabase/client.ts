@@ -33,7 +33,19 @@ export function supabase(): SupabaseClient<Database> | null {
   if (!isLiveBackend) return null;
   if (!cached) {
     cached = createClient<Database>(URL!, ANON!, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        /*
+         * PKCE rather than the implicit flow, because the native sign-in
+         * cannot use the implicit one: OAuth happens in the system browser
+         * and comes back through a deep link carrying a code, which only
+         * PKCE can exchange for a session. On the web it behaves the same
+         * as before — `detectSessionInUrl` completes it on return.
+         */
+        flowType: "pkce",
+      },
     });
   }
   return cached;

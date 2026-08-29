@@ -119,3 +119,100 @@ function normalisePhone(raw: string): string {
   if (digits.length === 10) return `+91${digits}`;
   return `+${digits}`;
 }
+
+/* ------------------------------------------------------------- SSO ------ */
+
+/**
+ * Single sign-on providers offered at onboarding.
+ *
+ * "azure" is Supabase's name for the Microsoft identity platform, which is
+ * what an Outlook or Microsoft 365 account signs in with — the label says
+ * Outlook because that is what the person clicking it calls their account.
+ */
+export type SsoProvider = "google" | "azure";
+
+export const SSO_PROVIDERS: Array<{ id: SsoProvider; label: string }> = [
+  { id: "google", label: "Continue with Google" },
+  { id: "azure", label: "Continue with Outlook" },
+];
+
+/** True inside the Capacitor shell, where OAuth cannot use the WebView. */
+function isNative(): boolean {
+  if (typeof window === "undefined") return false;
+  const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } })
+    .Capacitor;
+  return typeof cap?.isNativePlatform === "function" ? cap.isNativePlatform() : false;
+}
+
+/** The address the provider sends the browser back to when it is done. */
+function redirectTarget(): string {
+  // A custom scheme on device, because there is no http origin to return to
+  // that the system browser could hand back to this app.
+  return isNative()
+    ? "app.workfence.workforce://auth-callback"
+    : `${window.location.origin}/`;
+}
+
+/**
+ * Start a single sign-on.
+ *
+ * On the web this is an ordinary redirect and the session is picked up on
+ * return. On a device it is deliberately *not*: Google refuses OAuth inside
+ * an embedded WebView — the error is `disallowed_useragent` and there is no
+ * way around it, by design, because an app that renders the sign-in page can
+ * read the password out of it. So the URL is opened in the system browser
+ * and the answer arrives back through a deep link.
+ */
+export async function signInWithProvider(
+  provider: SsoProvider,
+): Promise<AuthResult> {
+  try {
+    const sb = requireSupabase();
+    const { data, error } = await sb.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: redirectTarget(),
+        skipBrowserRedirect: isNative(),
+      },
+    });
+    if (error) return { ok: false, error: describe(error) };
+    if (isNative() && data?.url) {
+      const { Browser } = await import("@capacitor/browser");
+      await Browser.open({ url: data.url, presentationStyle: "popover" });
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: describe(e) };
+  }
+}
+
+/**
+ * Finish a native sign-in from the deep link the browser returned to.
+ *
+ * Accepts both shapes a provider may send back: a PKCE `code` in the query,
+ * and the implicit `access_token` pair in the fragment, because which one
+ * arrives depends on how the Supabase project is configured and being wrong
+ * about it would strand the user on a blank screen.
+ */
+export async function completeOAuthRedirect(url: string): Promise<AuthResult> {
+  try {
+    const sb = requireSupabase();
+    const parsed = new URL(url);
+    const code = parsed.searchParams.get("code");
+    if (code) {
+      const { error } = await sb.auth.exchangeCodeForSession(code);
+      return error ? { ok: false, error: describe(error) } : { ok: true };
+    }
+    const hash = new URLSearchParams(parsed.hash.replace(/^#/, ""));
+    const access_token = hash.get("access_token");
+    const refresh_token = hash.get("refresh_token");
+    if (access_token && refresh_token) {
+      const { error } = await sb.auth.setSession({ access_token, refresh_token });
+      return error ? { ok: false, error: describe(error) } : { ok: true };
+    }
+    const denied = parsed.searchParams.get("error_description");
+    return { ok: false, error: denied ?? "Sign-in did not complete." };
+  } catch (e) {
+    return { ok: false, error: describe(e) };
+  }
+}

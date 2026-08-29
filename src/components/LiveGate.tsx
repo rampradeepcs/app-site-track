@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkforce } from "@/lib/store";
 import { currentAppUser, sendOtp, signOut, verifyOtp } from "@/lib/supabase/auth";
+import { SsoButtons } from "./SsoButtons";
 import { consumeSignInDirect, landingFor } from "@/lib/routes";
 import { Field } from "@/components/ui";
 import { WorkfenceMark } from "@/components/Brand";
@@ -220,6 +221,8 @@ export default function LiveGate() {
           >
             {busy ? "Sending…" : "Send code"} <IArrowR size={17} />
           </button>
+
+          <SsoButtons onError={setError} />
 
           <NewCompanyLink />
 
