@@ -23,7 +23,13 @@ import {
 } from "@/lib/payroll";
 import { useWorkforce } from "@/lib/store";
 import { VEHICLE_LABEL } from "@/lib/allowances";
-import type { SalaryType, User, Vehicle, VehicleType } from "@/lib/types";
+import type {
+  CompRecord,
+  SalaryType,
+  User,
+  Vehicle,
+  VehicleType,
+} from "@/lib/types";
 import { IClock, INav, IWallet } from "./WfIcons";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -144,6 +150,7 @@ export function SalaryAndShiftSection({ user }: { user: User }) {
             <div className="mt-3">
               <SalaryForm
                 user={user}
+                current={comp}
                 onDone={() => setEditing(false)}
               />
             </div>
@@ -302,13 +309,40 @@ function VehicleForm({ user, onDone }: { user: User; onDone: () => void }) {
   );
 }
 
-function SalaryForm({ user, onDone }: { user: User; onDone: () => void }) {
+function SalaryForm({
+  user,
+  current,
+  onDone,
+}: {
+  user: User;
+  /** The salary in force, if there is one. */
+  current: CompRecord | null;
+  onDone: () => void;
+}) {
   const wf = useWorkforce();
-  const [type, setType] = useState<SalaryType>("monthly");
-  const [amount, setAmount] = useState(0);
+
+  /*
+   * A revision starts from what is in force, not from an empty form.
+   *
+   * Salary history is append-only: this writes a new record rather than
+   * editing the old one, and a blank form made that look like starting
+   * over. Worse, someone revising only the amount had to re-enter the
+   * working days and standard hours from memory to avoid silently
+   * resetting them to 26 and 8 — a quiet way to change how every
+   * subsequent day is priced.
+   *
+   * The date is the exception: it defaults to today, because a revision
+   * takes effect from when you make it, not from when the last one did.
+   */
+  const [type, setType] = useState<SalaryType>(current?.type ?? "monthly");
+  const [amount, setAmount] = useState(current?.amount ?? 0);
   const [effectiveFrom, setEffectiveFrom] = useState(todayISO());
-  const [workingDays, setWorkingDays] = useState(26);
-  const [dayHours, setDayHours] = useState(8);
+  const [workingDays, setWorkingDays] = useState(
+    current?.workingDaysPerMonth ?? 26,
+  );
+  const [dayHours, setDayHours] = useState(
+    current ? Math.round((current.standardDayMinutes / 60) * 100) / 100 : 8,
+  );
   const [note, setNote] = useState("");
 
   return (
