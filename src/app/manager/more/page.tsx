@@ -147,7 +147,7 @@ function MoreInner() {
 
   return (
     <div>
-      <ScreenHeader title="More" sub="Modules · reports · performance · settings" />
+      <ScreenHeader title="More" sub="Modules · work updates · alerts · settings" />
       <div className="flex flex-col gap-4 px-4">
         {/* modules that don't earn a permanent tab, per plan and role */}
         <div className="wf-card wf-list overflow-hidden">
@@ -205,25 +205,6 @@ function MoreInner() {
             </span>
             <IChevronR size={16} className="shrink-0 text-[var(--wf-faint)]" />
           </Link>
-        </div>
-
-        <Segmented<Tab>
-          ariaLabel="More sections"
-          value={tab}
-          onChange={setTab}
-          size="sm"
-          options={[
-            { value: "updates", label: "Work updates" },
-            { value: "alerts", label: `Alerts${alerts.filter((n) => !n.read).length ? ` (${alerts.filter((n) => !n.read).length})` : ""}` },
-            { value: "settings", label: "Settings" },
-          ]}
-        />
-
-        {/* Reports and Performance are screens now, not segments. Each is
-            somewhere you go to do a thing and leave, which is a page — and
-            as tabs they shared a scroll position and a back button with
-            settings and alerts. */}
-        <div className="wf-card wf-list overflow-hidden">
           <Link href="/manager/reports" className="wf-row">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--wf-fill-2)]">
               <IFile size={18} />
@@ -250,6 +231,22 @@ function MoreInner() {
           </Link>
         </div>
 
+        <Segmented<Tab>
+          ariaLabel="More sections"
+          value={tab}
+          onChange={setTab}
+          size="sm"
+          options={[
+            { value: "updates", label: "Work updates" },
+            { value: "alerts", label: `Alerts${alerts.filter((n) => !n.read).length ? ` (${alerts.filter((n) => !n.read).length})` : ""}` },
+            { value: "settings", label: "Settings" },
+          ]}
+        />
+
+        {/* Reports and Performance are screens now, not segments. Each is
+            somewhere you go to do a thing and leave, which is a page — and
+            as tabs they shared a scroll position and a back button with
+            settings and alerts. */}
         {tab === "updates" && (
           <div className="flex flex-col gap-2.5">
             {state.updates.slice(0, 30).map((u) => {

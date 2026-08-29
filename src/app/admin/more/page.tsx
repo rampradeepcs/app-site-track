@@ -18,6 +18,8 @@ import {
   IChart,
   IChevronR,
   IClock,
+  IFile,
+  ILayers,
   IMapPin,
   INav,
   IShield,
@@ -68,11 +70,28 @@ const ITEMS: Item[] = [
     feature: "liveTracking",
     roles: ["admin", "manager", "superadmin"],
   },
+  /* Two destinations, not one stop on the way to them. This pointed at
+     /manager/more, so reaching a report meant landing on another More
+     page and finding the row again. */
+  {
+    href: "/manager/reports",
+    icon: <IFile size={18} />,
+    label: "Reports",
+    sub: "Attendance, workforce and payroll exports",
+    roles: ["admin", "manager", "superadmin"],
+  },
+  {
+    href: "/manager/performance",
+    icon: <IChart size={18} />,
+    label: "Performance",
+    sub: "Last 14 days, ranked, and who needs attention",
+    roles: ["admin", "manager", "superadmin"],
+  },
   {
     href: "/manager/more",
-    icon: <IChart size={18} />,
-    label: "Reports & performance",
-    sub: "Attendance trends, exports, work-update feed",
+    icon: <ILayers size={18} />,
+    label: "Work updates & alerts",
+    sub: "The site feed, alerts and manager settings",
     roles: ["admin", "manager", "superadmin"],
   },
   {
