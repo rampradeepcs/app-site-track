@@ -390,7 +390,11 @@ function ProjectInner() {
                   tapping one narrows the table, tapping it again clears
                   it. "All" is always present so there is a way back to the
                   whole day without hunting for the pill you pressed. */}
-              <div className="wf-scroll-x -mx-1 flex items-center gap-2 px-1 pb-1">
+              {/* Vertical padding inside the scroller, cancelled by the
+                  negative margin. `overflow-x: auto` makes the y-axis clip
+                  too, so the selected pill's ring was being sliced off top
+                  and bottom; it needs real room, not just a bottom pad. */}
+              <div className="wf-scroll-x -mx-1 -my-1.5 flex items-center gap-2 px-1 py-1.5">
                 <button
                   aria-pressed={attStatus === null}
                   onClick={() => setAttStatus(null)}
