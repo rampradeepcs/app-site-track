@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { EmployeePicker } from "@/components/EmployeePicker";
 import { FeatureGate } from "@/components/FeatureGate";
 import { ScreenHeader } from "@/components/shell";
 import {
@@ -204,7 +205,7 @@ export default function ManagerShifts() {
                     <IUsers size={14} /> Assign
                   </button>
                   <button
-                    className="wf-btn wf-btn-ghost wf-btn-sm ml-auto text-[var(--wf-red)]"
+                    className="wf-btn wf-btn-ghost wf-btn-sm ml-auto wf-btn-danger-text"
                     onClick={() => setDeleting(sh)}
                   >
                     <ITrash size={14} /> Delete
@@ -764,55 +765,12 @@ function AssignSheet({ shift, onDone }: { shift: ShiftDef; onDone: () => void })
   const { state } = wf;
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [effectiveFrom, setEffectiveFrom] = useState(todayISO());
-  const [query, setQuery] = useState("");
-  const listRef = useRef<HTMLDivElement>(null);
 
   const people = useMemo(
     () =>
-      state.users
-        .filter((u) => u.role !== "superadmin" && u.status === "active")
-        .sort((a, b) => a.name.localeCompare(b.name)),
+      state.users.filter((u) => u.role !== "superadmin" && u.status === "active"),
     [state.users],
   );
-
-  // Search covers the three things anyone actually knows about a person:
-  // what they are called, their code, and what they do.
-  const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return people;
-    return people.filter((u) =>
-      [u.name, u.employeeCode, u.designation, u.department]
-        .filter(Boolean)
-        .some((f) => String(f).toLowerCase().includes(q)),
-    );
-  }, [people, query]);
-
-  /** Grouped by first letter, in order — the shape the rail indexes into. */
-  const sections = useMemo(() => {
-    const map = new Map<string, typeof people>();
-    for (const u of matches) {
-      const c = (u.name.trim()[0] ?? "#").toUpperCase();
-      const letter = /[A-Z]/.test(c) ? c : "#";
-      const list = map.get(letter);
-      if (list) list.push(u);
-      else map.set(letter, [u]);
-    }
-    return [...map.entries()];
-  }, [matches]);
-
-  const present = useMemo(() => new Set(sections.map(([l]) => l)), [sections]);
-
-  /**
-   * Scroll a letter's group to the top of the list.
-   *
-   * Offsets within the scroller rather than `scrollIntoView`, which would
-   * also scroll the sheet itself and the page behind it.
-   */
-  const jumpTo = (letter: string) => {
-    const box = listRef.current;
-    const target = box?.querySelector<HTMLElement>(`[data-letter="${letter}"]`);
-    if (box && target) box.scrollTop = target.offsetTop;
-  };
 
   const toggle = (id: string) =>
     setChosen((prev) => {
@@ -919,95 +877,11 @@ function AssignSheet({ shift, onDone }: { shift: ShiftDef; onDone: () => void })
         </Field>
       ) : null}
 
-      <div className="relative">
-        <ISearch
-          size={15}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]"
-        />
-        <input
-          className="wf-input wf-input-search"
-          placeholder="Search name, code, trade…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
-
-      {/* The list and its A–Z rail. The rail jumps rather than filters, so
-          the selection you have already made stays visible while you go
-          looking for the next person. */}
-      <div className="flex gap-1">
-        <div
-          aria-hidden
-          className="flex w-5 shrink-0 flex-col items-center justify-start gap-px py-1"
-        >
-          {ALPHABET.map((letter) => {
-            const has = present.has(letter);
-            return (
-              <button
-                key={letter}
-                tabIndex={-1}
-                disabled={!has}
-                onClick={() => jumpTo(letter)}
-                className={`w-full rounded text-[0.56rem] font-bold leading-[1.28] ${
-                  has
-                    ? "cursor-pointer text-[var(--wf-muted)] hover:text-[var(--wf-fg)]"
-                    : "text-[var(--wf-line-strong)]"
-                }`}
-              >
-                {letter}
-              </button>
-            );
-          })}
-        </div>
-
-        <div
-          ref={listRef}
-          data-sheet-scroll
-          className="max-h-72 min-w-0 flex-1 overflow-y-auto"
-        >
-          {sections.length === 0 ? (
-            <p className="px-1.5 py-6 text-center text-[0.82rem] text-[var(--wf-muted)]">
-              Nobody matches “{query}”.
-            </p>
-          ) : (
-            sections.map(([letter, group]) => (
-              <div key={letter} data-letter={letter}>
-                <p className="sticky top-0 z-10 bg-[var(--wf-surface)] px-1.5 py-1 text-[0.68rem] font-bold uppercase tracking-wider text-[var(--wf-muted)]">
-                  {letter}
-                </p>
-                {group.map((u) => (
-                  <button
-                    key={u.id}
-                    className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-1.5 py-2 text-left hover:bg-[var(--wf-fill-3)]"
-                    aria-pressed={chosen.has(u.id)}
-                    onClick={() => toggle(u.id)}
-                  >
-                    <Avatar name={u.name} hue={u.avatarHue} size={32} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[0.86rem] font-semibold">
-                        {u.name}
-                      </span>
-                      <span className="block truncate text-[0.7rem] text-[var(--wf-muted)]">
-                        {u.designation} · {u.employeeCode}
-                      </span>
-                    </span>
-                    <span
-                      className="grid h-5 w-5 shrink-0 place-items-center rounded-md border text-[0.7rem] font-bold"
-                      style={{
-                        background: chosen.has(u.id) ? "var(--wf-amber)" : "transparent",
-                        color: chosen.has(u.id) ? "var(--wf-on-amber)" : "transparent",
-                        borderColor: "var(--wf-line-strong)",
-                      }}
-                    >
-                      ✓
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+      <EmployeePicker
+        people={people}
+        selected={chosen}
+        onToggle={(u) => toggle(u.id)}
+      />
 
       <button
         className="wf-btn wf-btn-primary wf-btn-lg"

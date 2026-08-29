@@ -260,7 +260,7 @@ function ReviewSheet({ trip, onDone }: { trip: TravelAllowance; onDone: () => vo
               Approve{edited ? ` ${km.toFixed(1)} km` : ""}
             </button>
             <button
-              className="wf-btn wf-btn-ghost text-[var(--wf-red)]"
+              className="wf-btn wf-btn-ghost wf-btn-danger-text"
               onClick={() => {
                 wf.decideTravel(trip.session.id, "rejected");
                 onDone();

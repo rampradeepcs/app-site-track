@@ -334,9 +334,11 @@ export function ScreenHeader({
           {title}
         </h1>
         {sub ? (
-          /* The title is a heading and stays on one line; the subtitle is
-             information, so it wraps rather than losing its last words. */
-          <p className="mt-0.5 line-clamp-2 text-[0.76rem] leading-snug text-[var(--wf-muted)]">
+          /* Both stay on one line. A two-line subtitle pushed the content
+             down by a different amount on every screen, so the header sat
+             at a different height depending on how long the sub happened
+             to be — and the full text is never load-bearing here. */
+          <p className="mt-0.5 truncate text-[0.76rem] leading-snug text-[var(--wf-muted)]">
             {sub}
           </p>
         ) : null}

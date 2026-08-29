@@ -386,7 +386,7 @@ export default function ManagerPayroll() {
                     }
                   />
                   <CountdownButton
-                    className="wf-btn wf-btn-ghost wf-btn-sm text-[var(--wf-red)]"
+                    className="wf-btn wf-btn-ghost wf-btn-sm wf-btn-danger-text"
                     tone="danger"
                     label="Reject all"
                     armedLabel="Cancel"
@@ -747,7 +747,7 @@ function OvertimeApprovalRow({ att }: { att: Attendance }) {
           }
         />
         <CountdownButton
-          className="wf-btn wf-btn-ghost wf-btn-sm text-[var(--wf-red)]"
+          className="wf-btn wf-btn-ghost wf-btn-sm wf-btn-danger-text"
           tone="danger"
           label="Reject"
           armedLabel="Cancel"

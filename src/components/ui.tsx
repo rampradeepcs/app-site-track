@@ -259,12 +259,14 @@ export function Segmented<T extends string>({
   onChange,
   size = "md",
   ariaLabel,
+  className = "",
 }: {
   options: Array<{ value: T; label: React.ReactNode }>;
   value: T;
   onChange: (v: T) => void;
   size?: "sm" | "md";
   ariaLabel?: string;
+  className?: string;
 }) {
   const track = useRef<HTMLDivElement>(null);
   const index = Math.max(0, options.findIndex((o) => o.value === value));
@@ -300,7 +302,7 @@ export function Segmented<T extends string>({
       ref={track}
       role="tablist"
       aria-label={ariaLabel}
-      className="wf-seg max-w-full"
+      className={`wf-seg max-w-full ${className}`}
       style={{ minHeight: size === "sm" ? 28 : 32 }}
     >
       {pill ? (

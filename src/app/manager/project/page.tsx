@@ -12,6 +12,7 @@ import { GeofenceEditor } from "@/components/GeofenceEditor";
 import { ScreenHeader } from "@/components/shell";
 import { SiteMap, type MapMarker } from "@/components/SiteMap";
 import { BarTrend } from "@/components/charts";
+import { EmployeePicker } from "@/components/EmployeePicker";
 import {
   Avatar,
   BottomSheet,
@@ -62,7 +63,6 @@ function ProjectInner() {
   const project = state.projects.find((p) => p.id === id) ?? null;
   const [tab, setTab] = useState<Tab>("overview");
   const [assigning, setAssigning] = useState(false);
-  const [savedFlash, setSavedFlash] = useState(false);
   const now = useNowTick(15);
 
   const board = useMemo(
@@ -179,18 +179,11 @@ function ProjectInner() {
 
         {tab === "geofence" && (
           <>
-            {savedFlash && (
-              <p className="wf-inset border-[var(--wf-green-edge)] px-3.5 py-2.5 text-[0.8rem] font-semibold text-[var(--wf-green)]">
-                Geofence saved. Employees can now only check in inside the new boundary.
-              </p>
-            )}
             <GeofenceEditor
               key={project.id}
               project={project}
               onSave={(fence) => {
                 updateGeofence(project.id, fence);
-                setSavedFlash(true);
-                window.setTimeout(() => setSavedFlash(false), 4000);
               }}
             />
             {/* Editable here rather than only at creation: the reason to
@@ -365,33 +358,38 @@ function ProjectInner() {
       </div>
 
       {/* assignment sheet */}
-      <BottomSheet open={assigning} onClose={() => setAssigning(false)} title="Assign employees">
-        <div className="flex flex-col gap-2">
-          {unassigned.length === 0 && (
-            <p className="py-6 text-center text-sm text-[var(--wf-muted)]">
-              <IUsers size={22} className="mx-auto mb-2" />
-              Every active employee is already on this project.
-            </p>
-          )}
-          {unassigned.map((u) => (
-            <div key={u.id} className="wf-card2 flex items-center gap-3 px-3.5 py-2.5">
-              <Avatar name={u.name} hue={u.avatarHue} size={38} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-semibold">{u.name}</span>
-                <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
-                  {u.designation}
-                  {u.projectIds.length ? ` · also on ${u.projectIds.length} project${u.projectIds.length > 1 ? "s" : ""}` : ""}
-                </span>
-              </span>
+      <BottomSheet open={assigning} onClose={() => setAssigning(false)} title="Assign employees" tall>
+        {unassigned.length === 0 ? (
+          <p className="py-6 text-center text-sm text-[var(--wf-muted)]">
+            <IUsers size={22} className="mx-auto mb-2" />
+            Every active employee is already on this project.
+          </p>
+        ) : (
+          /* Single-select: assigning is one tap with nothing to confirm, so
+             the row acts immediately rather than building a set. */
+          <EmployeePicker
+            people={unassigned}
+            mode="single"
+            onToggle={(u) => assignEmployee(u.id, project.id)}
+            maxHeight="24rem"
+            emptyLabel="Nobody available matches"
+            secondary={(u) =>
+              `${u.designation}${
+                u.projectIds.length
+                  ? ` · also on ${u.projectIds.length} project${u.projectIds.length > 1 ? "s" : ""}`
+                  : ""
+              }`
+            }
+            action={(u) => (
               <button
-                className="wf-btn wf-btn-ghost wf-btn-sm"
+                className="wf-btn wf-btn-ghost wf-btn-sm shrink-0"
                 onClick={() => assignEmployee(u.id, project.id)}
               >
                 <ICheck size={14} /> Assign
               </button>
-            </div>
-          ))}
-        </div>
+            )}
+          />
+        )}
       </BottomSheet>
 
       {/* target chip for zones */}

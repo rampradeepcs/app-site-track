@@ -11,6 +11,7 @@ import { SiteMap } from "./SiteMap";
 import { offsetMeters } from "@/lib/geo";
 import type { Geofence, LatLng, Project } from "@/lib/types";
 import { Segmented } from "./ui";
+import { showToast } from "@/lib/toast";
 import { ICheck, IRefresh, ITrash } from "./WfIcons";
 
 export function GeofenceEditor({
@@ -60,8 +61,11 @@ export function GeofenceEditor({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* The shape choice is the first decision on this screen, so it gets
+          the full width rather than sharing a row with the draw tools. */}
+      <div className="flex flex-col gap-3">
         <Segmented
+          className="w-full"
           ariaLabel="Geofence shape"
           value={draft.kind}
           onChange={(kind) => {
@@ -80,12 +84,14 @@ export function GeofenceEditor({
           ]}
         />
         {draft.kind === "polygon" && (
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={resetDefaultPolygon}>
               <IRefresh size={14} /> Auto shape
             </button>
+            {/* Clear throws away a drawn boundary, so it is coloured like
+                what it does rather than sitting quiet beside Auto shape. */}
             <button
-              className="wf-btn wf-btn-ghost wf-btn-sm"
+              className="wf-btn wf-btn-ghost wf-btn-sm wf-btn-danger-text"
               onClick={() => {
                 patch({ polygon: [] });
                 setDrawing(true);
@@ -175,19 +181,27 @@ export function GeofenceEditor({
         </span>
       </label>
 
-      <div className="flex justify-end gap-2.5">
-        {onCancel && (
-          <button className="wf-btn wf-btn-ghost" onClick={onCancel}>
-            Cancel
-          </button>
-        )}
+      <div className="flex flex-col gap-2.5">
+        {/* Saving settles the draft, so `dirty` clears and the button goes
+            back to disabled — otherwise it stays lit over a boundary that
+            is already saved and invites a second, identical save. */}
         <button
-          className="wf-btn wf-btn-primary"
+          className="wf-btn wf-btn-primary wf-btn-lg w-full"
           disabled={!valid || !dirty}
-          onClick={() => onSave(draft)}
+          onClick={() => {
+            onSave(draft);
+            setDirty(false);
+            setDrawing(false);
+            showToast("Geofence saved — check-in is limited to the new boundary");
+          }}
         >
           <ICheck size={17} /> Save geofence
         </button>
+        {onCancel && (
+          <button className="wf-btn wf-btn-ghost w-full" onClick={onCancel}>
+            Cancel
+          </button>
+        )}
       </div>
     </div>
   );

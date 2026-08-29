@@ -288,7 +288,7 @@ function VehicleForm({ user, onDone }: { user: User; onDone: () => void }) {
         </button>
         {user.vehicle ? (
           <button
-            className="wf-btn wf-btn-ghost text-[var(--wf-red)]"
+            className="wf-btn wf-btn-ghost wf-btn-danger-text"
             onClick={() => {
               wf.saveVehicle(user.id, null);
               onDone();

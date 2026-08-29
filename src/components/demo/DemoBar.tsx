@@ -139,7 +139,7 @@ export function DemoBar() {
               <IRefresh size={15} /> Reset demo data
             </button>
             <button
-              className="wf-btn wf-btn-ghost text-[var(--wf-red)]"
+              className="wf-btn wf-btn-ghost wf-btn-danger-text"
               onClick={() => wf.exitDemo()}
             >
               <IX size={15} /> Exit demo mode

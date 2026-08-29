@@ -427,6 +427,44 @@ export function SiteMap({
   const fenceRadiusPx = activeFence ? activeFence.radius / mpp : 0;
   const bufferPx = activeFence ? activeFence.bufferMeters / mpp : 0;
 
+  /*
+   * The gate buffer around a custom polygon.
+   *
+   * A circle shows its buffer as a second ring; a polygon showed nothing at
+   * all, so the slider moved and the map did not — leaving no way to see
+   * what the number meant. Each vertex is pushed out from the centroid by
+   * the buffer distance, which is an approximation rather than a true
+   * Minkowski offset: exact for a regular shape, close enough for the
+   * roughly convex plots these fences are drawn around, and honest about
+   * where the band lies. A concave notch would under-inflate, which errs
+   * toward the tighter boundary of the two.
+   */
+  const fenceBufferPath = (() => {
+    if (
+      !activeFence ||
+      activeFence.kind !== "polygon" ||
+      activeFence.polygon.length < 3 ||
+      bufferPx <= 0
+    ) {
+      return "";
+    }
+    const pts = activeFence.polygon.map(toScreen);
+    const cx = pts.reduce((t, q) => t + q.x, 0) / pts.length;
+    const cy = pts.reduce((t, q) => t + q.y, 0) / pts.length;
+    return (
+      pts
+        .map((q, i) => {
+          const dx = q.x - cx;
+          const dy = q.y - cy;
+          const len = Math.hypot(dx, dy) || 1;
+          const x = q.x + (dx / len) * bufferPx;
+          const y = q.y + (dy / len) * bufferPx;
+          return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+        })
+        .join(" ") + " Z"
+    );
+  })();
+
   const startPt = visibleTrail[0];
   const lastPt = visibleTrail[visibleTrail.length - 1];
 
@@ -551,14 +589,26 @@ export function SiteMap({
                 />
               </>
             ) : fencePath ? (
-              <path
-                d={fencePath}
-                fill="var(--wf-amber-soft)"
-                stroke="var(--wf-amber)"
-                strokeWidth="2.2"
-                strokeDasharray="9 6"
-                strokeLinejoin="round"
-              />
+              <>
+                {fenceBufferPath ? (
+                  <path
+                    d={fenceBufferPath}
+                    fill="none"
+                    stroke="var(--wf-amber-edge)"
+                    strokeWidth="1.4"
+                    strokeDasharray="3 5"
+                    strokeLinejoin="round"
+                  />
+                ) : null}
+                <path
+                  d={fencePath}
+                  fill="var(--wf-amber-soft)"
+                  stroke="var(--wf-amber)"
+                  strokeWidth="2.2"
+                  strokeDasharray="9 6"
+                  strokeLinejoin="round"
+                />
+              </>
             ) : null}
           </g>
         )}

@@ -448,6 +448,18 @@ html[data-theme="light"] .wf {
   background: var(--wf-fill);
 }
 
+/*
+ * A ghost button whose action destroys something.
+ *
+ * It cannot be a Tailwind `text-*` utility: this file is unlayered, so the
+ * `color` above beats Tailwind's utilities layer and seven buttons across
+ * the app were quietly rendering white while their markup asked for red.
+ * The colour has to be set from here, next to the rule that was winning.
+ */
+.wf-btn-danger-text {
+  color: var(--wf-red);
+}
+
 /* Plain — text only, in the tint colour, no chrome until pressed. */
 .wf-btn-quiet {
   background: transparent;
