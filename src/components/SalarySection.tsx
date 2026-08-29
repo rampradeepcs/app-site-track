@@ -126,7 +126,7 @@ export function SalaryAndShiftSection({ user }: { user: User }) {
                 <IWallet size={18} />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="wf-display text-lg font-bold tabular-nums">
+                <p className="wf-display text-lg tabular-nums">
                   {fmtINR(comp.amount)}
                   <span className="text-[0.8rem] font-semibold text-[var(--wf-muted)]">
                     {" "}

@@ -296,7 +296,7 @@ export default function EmployeeHome() {
               >
                 {onBreak ? "On break" : "Shift active"}
               </p>
-              <h1 className="wf-display text-lg font-bold leading-tight">
+              <h1 className="wf-display text-lg leading-tight">
                 {project.name}
               </h1>
             </div>
@@ -719,7 +719,7 @@ export default function EmployeeHome() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[0.8rem] text-[var(--wf-muted)]">{greeting},</p>
-          <h1 className="wf-display text-[1.45rem] font-bold leading-tight">
+          <h1 className="wf-display text-[1.45rem] leading-tight">
             {currentUser.name.split(" ")[0]}
           </h1>
         </div>
@@ -733,7 +733,7 @@ export default function EmployeeHome() {
             <p className="text-[0.68rem] font-bold uppercase tracking-[0.09em] text-[var(--wf-muted)]">
               Assigned project
             </p>
-            <h2 className="wf-display mt-0.5 truncate text-[1.15rem] font-bold">
+            <h2 className="wf-display mt-0.5 truncate text-[1.15rem]">
               {project.name}
             </h2>
             <p className="mt-0.5 flex min-w-0 items-center gap-1 text-[0.76rem] text-[var(--wf-muted)]">
@@ -926,7 +926,7 @@ function ShiftStat({
 }) {
   return (
     <div className="wf-card2 px-2 py-3 text-center">
-      <div className="wf-display text-[1.02rem] font-bold tabular-nums" style={{ color: tone }}>
+      <div className="wf-display text-[1.02rem] tabular-nums" style={{ color: tone }}>
         {value}
       </div>
       <div className="mt-0.5 text-[0.6rem] font-bold uppercase tracking-[0.07em] text-[var(--wf-faint)]">
@@ -1052,7 +1052,7 @@ function FlowSheets({
             <ICheckCircle size={34} />
           </span>
           <div>
-            <h3 className="wf-display text-xl font-bold">Check-in successful</h3>
+            <h3 className="wf-display text-xl">Check-in successful</h3>
             <p className="mt-1 text-sm text-[var(--wf-muted)]">
               {flow?.step === "done-in" ? fmtTime(flow.at) : ""} · {projectName}
             </p>
@@ -1078,14 +1078,14 @@ function FlowSheets({
               <ICheckCircle size={34} />
             </span>
             <div>
-              <h3 className="wf-display text-xl font-bold">Checkout successful</h3>
+              <h3 className="wf-display text-xl">Checkout successful</h3>
               <p className="mt-1 text-sm tabular-nums text-[var(--wf-muted)]">
                 {fmtTime(flow.summary.inAt)} — {fmtTime(flow.summary.outAt)}
               </p>
             </div>
             <div className="grid w-full grid-cols-2 gap-2.5">
               <div className="wf-card2 px-3 py-3">
-                <div className="wf-display text-lg font-bold text-[var(--wf-green)]">
+                <div className="wf-display text-lg text-[var(--wf-green)]">
                   {fmtDuration(flow.summary.minutes)}
                 </div>
                 <div className="text-[0.62rem] font-bold uppercase tracking-wider text-[var(--wf-faint)]">
@@ -1093,7 +1093,7 @@ function FlowSheets({
                 </div>
               </div>
               <div className="wf-card2 px-3 py-3">
-                <div className="wf-display text-lg font-bold text-[var(--wf-blue)]">
+                <div className="wf-display text-lg text-[var(--wf-blue)]">
                   {fmtDistance(flow.summary.distance)}
                 </div>
                 <div className="text-[0.62rem] font-bold uppercase tracking-wider text-[var(--wf-faint)]">

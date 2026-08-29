@@ -70,7 +70,7 @@ export default function EmployeeTravel() {
           byDay.map(({ date, trips }) => (
             <div key={date} className="wf-card overflow-hidden">
               <div className="flex items-center justify-between px-4 pb-2 pt-3.5">
-                <h2 className="wf-display text-[0.95rem] font-bold">
+                <h2 className="wf-display text-[0.95rem]">
                   {fmtDateLong(date)}
                 </h2>
                 <p className="text-[0.74rem] tabular-nums text-[var(--wf-muted)]">

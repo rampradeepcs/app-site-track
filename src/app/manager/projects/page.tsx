@@ -73,7 +73,7 @@ export default function ManagerProjects() {
               <div className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h2 className="wf-display truncate font-bold">{p.name}</h2>
+                    <h2 className="wf-display truncate">{p.name}</h2>
                     <p className="truncate text-[0.74rem] text-[var(--wf-muted)]">
                       {p.code} · {p.client}
                     </p>

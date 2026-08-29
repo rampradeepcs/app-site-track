@@ -34,7 +34,7 @@ export default function SubscriptionsPage() {
           <div key={p.id} className={`wf-card flex flex-col p-4 ${p.archived ? "opacity-60" : ""}`}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <h2 className="wf-display truncate text-lg font-bold">{p.name}</h2>
+                <h2 className="wf-display truncate text-lg">{p.name}</h2>
                 <p className="text-[0.74rem] text-[var(--wf-muted)]">{p.description}</p>
               </div>
               {p.archived && (
@@ -44,7 +44,7 @@ export default function SubscriptionsPage() {
               )}
             </div>
 
-            <p className="wf-display mt-3 text-2xl font-bold">
+            <p className="wf-display mt-3 text-2xl">
               {money(p.monthlyPrice, p.currency)}
               <span className="text-[0.8rem] font-normal text-[var(--wf-muted)]">/mo</span>
             </p>

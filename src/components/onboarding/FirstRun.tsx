@@ -107,7 +107,7 @@ export function FirstRun({
           <ICheckCircle size={20} />
         </span>
         <div className="min-w-0">
-          <h2 className="wf-display text-[1.05rem] font-bold">
+          <h2 className="wf-display text-[1.05rem]">
             Getting {orgName} running
           </h2>
           <p className="text-[0.8rem] leading-relaxed text-[var(--wf-muted)]">

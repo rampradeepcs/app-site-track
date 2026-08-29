@@ -161,7 +161,7 @@ export default function LiveGate() {
             <IAlert size={30} />
           </span>
           <div>
-            <h1 className="wf-display text-2xl font-bold">Account not linked</h1>
+            <h1 className="wf-display text-2xl">Account not linked</h1>
             <p className="mt-2 text-sm text-[var(--wf-muted)]">
               <span className="font-semibold text-[var(--wf-fg)]">{identifier}</span> signed
               in successfully, but it isn&apos;t attached to any organisation yet. Ask your
@@ -187,7 +187,7 @@ export default function LiveGate() {
           <div className="flex flex-col items-center gap-3 text-center">
             <WorkfenceMark size={62} />
             <div>
-              <h1 className="wf-display text-2xl font-bold">Sign in to Workfence</h1>
+              <h1 className="wf-display text-2xl">Sign in to Workfence</h1>
               <p className="mt-1 text-sm text-[var(--wf-muted)]">
                 We&apos;ll send a one-time code. No password to remember on site.
               </p>
@@ -244,7 +244,7 @@ export default function LiveGate() {
               <ILock size={28} />
             </span>
             <div>
-              <h1 className="wf-display text-2xl font-bold">Verify it&apos;s you</h1>
+              <h1 className="wf-display text-2xl">Verify it&apos;s you</h1>
               <p className="mt-1 text-sm text-[var(--wf-muted)]">{notice}</p>
             </div>
           </div>

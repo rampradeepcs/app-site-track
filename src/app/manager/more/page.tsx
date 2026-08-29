@@ -344,7 +344,7 @@ function MoreInner() {
                     </span>
                   </span>
                   <span
-                    className="wf-display text-lg font-bold tabular-nums"
+                    className="wf-display text-lg tabular-nums"
                     style={{
                       color:
                         perf.overall >= 75

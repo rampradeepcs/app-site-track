@@ -1,2 +1,18 @@
 @import "tailwindcss";
-@import "./workforce.css";
+
+/*
+ * The design system is imported *into* Tailwind's components layer.
+ *
+ * Unlayered CSS beats every layered rule, so while this file was a plain
+ * import it outranked `@layer utilities` — and a utility that looked like
+ * it applied silently did nothing. That was not theoretical: `w-16` on a
+ * .wf-input lost to its `width: 100%`, `text-[var(--wf-red)]` on a ghost
+ * button lost to its `color`, and both failed quietly in about twenty
+ * places, looking correct in the markup and wrong on screen.
+ *
+ * In the components layer the intended order holds: the design system sets
+ * the default for a component, and a utility on the element overrides it.
+ * Custom properties are unaffected — layers order declarations, and the
+ * tokens have nothing competing with them.
+ */
+@import "./workforce.css" layer(components);

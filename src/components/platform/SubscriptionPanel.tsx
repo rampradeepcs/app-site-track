@@ -57,7 +57,7 @@ export function SubscriptionPanel({ orgId }: { orgId: string }) {
           <p className="text-[0.7rem] font-bold uppercase tracking-wider text-[var(--wf-muted)]">
             {customised ? "Customised configuration" : "Subscription"}
           </p>
-          <p className="wf-display mt-0.5 text-xl font-bold">
+          <p className="wf-display mt-0.5 text-xl">
             {plan.name}
             {customised && (
               <span className="ml-2 rounded bg-[var(--wf-violet-soft)] px-1.5 py-0.5 align-middle text-[0.6rem] font-bold text-[var(--wf-violet)]">

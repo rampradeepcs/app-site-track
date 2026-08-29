@@ -94,7 +94,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
         >
           {navOpen ? <IX size={18} /> : <IGrid size={18} />}
         </button>
-        <span className="wf-display font-bold">Workfence Platform</span>
+        <span className="wf-display">Workfence Platform</span>
       </header>
 
       {/* sidebar */}
@@ -106,7 +106,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
             SA
           </span>
           <span>
-            <span className="wf-display block text-[0.95rem] font-bold leading-tight">Workfence</span>
+            <span className="wf-display block text-[0.95rem] leading-tight">Workfence</span>
             <span className="block text-[0.66rem] uppercase tracking-wider text-[var(--wf-violet)]">
               Platform console
             </span>
@@ -192,7 +192,7 @@ export function PageHead({
             ← {back.label}
           </Link>
         )}
-        <h1 className="wf-display truncate text-[1.5rem] font-bold leading-tight">{title}</h1>
+        <h1 className="wf-display truncate text-[1.5rem] leading-tight">{title}</h1>
         {sub ? <p className="text-[0.82rem] text-[var(--wf-muted)]">{sub}</p> : null}
       </div>
       {action}

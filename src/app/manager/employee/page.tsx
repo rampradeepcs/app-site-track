@@ -154,7 +154,7 @@ function EmployeeInner() {
           <div className="wf-card flex items-center gap-5 p-4">
             <ProgressRing value={perf.overall} size={92} label={`Overall score ${Math.round(perf.overall)}`} />
             <div>
-              <p className="wf-display font-bold">Performance score</p>
+              <p className="wf-display">Performance score</p>
               <p className="mt-1 text-[0.74rem] leading-snug text-[var(--wf-muted)]">
                 Weighted across attendance, punctuality, hours, updates and
                 supervisor rating. Movement distance is a presence signal only —

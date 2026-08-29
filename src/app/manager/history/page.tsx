@@ -122,7 +122,7 @@ function HistoryInner() {
           <>
             <div className="wf-card flex flex-wrap items-center justify-between gap-2 px-4 py-3">
               <div>
-                <h2 className="wf-display font-bold">
+                <h2 className="wf-display">
                   {user.name} — {fmtDateLong(selected.date)}
                 </h2>
                 <p className="text-[0.74rem] text-[var(--wf-muted)]">

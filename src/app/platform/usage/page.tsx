@@ -112,7 +112,7 @@ export default function UsagePage() {
                 ].map(([k, v]) => (
                   <div key={String(k)}>
                     <p className="text-[0.66rem] uppercase tracking-wider text-[var(--wf-faint)]">{k}</p>
-                    <p className="wf-display text-base font-bold tabular-nums">{v}</p>
+                    <p className="wf-display text-base tabular-nums">{v}</p>
                   </div>
                 ))}
               </div>

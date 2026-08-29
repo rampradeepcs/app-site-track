@@ -100,7 +100,7 @@ export default function EmployeeMore() {
         <div className="wf-card flex items-center gap-3.5 p-4">
           <Avatar name={currentUser.name} hue={currentUser.avatarHue} size={48} />
           <div className="min-w-0 flex-1">
-            <p className="wf-display truncate text-[1.05rem] font-bold">
+            <p className="wf-display truncate text-[1.05rem]">
               {currentUser.name}
             </p>
             {shift ? (

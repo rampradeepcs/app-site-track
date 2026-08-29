@@ -95,7 +95,7 @@ export default function EmployeeAttendance() {
             >
               <IChevronL size={16} />
             </button>
-            <h2 className="wf-display font-bold">
+            <h2 className="wf-display">
               {monthStart.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
             </h2>
             <button

@@ -103,7 +103,7 @@ function ProfileInner() {
             <div className="wf-card flex items-center gap-4 p-4">
               <Avatar name={currentUser.name} hue={currentUser.avatarHue} size={62} />
               <div className="min-w-0 flex-1">
-                <h2 className="wf-display text-lg font-bold">{currentUser.name}</h2>
+                <h2 className="wf-display text-lg">{currentUser.name}</h2>
                 <p className="text-[0.8rem] text-[var(--wf-muted)]">
                   {currentUser.designation} · {currentUser.department}
                 </p>
@@ -120,7 +120,7 @@ function ProfileInner() {
             <div className="wf-card flex items-center gap-5 p-4">
               <ProgressRing value={perf.overall} label={`Performance score ${Math.round(perf.overall)}`} />
               <div className="min-w-0 flex-1">
-                <p className="wf-display font-bold">Performance score</p>
+                <p className="wf-display">Performance score</p>
                 <p className="mt-0.5 text-[0.76rem] leading-snug text-[var(--wf-muted)]">
                   Attendance {pct(perf.attendancePct)} · {perf.updateCount} updates ·
                   avg {fmtDuration(perf.avgWorkedMinutes)}/day over {perf.scheduledDays} days

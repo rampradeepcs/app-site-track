@@ -195,15 +195,15 @@ function LiveCard({
       </div>
       <div className="grid grid-cols-3 gap-2.5 text-center">
         <div className="wf-card2 px-2 py-2.5">
-          <div className="wf-display text-[1rem] font-bold tabular-nums">{b.attendance?.checkIn ? fmtTime(b.attendance.checkIn.at) : "—"}</div>
+          <div className="wf-display text-[1rem] tabular-nums">{b.attendance?.checkIn ? fmtTime(b.attendance.checkIn.at) : "—"}</div>
           <div className="text-[0.6rem] font-bold uppercase tracking-wider text-[var(--wf-faint)]">Check-in</div>
         </div>
         <div className="wf-card2 px-2 py-2.5">
-          <div className="wf-display text-[1rem] font-bold tabular-nums text-[var(--wf-green)]">{fmtClock(b.workedMs).slice(0, 5)}</div>
+          <div className="wf-display text-[1rem] tabular-nums text-[var(--wf-green)]">{fmtClock(b.workedMs).slice(0, 5)}</div>
           <div className="text-[0.6rem] font-bold uppercase tracking-wider text-[var(--wf-faint)]">Duration</div>
         </div>
         <div className="wf-card2 px-2 py-2.5">
-          <div className="wf-display text-[1rem] font-bold tabular-nums text-[var(--wf-blue)]">{fmtDistance(b.attendance?.distanceMeters ?? 0)}</div>
+          <div className="wf-display text-[1rem] tabular-nums text-[var(--wf-blue)]">{fmtDistance(b.attendance?.distanceMeters ?? 0)}</div>
           <div className="text-[0.6rem] font-bold uppercase tracking-wider text-[var(--wf-faint)]">Distance</div>
         </div>
       </div>

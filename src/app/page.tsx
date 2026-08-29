@@ -177,7 +177,7 @@ function LocalGate() {
           <div className="flex flex-col items-center gap-3 text-center">
             <WorkfenceMark size={62} />
             <div>
-              <h1 className="wf-display text-2xl font-bold">
+              <h1 className="wf-display text-2xl">
                 Sign in to Workfence
               </h1>
               <p className="mt-1 text-sm text-[var(--wf-muted)]">
@@ -270,7 +270,7 @@ function LocalGate() {
               <ILock size={28} />
             </span>
             <div>
-              <h1 className="wf-display text-2xl font-bold">Verify it&apos;s you</h1>
+              <h1 className="wf-display text-2xl">Verify it&apos;s you</h1>
               <p className="mt-1 text-sm text-[var(--wf-muted)]">
                 Enter the 4-digit code sent to{" "}
                 <span className="font-semibold text-[var(--wf-fg)]">

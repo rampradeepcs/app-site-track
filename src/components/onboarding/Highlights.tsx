@@ -188,7 +188,7 @@ export function Highlights({
             </span>
             <div className={s.video ? "relative z-10 max-w-sm px-5" : "max-w-sm"}>
               <h2
-                className={`wf-display text-[1.65rem] leading-tight font-bold ${
+                className={`wf-display text-[1.65rem] leading-tight ${
                   s.video ? "text-white" : ""
                 }`}
               >

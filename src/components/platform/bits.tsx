@@ -39,7 +39,7 @@ export function MetricCard({
         {label}
       </p>
       <p
-        className="wf-display mt-1 truncate text-[1.45rem] font-bold leading-none"
+        className="wf-display mt-1 truncate text-[1.45rem] leading-none"
         style={{ color: TONES[tone] }}
       >
         {value}

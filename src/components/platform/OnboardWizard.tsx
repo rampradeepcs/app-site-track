@@ -147,7 +147,7 @@ export function OnboardWizard({
         <div className="flex flex-col gap-4 text-center">
           <ICheckCircle size={44} className="mx-auto text-[var(--wf-green)]" />
           <div>
-            <p className="wf-display text-lg font-bold">Client successfully onboarded</p>
+            <p className="wf-display text-lg">Client successfully onboarded</p>
             <p className="mt-1 text-[0.82rem] text-[var(--wf-muted)]">
               {name} is live on {plan?.name}
               {trialDays > 0 ? ` with a ${trialDays}-day trial` : ""}.

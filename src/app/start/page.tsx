@@ -245,7 +245,7 @@ export default function StartPage() {
     return (
       <main className="wf-phone justify-center gap-4 px-6 py-10 text-center">
         <WorkfenceMark size={54} className="mx-auto" />
-        <h1 className="wf-display text-2xl font-bold">Signups are closed</h1>
+        <h1 className="wf-display text-2xl">Signups are closed</h1>
         <p className="text-sm text-[var(--wf-muted)]">
           New companies aren&apos;t being taken on right now. If you were
           invited to one, sign in instead.
@@ -309,7 +309,7 @@ export default function StartPage() {
       {step === "identity" ? (
         <div className="wf-fade-in flex flex-col gap-4">
           <header>
-            <h1 className="wf-display text-2xl font-bold">Let&apos;s start with you</h1>
+            <h1 className="wf-display text-2xl">Let&apos;s start with you</h1>
             <p className="mt-1 text-sm text-[var(--wf-muted)]">
               You&apos;ll be the administrator of the company you create.
             </p>
@@ -369,7 +369,7 @@ export default function StartPage() {
       {step === "verify" ? (
         <div className="wf-fade-in flex flex-col gap-5">
           <header>
-            <h1 className="wf-display text-2xl font-bold">Verify your number</h1>
+            <h1 className="wf-display text-2xl">Verify your number</h1>
             <p className="mt-1 text-sm text-[var(--wf-muted)]">
               Enter the {OTP_LENGTH}-digit code sent to{" "}
               <span className="font-semibold text-[var(--wf-fg)]">{phone}</span>.
@@ -409,7 +409,7 @@ export default function StartPage() {
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--wf-green-soft)] text-[var(--wf-green)]">
               <IBuilding size={24} />
             </span>
-            <h1 className="wf-display mt-3 text-2xl font-bold">
+            <h1 className="wf-display mt-3 text-2xl">
               What&apos;s the company called?
             </h1>
             <p className="mt-1 text-sm text-[var(--wf-muted)]">
@@ -444,7 +444,7 @@ export default function StartPage() {
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--wf-amber-soft)] text-[var(--wf-amber)]">
               <IHardHat size={24} />
             </span>
-            <h1 className="wf-display mt-3 text-2xl font-bold">Your first site</h1>
+            <h1 className="wf-display mt-3 text-2xl">Your first site</h1>
             <p className="mt-1 text-sm text-[var(--wf-muted)]">
               Attendance happens inside a boundary, so there has to be one
               before anybody can check in.
@@ -512,7 +512,7 @@ export default function StartPage() {
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--wf-blue-soft)] text-[var(--wf-blue)]">
               <IBuilding size={24} />
             </span>
-            <h1 className="wf-display mt-3 text-2xl font-bold">Your office</h1>
+            <h1 className="wf-display mt-3 text-2xl">Your office</h1>
             <p className="mt-1 text-sm text-[var(--wf-muted)]">
               A premise, not a job — somewhere a shift can be started or closed
               when nobody is on a site.
@@ -539,7 +539,7 @@ export default function StartPage() {
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--wf-violet-soft)] text-[var(--wf-violet)]">
               <IUsers size={24} />
             </span>
-            <h1 className="wf-display mt-3 text-2xl font-bold">Add your crew</h1>
+            <h1 className="wf-display mt-3 text-2xl">Add your crew</h1>
             <p className="mt-1 text-sm text-[var(--wf-muted)]">
               They sign in with the number you add here — no passwords, no
               invite codes to chase. You can add the rest later.
@@ -571,7 +571,7 @@ export default function StartPage() {
             <ICheckCircle size={38} />
           </span>
           <div>
-            <h1 className="wf-display text-2xl font-bold">{orgName} is live</h1>
+            <h1 className="wf-display text-2xl">{orgName} is live</h1>
             <p className="mt-2 text-sm leading-relaxed text-[var(--wf-muted)]">
               {site.name.trim() || "Your site"} has a boundary, {crew.length}{" "}
               {crew.length === 1 ? "person is" : "people are"} on it, and you

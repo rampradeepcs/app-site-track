@@ -176,7 +176,7 @@ export function KpiCard({
           problem: "₹10,50,812.31" rendered as "₹10,50,812.3" reads as a
           real, wrong number. Short values keep the full size. */}
       <div
-        className={`wf-display font-bold leading-none [overflow-wrap:anywhere] ${valueSize(value)}`}
+        className={`wf-display leading-none [overflow-wrap:anywhere] ${valueSize(value)}`}
         style={{ color: accent }}
       >
         {value}
@@ -197,7 +197,7 @@ export function SectionTitle({
 }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
-      <h2 className="wf-display text-[0.95rem] font-bold tracking-tight">
+      <h2 className="wf-display text-[0.95rem] tracking-tight">
         {children}
       </h2>
       {action}
@@ -631,7 +631,7 @@ export function Modal({
       >
         {title ? (
           <div className="flex items-center justify-between border-b border-[var(--wf-line)] px-5 py-4">
-            <h2 className="wf-display text-lg font-bold">{title}</h2>
+            <h2 className="wf-display text-lg">{title}</h2>
             <button
               onClick={onClose}
               aria-label="Close dialog"

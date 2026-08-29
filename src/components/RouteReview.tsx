@@ -293,7 +293,7 @@ export function RouteReview({
       {/* timeline */}
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <h3 className="wf-display text-sm font-bold">Location timeline</h3>
+          <h3 className="wf-display text-sm">Location timeline</h3>
           {trail.length > 0 && (
             <button
               className="wf-btn wf-btn-quiet wf-btn-sm"
@@ -326,7 +326,7 @@ export function RouteReview({
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="wf-card2 px-3 py-2.5 text-center">
-      <div className="wf-display text-[1.05rem] font-bold tabular-nums">{value}</div>
+      <div className="wf-display text-[1.05rem] tabular-nums">{value}</div>
       <div className="text-[0.62rem] font-semibold uppercase tracking-[0.08em] text-[var(--wf-faint)]">
         {label}
       </div>

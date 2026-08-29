@@ -240,12 +240,38 @@ export function TabBar({ role }: { role: Role }) {
   const [compact, setCompact] = useState(false);
   useEffect(() => {
     let last = window.scrollY;
+    let settleUntil = 0;
     const onScroll = () => {
       const y = window.scrollY;
+
+      /*
+       * Ignore the scroll the toggle itself causes.
+       *
+       * The bar is in flow, so changing its height changes the document
+       * height — and near the bottom the browser then clamps scrollTop to
+       * fit. That clamp fires `scroll` with a delta the handler cannot
+       * tell from a real one, so it toggled again, shifted again, and the
+       * page visibly juddered. A short settle window after each change
+       * swallows the reflow's own event, and `last` is re-based to
+       * wherever the clamp left us so the next real gesture measures from
+       * the truth.
+       */
+      if (performance.now() < settleUntil) {
+        last = y;
+        return;
+      }
+
       const dy = y - last;
-      if (Math.abs(dy) < 6) return;
+      // Wider than the 6px it was: a slow thumb crossing a small threshold
+      // repeatedly is the other way this flickers.
+      if (Math.abs(dy) < 14) return;
       last = y;
-      setCompact(y > 64 && dy > 0);
+
+      const next = y > 64 && dy > 0;
+      setCompact((prev) => {
+        if (prev !== next) settleUntil = performance.now() + 320;
+        return next;
+      });
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -475,7 +501,7 @@ export function AccountPanel({
       <div className="flex items-center gap-3">
         <Avatar name={currentUser.name} hue={currentUser.avatarHue} size={44} />
         <div className="min-w-0 flex-1">
-          <p className="wf-display truncate font-bold">{currentUser.name}</p>
+          <p className="wf-display truncate">{currentUser.name}</p>
           <p className="truncate text-[0.74rem] text-[var(--wf-muted)]">
             {currentUser.designation} · {currentUser.employeeCode}
           </p>

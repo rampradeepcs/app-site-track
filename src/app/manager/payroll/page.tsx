@@ -298,7 +298,7 @@ export default function ManagerPayroll() {
               <IChevronL size={16} />
             </button>
             <div className="text-center">
-              <p className="wf-display font-bold">{periodLabel}</p>
+              <p className="wf-display">{periodLabel}</p>
               {period === "month" ? (
                 <div className="mt-1 flex items-center justify-center gap-1">
                   {STATUS_FLOW.map((s, i) => (
@@ -370,7 +370,7 @@ export default function ManagerPayroll() {
           {pendingOT.length > 0 ? (
             <div className="wf-card p-4">
               <div className="mb-3 flex flex-wrap items-center gap-2">
-                <h2 className="wf-display text-sm font-bold">
+                <h2 className="wf-display text-sm">
                   Pending overtime approvals ({pendingOT.length})
                 </h2>
                 {/* Deciding a month of a large crew one row at a time is not
@@ -581,7 +581,7 @@ export default function ManagerPayroll() {
 
           {period === "month" && (run?.adjustments.length ?? 0) > 0 ? (
             <div className="wf-card p-4">
-              <h2 className="wf-display mb-2 text-sm font-bold">Adjustments</h2>
+              <h2 className="wf-display mb-2 text-sm">Adjustments</h2>
               <div className="flex flex-col gap-1.5">
                 {run!.adjustments.map((a) => {
                   const u = state.users.find((x) => x.id === a.employeeId);
@@ -830,7 +830,7 @@ function MonthDetail({
           ))}
         <div className="flex items-center justify-between px-4 py-3">
           <span className="font-bold">Estimated pay</span>
-          <span className="wf-display text-lg font-bold tabular-nums text-[var(--wf-green)]">
+          <span className="wf-display text-lg tabular-nums text-[var(--wf-green)]">
             {fmtINR(summary.netPay)}
           </span>
         </div>
@@ -841,7 +841,7 @@ function MonthDetail({
       </button>
 
       <div>
-        <h3 className="wf-display mb-2 text-sm font-bold">Days</h3>
+        <h3 className="wf-display mb-2 text-sm">Days</h3>
         <div className="flex flex-col gap-1.5">
           {summary.days.map(({ att, pay }) => (
             <button
@@ -905,7 +905,7 @@ function DayDetail({ att }: { att: Attendance }) {
       </div>
 
       <div>
-        <h3 className="wf-display mb-2 text-sm font-bold">Calculation</h3>
+        <h3 className="wf-display mb-2 text-sm">Calculation</h3>
         {pay.lines.length === 0 ? (
           <p className="text-sm text-[var(--wf-muted)]">
             No salary configured for this person, so the day generates no pay.
@@ -941,7 +941,7 @@ function DayDetail({ att }: { att: Attendance }) {
 
       <div className="wf-card2 flex items-center justify-between px-4 py-3">
         <span className="font-bold">Total for the day</span>
-        <span className="wf-display text-lg font-bold tabular-nums text-[var(--wf-green)]">
+        <span className="wf-display text-lg tabular-nums text-[var(--wf-green)]">
           {fmtINR(pay.total)}
         </span>
       </div>

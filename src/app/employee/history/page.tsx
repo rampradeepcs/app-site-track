@@ -68,7 +68,7 @@ export default function EmployeeHistory() {
               <>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="wf-display font-bold">{fmtDateLong(selected.date)}</h2>
+                    <h2 className="wf-display">{fmtDateLong(selected.date)}</h2>
                     <p className="text-[0.76rem] text-[var(--wf-muted)]">{project.name}</p>
                   </div>
                   <StatusChip status={selected.status} />

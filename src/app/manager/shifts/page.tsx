@@ -119,7 +119,7 @@ export default function ManagerShifts() {
                         kind chips clipped "General Shift" to "General Sh…"
                         while a short name showed in full, so one list read
                         two different ways. */}
-                    <h2 className="wf-display truncate text-[1.05rem] font-bold">
+                    <h2 className="wf-display truncate text-[1.05rem]">
                       {sh.name}
                     </h2>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -143,7 +143,7 @@ export default function ManagerShifts() {
                     <p className="text-[0.66rem] font-bold uppercase tracking-wider text-[var(--wf-muted)]">
                       Assigned
                     </p>
-                    <p className="wf-display text-lg font-bold tabular-nums">
+                    <p className="wf-display text-lg tabular-nums">
                       {headcount.get(sh.id) ?? 0}
                     </p>
                   </div>
