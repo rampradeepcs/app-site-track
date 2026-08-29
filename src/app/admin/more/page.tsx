@@ -15,8 +15,10 @@ import { Chip } from "@/components/ui";
 import { useWorkforce } from "@/lib/store";
 import type { FeatureSet } from "@/lib/saas-types";
 import {
+  IBell,
   IChart,
   IChevronR,
+  IClipboard,
   IClock,
   IFile,
   ILayers,
@@ -88,10 +90,17 @@ const ITEMS: Item[] = [
     roles: ["admin", "manager", "superadmin"],
   },
   {
-    href: "/manager/more",
-    icon: <ILayers size={18} />,
-    label: "Work updates & alerts",
-    sub: "The site feed, alerts and manager settings",
+    href: "/manager/updates",
+    icon: <IClipboard size={18} />,
+    label: "Work updates",
+    sub: "What the site reported today",
+    roles: ["admin", "manager", "superadmin"],
+  },
+  {
+    href: "/manager/alerts",
+    icon: <IBell size={18} />,
+    label: "Alerts",
+    sub: "Geofence exits, missing checkouts, sync",
     roles: ["admin", "manager", "superadmin"],
   },
   {

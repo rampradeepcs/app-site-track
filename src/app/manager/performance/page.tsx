@@ -8,15 +8,17 @@
  */
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { FeatureGate } from "@/components/FeatureGate";
 import { ScreenHeader } from "@/components/shell";
-import { Avatar, SectionTitle, useNowTick } from "@/components/ui";
+import { Avatar, SectionTitle, Segmented, useNowTick } from "@/components/ui";
 import { ScoreBars } from "@/components/charts";
 import { fmtDuration, pct } from "@/lib/format";
 import { needsAttention, performanceFor } from "@/lib/metrics";
 import { useWorkforce } from "@/lib/store";
 import { IArrowR } from "@/components/WfIcons";
+
+type Tab = "attention" | "ranked" | "model";
 
 export default function ManagerPerformance() {
   const { state } = useWorkforce();
@@ -35,12 +37,40 @@ export default function ManagerPerformance() {
   );
   const attention = useMemo(() => needsAttention(state, now), [state, now]);
 
+  /*
+   * Three questions, three tabs. Stacked on one screen the ranked list of
+   * forty pushed the scoring model out of sight, and "needs attention" —
+   * the only part anyone acts on — shared a scroll with both.
+   */
+  const [tab, setTab] = useState<Tab>("attention");
+
   return (
     <div>
       <ScreenHeader back title="Performance" sub="Last 14 days, ranked" />
       <div className="flex flex-col gap-3 px-4">
           <FeatureGate feature="performance">
-            {attention.length > 0 && (
+        <Segmented<Tab>
+          ariaLabel="Performance sections"
+          value={tab}
+          onChange={setTab}
+          size="sm"
+          options={[
+            {
+              value: "attention",
+              label: `Needs attention${attention.length ? ` (${attention.length})` : ""}`,
+            },
+            { value: "ranked", label: "Everyone" },
+            { value: "model", label: "Scoring" },
+          ]}
+        />
+
+            {tab === "attention" && attention.length === 0 && (
+              <p className="wf-card px-4 py-8 text-center text-sm text-[var(--wf-muted)]">
+                Nobody needs attention. Late arrivals, missing checkouts and
+                thin work updates would show up here.
+              </p>
+            )}
+            {tab === "attention" && attention.length > 0 && (
               <div className="wf-card border-[var(--wf-amber-edge)] p-4">
                 <SectionTitle>Needs attention</SectionTitle>
                 <div className="flex flex-col gap-2">
@@ -51,10 +81,33 @@ export default function ManagerPerformance() {
                       className="flex items-center gap-3 rounded-lg px-1 py-1 transition hover:bg-[var(--wf-surface2)]"
                     >
                       <Avatar name={a.user.name} hue={a.user.avatarHue} size={32} />
+                      {/* Every remark, as its own chip. Joined into one
+                          truncated line the third reason was invisible —
+                          and "5 late check-ins" being the part that got
+                          cut is the whole reason the row is here. */}
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[0.84rem] font-semibold">{a.user.name}</span>
-                        <span className="block truncate text-[0.68rem] text-[var(--wf-amber)]">
-                          {a.reasons.join(" · ")}
+                        <span className="block truncate text-[0.84rem] font-semibold">
+                          {a.user.name}
+                        </span>
+                        <span className="mt-1 flex flex-wrap gap-1">
+                          {a.reasons.map((r) => (
+                            <span
+                              key={r}
+                              className="wf-chip"
+                              style={{
+                                background: "var(--wf-warn-soft)",
+                                color: "var(--wf-warn)",
+                                // Smaller than a standard chip: a row can
+                                // carry three remarks, and at full size
+                                // that is three lines per person across
+                                // thirty-six of them.
+                                fontSize: "0.62rem",
+                                padding: "0.15rem 0.45rem",
+                              }}
+                            >
+                              {r}
+                            </span>
+                          ))}
                         </span>
                       </span>
                       <span className="text-[0.8rem] font-bold tabular-nums">{Math.round(a.score)}</span>
@@ -63,6 +116,7 @@ export default function ManagerPerformance() {
                 </div>
               </div>
             )}
+            {tab === "ranked" && (
             <div className="flex flex-col gap-2">
               {perfs.map(({ user, perf }, i) => (
                 <Link
@@ -97,6 +151,8 @@ export default function ManagerPerformance() {
                 </Link>
               ))}
             </div>
+            )}
+            {tab === "model" && (
             <div className="wf-card p-4">
               <SectionTitle>Scoring model (transparent)</SectionTitle>
               <ScoreBars
@@ -113,6 +169,7 @@ export default function ManagerPerformance() {
                 an operational presence signal, not a productivity measure.
               </p>
             </div>
+            )}
           </FeatureGate>
       </div>
     </div>
