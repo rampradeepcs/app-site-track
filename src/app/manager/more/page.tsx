@@ -48,6 +48,7 @@ import {
   IArrowR,
   ICheckCircle,
   IDownload,
+  IChart,
   IFile,
   IInfo,
   IMapPin,
@@ -59,7 +60,7 @@ import {
   INav,
 } from "@/components/WfIcons";
 
-type Tab = "reports" | "performance" | "updates" | "alerts" | "settings";
+type Tab = "updates" | "alerts" | "settings";
 
 export default function MorePage() {
   return (
@@ -74,7 +75,7 @@ function MoreInner() {
   const { state, updateSettings, markNotificationsRead, eraseLocalData } = wf;
   const router = useRouter();
   const params = useSearchParams();
-  const tab = (params.get("tab") as Tab) ?? "reports";
+  const tab = (params.get("tab") as Tab) ?? "updates";
   const now = useNowTick(30);
 
   const employees = useMemo(
@@ -99,7 +100,7 @@ function MoreInner() {
   const canAdvancedReports = useFeature("advancedReports");
 
   const setTab = (t: Tab) => {
-    router.replace(`/manager/more${t === "reports" ? "" : `?tab=${t}`}`);
+    router.replace(`/manager/more${t === "updates" ? "" : `?tab=${t}`}`);
     if (t === "alerts") markNotificationsRead("manager");
   };
 
@@ -212,171 +213,42 @@ function MoreInner() {
           onChange={setTab}
           size="sm"
           options={[
-            { value: "reports", label: "Reports" },
-            { value: "performance", label: "Performance" },
             { value: "updates", label: "Work updates" },
             { value: "alerts", label: `Alerts${alerts.filter((n) => !n.read).length ? ` (${alerts.filter((n) => !n.read).length})` : ""}` },
             { value: "settings", label: "Settings" },
           ]}
         />
 
-        {tab === "reports" && (
-          <>
-            {!canExport && (
-              <UpgradeNotice
-                title="Export isn't available on your current plan."
-                body="Reports stay viewable in-app. Ask your administrator to upgrade to download CSV or PDF copies."
-                compact
-              />
-            )}
-            <div className="wf-card p-4">
-              <SectionTitle>Attendance % — last 14 working days</SectionTitle>
-              <BarTrend
-                data={trend.map((t) => t.presentPct)}
-                labels={trend.map((t) => t.date.slice(8))}
-                format={(v) => `${Math.round(v)}%`}
-                ariaLabel="Attendance trend"
-                height={100}
-              />
-            </div>
-            <ReportRow
-              title="Daily attendance report"
-              body="Present / absent / late / early-out with hours, for any day."
-              actions={
-                <>
-                  <button
-                    className="wf-btn wf-btn-ghost wf-btn-sm"
-                    disabled={!canExport}
-                    onClick={() => downloadCSV(`attendance-${todayISO(now)}.csv`, attendanceCSV(state, todayISO(now)))}
-                  >
-                    <IDownload size={14} /> CSV
-                  </button>
-                  <Link href="/manager/attendance" className="wf-btn wf-btn-ghost wf-btn-sm">
-                    Open <IArrowR size={13} />
-                  </Link>
-                </>
-              }
-            />
-            <ReportRow
-              title="Employee movement report"
-              body="Check-in/out, duration, distance, route and major stops per shift."
-              actions={
-                <Link href="/manager/history" className="wf-btn wf-btn-ghost wf-btn-sm">
-                  Open <IArrowR size={13} />
-                </Link>
-              }
-            />
-            <ReportRow
-              title="Project workforce report"
-              body="Workforce by project, onsite counts and attendance trends."
-              actions={
-                <button className="wf-btn wf-btn-ghost wf-btn-sm" disabled={!canExport} onClick={workforcePdf}>
-                  <IFile size={14} /> PDF
-                </button>
-              }
-            />
-            <ReportRow
-              title="Performance report"
-              body="Scores across attendance, punctuality, hours, updates and rating."
-              actions={
-                <button className="wf-btn wf-btn-ghost wf-btn-sm" disabled={!canExport || !canAdvancedReports} onClick={performanceCSVExport}>
-                  <IDownload size={14} /> CSV
-                </button>
-              }
-            />
-            <ReportRow
-              title="Full attendance history"
-              body="Every record in the retention window, ready for payroll."
-              actions={
-                <button
-                  className="wf-btn wf-btn-ghost wf-btn-sm"
-                  disabled={!canExport}
-                  onClick={() => downloadCSV("attendance-all.csv", attendanceCSV(state))}
-                >
-                  <IDownload size={14} /> CSV
-                </button>
-              }
-            />
-          </>
-        )}
-
-        {tab === "performance" && (
-          <FeatureGate feature="performance">
-            {attention.length > 0 && (
-              <div className="wf-card border-[var(--wf-amber-edge)] p-4">
-                <SectionTitle>Needs attention</SectionTitle>
-                <div className="flex flex-col gap-2">
-                  {attention.map((a) => (
-                    <Link
-                      key={a.user.id}
-                      href={`/manager/employee?id=${a.user.id}`}
-                      className="flex items-center gap-3 rounded-lg px-1 py-1 transition hover:bg-[var(--wf-surface2)]"
-                    >
-                      <Avatar name={a.user.name} hue={a.user.avatarHue} size={32} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[0.84rem] font-semibold">{a.user.name}</span>
-                        <span className="block truncate text-[0.68rem] text-[var(--wf-amber)]">
-                          {a.reasons.join(" · ")}
-                        </span>
-                      </span>
-                      <span className="text-[0.8rem] font-bold tabular-nums">{Math.round(a.score)}</span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-            <div className="flex flex-col gap-2">
-              {perfs.map(({ user, perf }, i) => (
-                <Link
-                  key={user.id}
-                  href={`/manager/employee?id=${user.id}`}
-                  className="wf-card2 flex items-center gap-3 px-3.5 py-3 transition hover:border-[var(--wf-line-strong)]"
-                >
-                  <span className="w-5 text-center text-[0.78rem] font-bold tabular-nums text-[var(--wf-faint)]">
-                    {i + 1}
-                  </span>
-                  <Avatar name={user.name} hue={user.avatarHue} size={38} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[0.86rem] font-semibold">{user.name}</span>
-                    <span className="block text-[0.68rem] text-[var(--wf-muted)]">
-                      {pct(perf.attendancePct)} att · {perf.lateCount} late · {perf.updateCount} updates ·
-                      avg {fmtDuration(perf.avgWorkedMinutes)}
-                    </span>
-                  </span>
-                  <span
-                    className="wf-display text-lg tabular-nums"
-                    style={{
-                      color:
-                        perf.overall >= 75
-                          ? "var(--wf-green)"
-                          : perf.overall >= 55
-                            ? "var(--wf-amber)"
-                            : "var(--wf-red)",
-                    }}
-                  >
-                    {Math.round(perf.overall)}
-                  </span>
-                </Link>
-              ))}
-            </div>
-            <div className="wf-card p-4">
-              <SectionTitle>Scoring model (transparent)</SectionTitle>
-              <ScoreBars
-                rows={[
-                  { label: "Attendance", value: 30, weight: "weight", color: "var(--wf-green)" },
-                  { label: "Punctuality", value: 20, weight: "weight", color: "var(--wf-amber)" },
-                  { label: "Work updates", value: 20, weight: "weight", color: "var(--wf-violet)" },
-                  { label: "Working hours", value: 15, weight: "weight", color: "var(--wf-blue)" },
-                  { label: "Supervisor rating", value: 15, weight: "weight", color: "var(--wf-orange)" },
-                ]}
-              />
-              <p className="mt-3 border-t border-[var(--wf-line)] pt-2.5 text-[0.72rem] leading-snug text-[var(--wf-faint)]">
-                GPS distance travelled is deliberately excluded — movement data is
-                an operational presence signal, not a productivity measure.
-              </p>
-            </div>
-          </FeatureGate>
-        )}
+        {/* Reports and Performance are screens now, not segments. Each is
+            somewhere you go to do a thing and leave, which is a page — and
+            as tabs they shared a scroll position and a back button with
+            settings and alerts. */}
+        <div className="wf-card wf-list overflow-hidden">
+          <Link href="/manager/reports" className="wf-row">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--wf-fill-2)]">
+              <IFile size={18} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[0.92rem] font-semibold">Reports</span>
+              <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
+                Attendance, workforce and payroll exports
+              </span>
+            </span>
+            <IChevronR size={16} className="shrink-0 text-[var(--wf-faint)]" />
+          </Link>
+          <Link href="/manager/performance" className="wf-row">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--wf-fill-2)]">
+              <IChart size={18} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[0.92rem] font-semibold">Performance</span>
+              <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
+                Last 14 days, ranked, and who needs attention
+              </span>
+            </span>
+            <IChevronR size={16} className="shrink-0 text-[var(--wf-faint)]" />
+          </Link>
+        </div>
 
         {tab === "updates" && (
           <div className="flex flex-col gap-2.5">

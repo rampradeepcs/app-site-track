@@ -11,9 +11,12 @@ import { useSearchParams } from "next/navigation";
 import { ScreenHeader } from "@/components/shell";
 import { SiteMap, type MapMarker } from "@/components/SiteMap";
 import { Avatar, BottomSheet, Chip, Segmented, useNowTick } from "@/components/ui";
+import { StatusPills, countByStatus } from "@/components/StatusPills";
+import { ISearch } from "@/components/WfIcons";
 import {
   fmtClock,
   fmtDistance,
+  fmtDuration,
   fmtRelative,
   fmtTime,
   initialsOf,
@@ -42,7 +45,35 @@ function LiveInner() {
 
   const project = state.projects.find((p) => p.id === projectId) ?? null;
   const board = useMemo(() => liveBoard(state, projectId, now), [state, projectId, now]);
+  const [query, setQuery] = useState("");
+  const [dept, setDept] = useState<string | null>(null);
+
   const working = board.filter((b) => b.state === "working" && b.lastPoint);
+
+  // Counts over everyone on site, before the department filter — so
+  // picking one trade does not blank the others (see StatusPills).
+  const deptCounts = useMemo(
+    () => countByStatus(working, (b) => b.user.department || "Unassigned"),
+    [working],
+  );
+
+  const roster = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return working
+      .filter((b) => !dept || (b.user.department || "Unassigned") === dept)
+      .filter(
+        (b) =>
+          !q ||
+          [b.user.name, b.user.employeeCode, b.user.designation]
+            .filter(Boolean)
+            .some((f) => String(f).toLowerCase().includes(q)),
+      )
+      .sort(
+        (a, b) =>
+          (a.attendance?.checkIn?.at ?? Infinity) -
+          (b.attendance?.checkIn?.at ?? Infinity),
+      );
+  }, [working, dept, query]);
   const selected = board.find((b) => b.user.id === selectedId) ?? null;
 
   const trail = useMemo(
@@ -119,33 +150,72 @@ function LiveInner() {
           )}
         </SiteMap>
 
-        {/* roster rail */}
-        <div className="wf-scroll-x -mx-4 flex gap-2 px-4 pb-1">
-          {working.map((b) => (
+        <div className="relative">
+          <ISearch
+            size={15}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]"
+          />
+          <input
+            className="wf-input wf-input-search"
+            placeholder="Search name, code, trade…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+
+        {/* Who is on site, by trade. The same counts-that-filter the
+            attendance tables use — a supervisor asking "how many masons do
+            I have right now" is asking the same shape of question. */}
+        <StatusPills
+          counts={deptCounts}
+          value={dept}
+          onChange={setDept}
+          emptyLabel="Nobody is checked in on this project right now."
+        />
+
+        {/* Ordered by who arrived first, not alphabetically. The question
+            this list answers on a site is "who has been here longest" —
+            and it puts the person nearing overtime at the top rather than
+            whoever happens to be called Arun. */}
+        <div className="flex flex-col gap-2">
+          {roster.map((b) => (
             <button
               key={b.user.id}
               onClick={() => {
                 setSelectedId(b.user.id);
                 setTracking(false);
               }}
-              className={`flex shrink-0 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 transition ${
+              className={`wf-card2 flex cursor-pointer items-center gap-3 px-3.5 py-2.5 text-left transition ${
                 b.user.id === selectedId
-                  ? "border-[var(--wf-amber)] bg-[var(--wf-amber-soft)]"
-                  : "border-[var(--wf-line)] bg-[var(--wf-surface)] hover:border-[var(--wf-line-strong)]"
+                  ? "border-[var(--wf-amber)]"
+                  : "hover:border-[var(--wf-line-strong)]"
               }`}
+              style={
+                b.user.id === selectedId
+                  ? { boxShadow: "0 0 0 1.5px var(--wf-amber)" }
+                  : undefined
+              }
             >
-              <Avatar name={b.user.name} hue={b.user.avatarHue} size={30} ring="green" />
-              <span className="text-left">
-                <span className="block text-[0.78rem] font-semibold leading-tight">
-                  {b.user.name.split(" ")[0]}
+              <Avatar name={b.user.name} hue={b.user.avatarHue} size={36} ring="green" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-semibold">{b.user.name}</span>
+                <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
+                  {b.user.department} · {b.place}
                 </span>
-                <span className="block text-[0.62rem] text-[var(--wf-muted)]">{b.place}</span>
+              </span>
+              <span className="shrink-0 text-right">
+                <span className="block font-semibold tabular-nums text-[var(--wf-green)]">
+                  {fmtDuration(Math.round(b.workedMs / 60000))}
+                </span>
+                <span className="block text-[0.66rem] tabular-nums text-[var(--wf-faint)]">
+                  in {b.attendance?.checkIn ? fmtTime(b.attendance.checkIn.at) : "—"}
+                </span>
               </span>
             </button>
           ))}
-          {working.length === 0 && (
-            <p className="w-full py-4 text-center text-sm text-[var(--wf-muted)]">
-              Nobody is checked in on this project right now.
+          {roster.length === 0 && working.length > 0 && (
+            <p className="wf-card2 px-4 py-6 text-center text-sm text-[var(--wf-muted)]">
+              Nobody here matches.
             </p>
           )}
         </div>
