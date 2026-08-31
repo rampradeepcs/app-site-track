@@ -21,16 +21,59 @@
 --     a subcontractor's crew is the failure that actually costs something.
 -- ============================================================================
 
+-- --------------------------------------------------- prerequisites -------
+-- Helpers this migration builds on, defined here rather than assumed.
+--
+-- A project provisioned from an earlier snapshot of the schema can be
+-- missing them, and a migration that fails halfway through because of an
+-- undeclared dependency is worse than one that is slightly repetitive.
+-- CREATE OR REPLACE, so re-stating them where they already exist is a
+-- no-op and the canonical definitions stay identical to their originals.
+
+create or replace function auth_user()
+returns users
+language sql stable security definer set search_path = public
+as $$ select * from users where auth_id = auth.uid() limit 1 $$;
+
+create or replace function is_org_owner()
+returns boolean
+language sql stable security definer set search_path = public
+as $$ select coalesce((select role = 'admin' from users where auth_id = auth.uid() limit 1), false) $$;
+
+create or replace function phones_match(a text, b text)
+returns boolean
+language sql immutable
+set search_path = public
+as $$
+  with d as (
+    select regexp_replace(coalesce(a, ''), '\D', '', 'g') as x,
+           regexp_replace(coalesce(b, ''), '\D', '', 'g') as y
+  )
+  select x <> '' and y <> ''
+     and (x = y or (length(x) >= 10 and length(y) >= 10
+                    and right(x, 10) = right(y, 10)))
+  from d
+$$;
+
 -- ---------------------------------------------------------------- enums ----
-create type labour_team_status   as enum ('active','paused','completed','archived');
-create type team_member_status   as enum ('active','inactive','on-leave','transferred','completed');
-create type face_detection_status as enum ('detected','not-detected');
-create type face_match_status    as enum ('matched','low-confidence','unmatched','manual');
-create type group_att_status     as enum ('draft','confirmed','discarded');
-create type geofence_check       as enum ('inside','outside','unknown');
-create type note_priority        as enum ('low','normal','important','critical');
-create type note_visibility      as enum ('management','managers-engineers','project-team','selected');
-create type note_status          as enum ('open','done','archived');
+do $$ begin create type labour_team_status as enum ('active','paused','completed','archived');
+exception when duplicate_object then null; end $$;
+do $$ begin create type team_member_status as enum ('active','inactive','on-leave','transferred','completed');
+exception when duplicate_object then null; end $$;
+do $$ begin create type face_detection_status as enum ('detected','not-detected');
+exception when duplicate_object then null; end $$;
+do $$ begin create type face_match_status as enum ('matched','low-confidence','unmatched','manual');
+exception when duplicate_object then null; end $$;
+do $$ begin create type group_att_status as enum ('draft','confirmed','discarded');
+exception when duplicate_object then null; end $$;
+do $$ begin create type geofence_check as enum ('inside','outside','unknown');
+exception when duplicate_object then null; end $$;
+do $$ begin create type note_priority as enum ('low','normal','important','critical');
+exception when duplicate_object then null; end $$;
+do $$ begin create type note_visibility as enum ('management','managers-engineers','project-team','selected');
+exception when duplicate_object then null; end $$;
+do $$ begin create type note_status as enum ('open','done','archived');
+exception when duplicate_object then null; end $$;
 
 -- ------------------------------------------- columns on existing tables ----
 -- A day marked from a group photo says so, and says which photo. Nullable:

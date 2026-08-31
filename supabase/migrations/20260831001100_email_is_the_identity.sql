@@ -32,7 +32,9 @@ where email is null or trim(email) = '';
 -- already exist before the constraint goes on.
 with dupes as (
   select id,
-         row_number() over (partition by org_id, lower(email) order by created_at, id) as n
+         -- joined_at, not created_at: this table records when someone joined
+         -- the company, and the oldest spell keeps the unmodified address.
+         row_number() over (partition by org_id, lower(email) order by joined_at, id) as n
   from users
 )
 update users u
