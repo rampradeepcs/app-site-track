@@ -25,8 +25,8 @@ function newBilling(company: string, admin: CompanyDraft["admin"]) {
   return {
     legalName: company,
     contactName: admin.name,
-    email: admin.email ?? "",
-    phone: admin.phone,
+    email: admin.email,
+    phone: admin.phone ?? "",
     addressLine: "",
     city: "",
     state: "",
@@ -77,8 +77,8 @@ export function useSignUp() {
           industry: "Construction",
           website: "",
           contactName: draft.admin.name,
-          contactEmail: draft.admin.email ?? "",
-          contactPhone: draft.admin.phone,
+          contactEmail: draft.admin.email,
+          contactPhone: draft.admin.phone ?? "",
           country: "",
           // A real value, read off the device: shift times, "late" and the
           // attendance calendar are all local-calendar questions, and the
@@ -95,8 +95,8 @@ export function useSignUp() {
         },
         admin: {
           name: draft.admin.name,
-          email: draft.admin.email ?? "",
-          phone: draft.admin.phone,
+          email: draft.admin.email,
+          phone: draft.admin.phone ?? "",
           role: "Client Administrator",
         },
         planId: settings.defaultPlanId,

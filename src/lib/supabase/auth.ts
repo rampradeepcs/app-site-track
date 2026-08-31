@@ -24,16 +24,17 @@ export interface AuthResult {
 }
 
 /**
- * Send a one-time code. Phone is the primary channel — site workers are far
- * more likely to have a number than a work email — with email as fallback.
+ * Send a one-time code to an email address.
+ *
+ * Email only, because email is the identity: a code sent to a number would
+ * authenticate someone the app can no longer look up.
  */
 export async function sendOtp(identifier: string): Promise<AuthResult> {
-  const isEmail = identifier.includes("@");
   try {
     const sb = requireSupabase();
-    const { error } = isEmail
-      ? await sb.auth.signInWithOtp({ email: identifier })
-      : await sb.auth.signInWithOtp({ phone: normalisePhone(identifier) });
+    const { error } = await sb.auth.signInWithOtp({
+      email: identifier.trim().toLowerCase(),
+    });
     return error ? { ok: false, error: describe(error) } : { ok: true };
   } catch (e) {
     return { ok: false, error: describe(e) };
@@ -44,14 +45,13 @@ export async function verifyOtp(
   identifier: string,
   token: string,
 ): Promise<AuthResult> {
-  const isEmail = identifier.includes("@");
   try {
     const sb = requireSupabase();
-    const { error } = await sb.auth.verifyOtp(
-      isEmail
-        ? { email: identifier, token, type: "email" }
-        : { phone: normalisePhone(identifier), token, type: "sms" },
-    );
+    const { error } = await sb.auth.verifyOtp({
+      email: identifier.trim().toLowerCase(),
+      token,
+      type: "email",
+    });
     return error ? { ok: false, error: describe(error) } : { ok: true };
   } catch (e) {
     return { ok: false, error: describe(e) };
@@ -112,13 +112,6 @@ function describe(e: unknown): string {
   return msg;
 }
 
-/** Defaults to India's country code; a number typed with one is left alone. */
-function normalisePhone(raw: string): string {
-  const digits = raw.replace(/[^\d+]/g, "");
-  if (digits.startsWith("+")) return digits;
-  if (digits.length === 10) return `+91${digits}`;
-  return `+${digits}`;
-}
 
 /* ------------------------------------------------------------- SSO ------ */
 
@@ -215,4 +208,19 @@ export async function completeOAuthRedirect(url: string): Promise<AuthResult> {
   } catch (e) {
     return { ok: false, error: describe(e) };
   }
+}
+
+/**
+ * The address the current session is authenticated as.
+ *
+ * Needed because a single sign-on never passes through the form: after a
+ * Google or Outlook return there is a valid session and an email, but the
+ * screen has no idea what was typed — nothing was. This is how it finds out
+ * who just arrived, and therefore whether they are new.
+ */
+export async function currentAuthEmail(): Promise<string | null> {
+  const sb = supabase();
+  if (!sb) return null;
+  const { data } = await sb.auth.getUser();
+  return data.user?.email ?? null;
 }

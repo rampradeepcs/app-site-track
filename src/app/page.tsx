@@ -24,13 +24,12 @@ import { consumeSignInDirect, landingFor } from "@/lib/routes";
 import { isLiveBackend } from "@/lib/supabase/client";
 import LiveGate from "@/components/LiveGate";
 import { WorkfenceMark, WorkfenceSplash } from "@/components/Brand";
-import { NewCompanyLink } from "@/components/onboarding/NewCompanyLink";
 import {
   Highlights,
   markHighlightsSeen,
 } from "@/components/onboarding/Highlights";
 import { phoneKey } from "@/components/onboarding/InviteCrew";
-import { DEMO_PHONE } from "@/lib/demo/mode";
+import { DEMO_EMAIL } from "@/lib/demo/mode";
 import { PersonaChooser } from "@/components/demo/PersonaPicker";
 
 export default function WorkforceGate() {
@@ -83,26 +82,22 @@ function LocalGate() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* Email is the identity now, so this is a single lookup rather than a
+     branch on what the string looks like. */
   const match = useMemo(() => {
-    const raw = identifier.trim();
+    const raw = identifier.trim().toLowerCase();
     if (!raw) return null;
-    if (raw.includes("@")) {
-      return (
-        state.users.find(
-          (u) => (u.email ?? "").toLowerCase() === raw.toLowerCase(),
-        ) ?? null
-      );
-    }
-    const key = phoneKey(raw);
-    return key ? state.users.find((u) => phoneKey(u.phone) === key) ?? null : null;
+    return state.users.find((u) => u.email.toLowerCase() === raw) ?? null;
   }, [identifier, state.users]);
+
+  const isDemoAddress = identifier.trim().toLowerCase() === DEMO_EMAIL.toLowerCase();
 
   const requestCode = () => {
     if (!identifier.trim()) return;
-    // One number opens the demonstration, and it is checked before the
+    // One address opens the demonstration, and it is checked before the
     // device's own records: the demo has to work on a phone that has never
     // seen this app (spec §33).
-    if (phoneKey(identifier) === phoneKey(DEMO_PHONE)) {
+    if (isDemoAddress) {
       setError(null);
       setCode("");
       setStep("code");
@@ -110,11 +105,11 @@ function LocalGate() {
       return;
     }
     if (!match) {
-      // Naming the failure beats a generic "invalid": on this device the
-      // records are right here, so "no such number" is a fact, not a guess.
-      setError(
-        "No account on this device uses that number. Ask whoever runs your company to add you, or create a company yourself.",
-      );
+      /* An address nobody here recognises is not an error — it is a new
+         company. Same rule as signing in with Google: unknown means new,
+         and new means the onboarding flow rather than a dead end. The
+         address travels with them so the wizard does not ask twice. */
+      router.push(`/start?email=${encodeURIComponent(identifier.trim().toLowerCase())}`);
       return;
     }
     setError(null);
@@ -125,7 +120,7 @@ function LocalGate() {
 
   const submitCode = () => {
     if (code.length < 4) return;
-    if (phoneKey(identifier) === phoneKey(DEMO_PHONE)) {
+    if (isDemoAddress) {
       setStep("persona");
       return;
     }
@@ -182,48 +177,31 @@ function LocalGate() {
                 Sign in to Workfence
               </h1>
               <p className="mt-1 text-sm text-[var(--wf-muted)]">
-                Enter the mobile number your company added you with.
+                Use the email address your company added you with, or sign in
+                with Google or Outlook.
               </p>
             </div>
           </div>
 
           {/* The form shows even on a device with no records yet: the
               highlights land here, and the door should look the same on
-              every device. Requesting a code on an empty store names the
-              failure and points at creating a company — the link below is
-              the same door. */}
-          <Field label="Mobile number">
-            {/* Focused on arrival so the phone's keypad is already up —
-                the whole screen asks for one number, so the first tap
-                should be a digit, not the field. `numeric` keeps that
-                keypad digits-only; email sign-in still works from a
-                hardware keyboard, it just isn't advertised. */}
+              every device. An address nobody recognises is not an error —
+              it is a new company, and it opens onboarding. */}
+          <Field label="Work email">
+            {/* Focused on arrival, and typed as email so the keyboard comes
+                up with an @ on it rather than a keypad. */}
             <input
               className="wf-input"
               autoFocus
-              inputMode="numeric"
-              autoComplete="tel"
-              placeholder="90000 00000"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder="you@company.com"
               value={identifier}
               onChange={(e) => {
-                // Digits only, ten of them — an Indian mobile number.
-                // An eleventh keystroke on a full number is a stray tap
-                // and is ignored; a multi-character jump is a paste, and
-                // keeps the *last* ten (the same rule phoneKey applies),
-                // so "+91 90000 00001" lands on the number, not the
-                // country code.
-                let d = e.target.value.replace(/\D/g, "");
-                // A pasted number arrives dressed up — "+91 90000 00001"
-                // or "090000 00001" — so shed the country code or trunk
-                // zero before capping at ten digits.
-                if (d.length === 12 && d.startsWith("91")) d = d.slice(2);
-                if (d.length === 11 && d.startsWith("0")) d = d.slice(1);
-                d = d.slice(0, 10);
-                // Write the DOM too: when the state doesn't change
-                // (a keystroke past the cap), React bails out of
-                // re-rendering and would leave the raw text in the field.
-                e.target.value = d;
-                setIdentifier(d);
+                setIdentifier(e.target.value);
                 setError(null);
               }}
               onKeyDown={(e) => e.key === "Enter" && requestCode()}
@@ -242,15 +220,20 @@ function LocalGate() {
 
           <button
             className="wf-btn wf-btn-primary wf-btn-lg"
-            disabled={identifier.length !== 10}
+            disabled={!/.+@.+\..+/.test(identifier.trim())}
             onClick={requestCode}
           >
-            Send code <IArrowR size={17} />
+            {match || isDemoAddress ? "Send code" : "Continue"} <IArrowR size={17} />
           </button>
 
           <SsoButtons onError={setError} />
 
-          <NewCompanyLink />
+          {/*
+           * No "create your company" link any more. Signing in *is* the
+           * signup: an address nobody recognises opens onboarding, whether
+           * it arrived by hand or from Google. One door, and the identity
+           * decides which side of it you are on.
+           */}
 
           <p className="flex items-center justify-center gap-1.5 text-center text-[0.7rem] text-[var(--wf-faint)]">
             <IShield size={13} /> Location is tracked only during an active shift

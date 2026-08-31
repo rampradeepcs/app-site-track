@@ -50,7 +50,7 @@ import {
 } from "./payroll";
 import { fmtKmLabel, sanitiseTrack, travelPoints, vehicleOf } from "./allowances";
 import {
-  DEMO_PHONE,
+  DEMO_EMAIL,
   clearDemoData,
   currentPersonaId,
   demoActive,
@@ -155,6 +155,12 @@ const rid = (p: string) => `${p}_${Date.now().toString(36)}_${(idCounter++).toSt
 
 /** Default contracted shift for a freshly provisioned company: 9-to-6. */
 const DEFAULT_SHIFT = { start: 9 * 60, end: 18 * 60 };
+
+/** "Born Creative" -> "borncreative.workfence.app", for placeholder addresses. */
+function domainFor(company: string): string {
+  const slug = company.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  return `${slug || "company"}.workfence.app`;
+}
 
 /**
  * Employee-code prefix from a company name: "Born Creative" -> "BC".
@@ -276,13 +282,16 @@ export interface PremiseDraft {
 /** Somebody the founder invited, from their contacts or typed in by hand. */
 export interface CrewInvite {
   name: string;
-  phone: string;
+  /** Optional here: a crew picked from the phone's contacts often has none. */
+  email?: string;
+  phone?: string;
   designation?: string;
 }
 
 export interface CompanyDraft {
   company: string;
-  admin: { name: string; phone: string; email?: string };
+  /* Email first: it is what the admin signs in with. */
+  admin: { name: string; email: string; phone?: string };
   site: PremiseDraft & { trackingMode: TrackingMode };
   /** Optional: a company that only ever works on site does not need one. */
   office: PremiseDraft | null;
@@ -3442,6 +3451,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           id: uid(),
           orgId: patch.orgId ?? currentOrgId(s),
           name: patch.name,
+          email: patch.email ?? "",
           employeeCode:
             patch.employeeCode ?? nextCode(s, codeStem(orgNameFor(s))),
           role: "employee",
@@ -3668,6 +3678,10 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         role: "employee",
         designation: c.designation?.trim() || "Worker",
         department: "Site",
+        /* Email is the identity, so a crew member invited without one gets a
+           placeholder on the org's domain rather than an empty key that two
+           people could share. It is editable the moment they are opened. */
+        email: c.email?.trim() || `${c.name.toLowerCase().replace(/[^a-z]+/g, ".")}.${i + 2}@${domainFor(draft.company)}`,
         phone: c.phone,
         avatarHue: hueFor(c.name),
         status: "active",
@@ -3686,7 +3700,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         designation: "Client Administrator",
         department: "Management",
         phone: draft.admin.phone,
-        email: draft.admin.email?.trim() || undefined,
+        email: draft.admin.email?.trim() || `admin@${domainFor(draft.company)}`,
         avatarHue: hueFor(draft.admin.name),
         status: "active",
         projectIds: premiseIds,
@@ -3714,7 +3728,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         client: draft.company,
         address: d.address,
         siteContact: draft.admin.name,
-        siteContactPhone: draft.admin.phone,
+        siteContactPhone: draft.admin.phone ?? "",
         // The founder runs everything until they hand a site to someone else;
         // an unowned project has no one to raise a geofence alert with.
         managerId: adminId,

@@ -377,7 +377,7 @@ export type Database = {
  */
 export interface SignupPayload {
   company: string;
-  admin: { name: string; phone: string; email?: string };
+  admin: { name: string; email: string; phone?: string };
   site: {
     name: string;
     address: string;
@@ -391,7 +391,7 @@ export interface SignupPayload {
     location: { lat: number; lng: number };
     radius: number;
   } | null;
-  crew: Array<{ name: string; phone: string; designation?: string }>;
+  crew: Array<{ name: string; email?: string; phone?: string; designation?: string }>;
   timezone?: string;
 }
 

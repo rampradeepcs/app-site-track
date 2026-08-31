@@ -32,8 +32,13 @@ export interface User {
   role: Role;
   designation: string;
   department: string;
-  phone: string;
-  email?: string;
+  /**
+   * The identity. Email is what a person signs in with, so it doubles as
+   * the unique key across the org — two people cannot share one.
+   */
+  email: string;
+  /** Contact number. Useful, but no longer how anyone is identified. */
+  phone?: string;
   /** Initials-based avatar tint; photos are generated, never fetched. */
   avatarHue: number;
   photo?: string;
@@ -47,10 +52,9 @@ export interface User {
   /**
    * Whether this person may sign in to the mobile app.
    *
-   * Their phone number is the identity they sign in with, so it doubles as
-   * the unique id across the org — two people cannot share one. Someone
-   * without app access still appears in the roster, is still marked
-   * present, and is still paid; they simply do not carry a phone.
+   * Their email address is the identity they sign in with. Someone without
+   * app access still appears in the roster, is still marked present, and is
+   * still paid; they simply never sign in.
    */
   appAccess?: boolean;
   /**

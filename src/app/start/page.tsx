@@ -15,8 +15,8 @@
  * a boundary drawn and a crew attached, and the next tap is a working app.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Field, Segmented } from "@/components/ui";
 import {
   Highlights,
@@ -24,7 +24,7 @@ import {
   seenHighlights,
 } from "@/components/onboarding/Highlights";
 import { PremiseStep, type PremiseFields } from "@/components/onboarding/PremiseStep";
-import { InviteCrew, isUsablePhone } from "@/components/onboarding/InviteCrew";
+import { InviteCrew } from "@/components/onboarding/InviteCrew";
 import { WorkfenceMark } from "@/components/Brand";
 import {
   IAlert,
@@ -52,8 +52,25 @@ const FALLBACK_CENTRE = { lat: 11.0273, lng: 77.0037 };
 
 const OTP_LENGTH = isLiveBackend ? 6 : 4;
 
+const isUsableEmail = (raw: string) => /.+@.+\..+/.test(raw.trim());
+
 export default function StartPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="wf-phone px-6 pt-[9dvh]">
+          <p className="text-sm text-[var(--wf-muted)]">Loading…</p>
+        </main>
+      }
+    >
+      <StartWizard />
+    </Suspense>
+  );
+}
+
+function StartWizard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { state, loginAs } = useWorkforce();
   const { signUp, signupsEnabled } = useSignUp();
 
@@ -75,7 +92,11 @@ export default function StartPage() {
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
+  /* Arriving from a sign-in that found no company: the address is already
+     known, so asking for it again would be asking twice. */
+  const [email, setEmail] = useState(
+    () => searchParams.get("email")?.trim().toLowerCase() ?? "",
+  );
   const [code, setCode] = useState("");
   const [company, setCompany] = useState("");
   const [site, setSite] = useState<PremiseFields>({
@@ -142,7 +163,7 @@ export default function StartPage() {
   /* ------------------------------------------------------------- identity */
 
   const submitIdentity = async () => {
-    if (!name.trim() || !isUsablePhone(phone)) return;
+    if (!name.trim() || !isUsableEmail(email)) return;
     setError(null);
     if (!isLiveBackend) {
       setStep("verify");
@@ -182,8 +203,8 @@ export default function StartPage() {
       company: company.trim(),
       admin: {
         name: name.trim(),
-        phone: phone.trim(),
-        email: email.trim() || undefined,
+        email: email.trim().toLowerCase(),
+        phone: phone.trim() || undefined,
       },
       site: {
         name: site.name.trim() || "First Site",
@@ -200,7 +221,7 @@ export default function StartPage() {
             radius: office.radius,
           }
         : null,
-      crew: crew.filter((c) => c.name.trim() && isUsablePhone(c.phone)),
+      crew: crew.filter((c) => c.name.trim()),
     }),
     [company, name, phone, email, site, tracking, wantOffice, office, crew],
   );
@@ -324,10 +345,23 @@ export default function StartPage() {
             />
           </Field>
           <Field
-            label="Mobile number"
+            label="Work email"
             required
-            hint="This is how you sign in — and how your crew reaches you."
+            hint="This is how you sign in, and it becomes your company's administrator."
           >
+            <input
+              className="wf-input"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </Field>
+          <Field label="Mobile number" hint="Optional. How your crew reaches you.">
             <input
               className="wf-input"
               inputMode="tel"
@@ -337,19 +371,9 @@ export default function StartPage() {
               onChange={(e) => setPhone(e.target.value)}
             />
           </Field>
-          <Field label="Email" hint="Optional. Used for receipts and exports.">
-            <input
-              className="wf-input"
-              type="email"
-              autoComplete="email"
-              placeholder="you@company.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </Field>
           <button
             className="wf-btn wf-btn-primary wf-btn-lg mt-1"
-            disabled={busy || !name.trim() || !isUsablePhone(phone)}
+            disabled={busy || !name.trim() || !isUsableEmail(email)}
             onClick={submitIdentity}
           >
             {busy ? "Sending code…" : "Send me a code"} <IArrowR size={17} />

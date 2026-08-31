@@ -50,6 +50,7 @@ export function EmployeeEditor({
   const [designation, setDesignation] = useState(base?.designation ?? "Worker");
   const [department, setDepartment] = useState(base?.department ?? "Civil");
   const [phone, setPhone] = useState(base?.phone ?? "");
+  const [email, setEmail] = useState(base?.email ?? "");
   const [projectIds, setProjectIds] = useState<string[]>(base?.projectIds ?? []);
   const [status, setStatus] = useState<User["status"]>(base?.status ?? "active");
   const [appAccess, setAppAccess] = useState(base?.appAccess ?? true);
@@ -71,10 +72,7 @@ export function EmployeeEditor({
           <Field label="Employee ID">
             <input className="wf-input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="auto" />
           </Field>
-          {/* Required: the phone number is the sign-in identity. Someone
-              added without one exists in the roster and can never open the
-              app, which is a worse outcome than refusing to save. */}
-          <Field label="Phone" required>
+          <Field label="Phone" hint="Contact only — not how they sign in.">
             <input
               className="wf-input"
               type="tel"
@@ -92,14 +90,34 @@ export function EmployeeEditor({
             />
           </Field>
         </div>
-        {/* App access. The number above is the identity they sign in with,
+
+        {/* Required: the address is the sign-in identity. Someone added
+            without one exists in the roster and can never open the app,
+            which is a worse outcome than refusing to save. */}
+        <Field label="Work email" required>
+          <input
+            className="wf-input"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            placeholder="name@company.com"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setError("");
+            }}
+          />
+        </Field>
+        {/* App access. The address above is the identity they sign in with,
             so it doubles as the unique id across the org. */}
         <div className="wf-card2 flex items-center justify-between gap-3 px-3.5 py-3">
           <div className="min-w-0">
             <p className="text-sm font-semibold">Access to the mobile app</p>
             <p className="mt-0.5 text-[0.72rem] leading-relaxed text-[var(--wf-muted)]">
               {appAccess
-                ? "They sign in with their mobile number — it is their unique ID."
+                ? "They sign in with their work email — it is their unique ID."
                 : "They stay on the roster and are still paid, but cannot sign in."}
             </p>
           </div>
@@ -173,18 +191,18 @@ export function EmployeeEditor({
               setError("Enter the employee's full name.");
               return;
             }
-            const key = phoneKey(phone);
-            if (key.length !== 10) {
-              setError("Enter a 10-digit mobile number — it is how they sign in.");
+            const key = email.trim().toLowerCase();
+            if (!/.+@.+\..+/.test(key)) {
+              setError("Enter a work email — it is how they sign in.");
               return;
             }
-            // Sign-in resolves a person *by* this number, so two people
+            // Sign-in resolves a person *by* this address, so two people
             // sharing one is not a duplicate row, it is an ambiguous login.
             const clash = people.find(
-              (u) => u.id !== base?.id && phoneKey(u.phone) === key,
+              (u) => u.id !== base?.id && u.email.toLowerCase() === key,
             );
             if (clash) {
-              setError(`${clash.name} already uses that number.`);
+              setError(`${clash.name} already uses that address.`);
               return;
             }
             onSave(
@@ -193,7 +211,8 @@ export function EmployeeEditor({
                 employeeCode: code.trim() || undefined,
                 designation,
                 department,
-                phone: phoneKey(phone),
+                email: key,
+                phone: phoneKey(phone) || undefined,
                 appAccess,
                 projectIds,
                 status,
@@ -217,10 +236,21 @@ export function EmployeeEditor({
                   `${employer || "Your employer"} has invited you to join them on Workfence — ` +
                   `the app they use for site attendance.\n\n` +
                   `Install the app: ${APP_DOWNLOAD_URL}\n\n` +
-                  `Sign in with this number (${phoneKey(phone)}) — it is your ID.`,
+                  `Sign in with this address (${key}) — it is your ID. ` +
+                  `You can use Google or Outlook if it is that kind of account.`,
               );
+              /*
+               * WhatsApp when there is a number to send to, the mail client
+               * otherwise. The identity is the address either way; the
+               * channel is only how the invitation travels.
+               */
+              const number = phoneKey(phone);
               window.open(
-                `https://wa.me/91${phoneKey(phone)}?text=${text}`,
+                number
+                  ? `https://wa.me/91${number}?text=${text}`
+                  : `mailto:${key}?subject=${encodeURIComponent(
+                      `${employer || "Your employer"} invited you to Workfence`,
+                    )}&body=${text}`,
                 "_blank",
                 "noopener",
               );

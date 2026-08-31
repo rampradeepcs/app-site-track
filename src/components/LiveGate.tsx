@@ -15,12 +15,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkforce } from "@/lib/store";
-import { currentAppUser, sendOtp, signOut, verifyOtp } from "@/lib/supabase/auth";
+import {
+  currentAppUser,
+  currentAuthEmail,
+  sendOtp,
+  signOut,
+  verifyOtp,
+} from "@/lib/supabase/auth";
 import { SsoButtons } from "./SsoButtons";
 import { consumeSignInDirect, landingFor } from "@/lib/routes";
 import { Field } from "@/components/ui";
 import { WorkfenceMark } from "@/components/Brand";
-import { NewCompanyLink } from "@/components/onboarding/NewCompanyLink";
 import {
   Highlights,
   markHighlightsSeen,
@@ -129,7 +134,12 @@ export default function LiveGate() {
     // a real state, and one worth naming rather than showing an empty app.
     const ok = await enter();
     setBusy(false);
-    if (!ok) setStep("unlinked");
+    if (!ok) {
+      // The SSO path never touched the form, so ask the session who this is.
+      const who = await currentAuthEmail();
+      if (who) setIdentifier(who);
+      setStep("unlinked");
+    }
   };
 
   return (
@@ -162,13 +172,37 @@ export default function LiveGate() {
             <IAlert size={30} />
           </span>
           <div>
-            <h1 className="wf-display text-2xl">Account not linked</h1>
+            <h1 className="wf-display text-2xl">New to Workfence</h1>
             <p className="mt-2 text-sm text-[var(--wf-muted)]">
               <span className="font-semibold text-[var(--wf-fg)]">{identifier}</span> signed
-              in successfully, but it isn&apos;t attached to any organisation yet. Ask your
-              administrator to add you, then sign in again.
+              in successfully, and isn&apos;t on any company yet. Set one up, and
+              this address becomes its administrator.
             </p>
           </div>
+          {/*
+           * An unrecognised identity is a new company, not a dead end — the
+           * sign-in and the sign-up are the same door, and which side you
+           * land on is decided by the address rather than by which link you
+           * happened to press.
+           */}
+          <button
+            className="wf-btn wf-btn-primary wf-btn-lg"
+            onClick={() =>
+              router.push(`/start?email=${encodeURIComponent(identifier)}`)
+            }
+          >
+            Set up my company <IArrowR size={17} />
+          </button>
+          {/*
+           * Kept, because the other reason to be unlinked is mundane and
+           * common: an employee whose administrator has not added them yet.
+           * Pushing them into creating a second empty company would be the
+           * worse failure of the two.
+           */}
+          <p className="text-[0.76rem] leading-relaxed text-[var(--wf-muted)]">
+            Expecting to join a company that already exists? Ask whoever runs
+            it to add this address, then sign in again.
+          </p>
           <button
             className="wf-btn wf-btn-ghost"
             onClick={async () => {
@@ -196,14 +230,18 @@ export default function LiveGate() {
           </div>
 
           <Field
-            label="Mobile number or work email"
-            hint="Indian numbers can be entered without +91."
+            label="Work email"
+            hint="The address your company added you with."
           >
             <input
               className="wf-input"
               autoFocus
-              autoComplete="username"
-              placeholder="98765 43210"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder="you@company.com"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               onKeyDown={(e) => {
@@ -223,8 +261,6 @@ export default function LiveGate() {
           </button>
 
           <SsoButtons onError={setError} />
-
-          <NewCompanyLink />
 
           <p className="flex items-center justify-center gap-1.5 text-center text-[0.7rem] text-[var(--wf-faint)]">
             <IShield size={13} /> Location is tracked only during an active shift

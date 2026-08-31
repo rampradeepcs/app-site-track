@@ -30,12 +30,25 @@ import {
 import type { CrewInvite } from "@/lib/store";
 
 /** Digits only, so "+91 90000 00001" and "9000000001" are the same person. */
-export function phoneKey(raw: string): string {
-  const d = raw.replace(/\D/g, "");
+export function phoneKey(raw: string | undefined): string {
+  const d = (raw ?? "").replace(/\D/g, "");
   return d.length > 10 ? d.slice(-10) : d;
 }
 
-export function isUsablePhone(raw: string): boolean {
+/**
+ * The key one contact is tracked by.
+ *
+ * Email first, because email is the identity now — two entries for the same
+ * address are one person however many numbers they have. A contact with no
+ * address still needs a stable key though, and their number is the only
+ * other thing that distinguishes them, so it stands in.
+ */
+export function contactKey(c: { email?: string; phone?: string }): string {
+  const mail = c.email?.trim().toLowerCase();
+  return mail || phoneKey(c.phone);
+}
+
+export function isUsablePhone(raw: string | undefined): boolean {
   return phoneKey(raw).length >= 7;
 }
 
@@ -43,7 +56,7 @@ export function isUsablePhone(raw: string): boolean {
 function dedupeByPhone(contacts: CrewInvite[]): CrewInvite[] {
   const seen = new Set<string>();
   return contacts.filter((c) => {
-    const k = phoneKey(c.phone);
+    const k = contactKey(c);
     if (!k || seen.has(k)) return false;
     seen.add(k);
     return true;
@@ -77,7 +90,8 @@ function ContactSheet({
     return contacts.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
-        (digits.length > 0 && c.phone.replace(/\D/g, "").includes(digits)),
+        (c.email ?? "").toLowerCase().includes(q) ||
+        (digits.length > 0 && (c.phone ?? "").replace(/\D/g, "").includes(digits)),
     );
   }, [contacts, filter]);
 
@@ -125,7 +139,7 @@ function ContactSheet({
 
         <ul className="min-h-0 flex-1 overflow-y-auto">
           {shown.map((c, i) => {
-            const k = phoneKey(c.phone);
+            const k = contactKey(c);
             const added = alreadyIn.has(k);
             const on = added || chosen.has(k);
             return (
@@ -169,7 +183,7 @@ function ContactSheet({
           className="wf-btn wf-btn-primary wf-btn-lg"
           disabled={chosen.size === 0}
           onClick={() =>
-            onAdd(contacts.filter((c) => chosen.has(phoneKey(c.phone))))
+            onAdd(contacts.filter((c) => chosen.has(contactKey(c))))
           }
         >
           <IUsers size={16} />

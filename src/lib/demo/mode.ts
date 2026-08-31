@@ -16,8 +16,8 @@
 import { SEED_VERSION } from "../seed";
 import type { Role } from "../types";
 
-/** The one number that may enter demo mode (spec §1, §33). */
-export const DEMO_PHONE = "9944311118";
+/** The one address that may enter demo mode (spec §1, §33). */
+export const DEMO_EMAIL = "rampradeepux@gmail.com";
 
 const FLAG_KEY = "workfence.demo.active";
 const PERSONA_KEY = "workfence.demo.persona";

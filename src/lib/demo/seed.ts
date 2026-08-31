@@ -19,7 +19,7 @@
 
 import { DEFAULT_OVERTIME, DEFAULT_PAY_POLICY, creditedOvertime } from "../payroll";
 import { SEED_VERSION, makeSelfie } from "../seed";
-import { DEMO_IDS } from "./mode";
+import { DEMO_EMAIL, DEMO_IDS } from "./mode";
 import type {
   Attendance,
   AttendanceMark,
@@ -483,7 +483,8 @@ export function buildDemoData(now = Date.now()): DemoData {
       designation: "Mason",
       department: "Civil",
       phone: "9840000006",
-      email: "arun@abcinfra.demo",
+      /* The one address that opens the demonstration. */
+      email: DEMO_EMAIL,
       status: "active",
       projectIds: [metro.id],
       shiftStart: 8 * 60 + 30,
@@ -537,10 +538,14 @@ export function buildDemoData(now = Date.now()): DemoData {
             ? "demo-shift-early"
             : "demo-shift-general";
     const drives = trade.designation === "Driver" || trade.designation === "Store Keeper";
+    /* Email is the identity now, so every seeded person needs one and no two
+       may collide — the index guarantees that where two crew share a name. */
+    const email = `${name.toLowerCase().replace(/[^a-z]+/g, ".")}.${i}@abcinfra.demo`;
     addUser(
       {
         id: `demo-emp-${i}`,
         name,
+        email,
         role: "employee",
         designation: trade.designation,
         department: trade.department,
