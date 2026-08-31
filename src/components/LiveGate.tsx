@@ -23,6 +23,8 @@ import {
   verifyOtp,
 } from "@/lib/supabase/auth";
 import { SsoButtons } from "./SsoButtons";
+import { DEMO_EMAIL } from "@/lib/demo/mode";
+import { PersonaChooser } from "@/components/demo/PersonaPicker";
 import { LoginBackdrop } from "@/components/LoginBackdrop";
 import { consumeSignInDirect, landingFor } from "@/lib/routes";
 import { Field } from "@/components/ui";
@@ -43,7 +45,7 @@ import { IAlert, IArrowR, IChevronL, ILock, IShield } from "@/components/WfIcons
 const CODE_MIN = 6;
 const CODE_MAX = 10;
 
-type Step = "restoring" | "highlights" | "identity" | "code" | "unlinked";
+type Step = "restoring" | "highlights" | "identity" | "code" | "unlinked" | "persona";
 
 export default function LiveGate() {
   const { state, loginAs } = useWorkforce();
@@ -111,6 +113,22 @@ export default function LiveGate() {
   const requestCode = async () => {
     const id = identifier.trim();
     if (!id) return;
+
+    /*
+     * One address opens the demonstration, and it is checked before the
+     * backend is ever called — the same rule the local gate follows.
+     *
+     * It matters more here: this gate talks to a real Supabase project, so
+     * without this the demo address would mint a real auth user, send a
+     * real email, and land on an empty company. The demonstration lives in
+     * its own storage and must never touch the tenant's records.
+     */
+    if (id.toLowerCase() === DEMO_EMAIL.toLowerCase()) {
+      setError(null);
+      setStep("persona");
+      return;
+    }
+
     setBusy(true);
     setError(null);
     const res = await sendOtp(id);
@@ -174,6 +192,8 @@ export default function LiveGate() {
           onDone={finishHighlights}
           onSkip={finishHighlights}
         />
+      ) : step === "persona" ? (
+        <PersonaChooser />
       ) : step === "unlinked" ? (
         <div className="wf-fade-in flex flex-col gap-5 text-center">
           <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[var(--wf-red-soft)] text-[var(--wf-red)]">
