@@ -133,7 +133,16 @@ export function canSeeNote(
     case "selected":
       return (note.visibleTo ?? []).includes(u.id);
     case "management":
-      return isManagement(u);
+      /*
+       * Admins only — deliberately narrower than isManagement().
+       *
+       * The label on this option promises "not managers on site", and a
+       * manager reading a retention dispute or a payment note is exactly
+       * the disclosure the option exists to prevent. The database policy
+       * agrees; the two were saying different things until a permission
+       * test caught it.
+       */
+      return isAdmin(u);
     default:
       return isManagement(u);
   }

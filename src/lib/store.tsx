@@ -88,6 +88,8 @@ import {
   insertGroupAttendance,
   upsertProjectNote,
   deleteProjectNote,
+  insertNoteAttachment,
+  deleteNoteAttachment,
   fetchTeamWorld,
 } from "./supabase/repository";
 import { persist, uid } from "./supabase/sync";
@@ -2790,6 +2792,14 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
 
   const setTeamStatus = useCallback(
     (teamId: string, status: LabourTeamStatus) => {
+      /* Built before the mutation, so the same row goes to state and to
+         Postgres — stateRef lags a render and would push the old status. */
+      const before = stateRef.current?.labourTeams.find((t) => t.id === teamId);
+      if (before) {
+        persist("change the team status", () =>
+          upsertLabourTeam({ ...before, status, updatedAt: Date.now() }),
+        );
+      }
       mutate((s) => {
         const team = s.labourTeams.find((t) => t.id === teamId);
         if (!team) return s;
@@ -2946,6 +2956,12 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
 
   const setTeamLeader = useCallback(
     (teamId: string, employeeId: string | undefined) => {
+      const before = stateRef.current?.labourTeams.find((t) => t.id === teamId);
+      if (before) {
+        persist("set the team leader", () =>
+          upsertLabourTeam({ ...before, leaderId: employeeId, updatedAt: Date.now() }),
+        );
+      }
       mutate((s) => ({
         ...s,
         labourTeams: s.labourTeams.map((t) =>
@@ -3322,6 +3338,12 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
 
   const setNotePinned = useCallback(
     (noteId: string, pinned: boolean) => {
+      const before = stateRef.current?.projectNotes.find((n) => n.id === noteId);
+      if (before) {
+        persist("pin the note", () =>
+          upsertProjectNote({ ...before, pinned, updatedAt: Date.now() }),
+        );
+      }
       mutate((s) => ({
         ...s,
         projectNotes: s.projectNotes.map((n) =>
@@ -3335,6 +3357,12 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
 
   const setNoteStatus = useCallback(
     (noteId: string, status: NoteStatus) => {
+      const before = stateRef.current?.projectNotes.find((n) => n.id === noteId);
+      if (before) {
+        persist("update the note status", () =>
+          upsertProjectNote({ ...before, status, updatedAt: Date.now() }),
+        );
+      }
       mutate((s) => ({
         ...s,
         projectNotes: s.projectNotes.map((n) =>
@@ -3373,13 +3401,16 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       const st = stateRef.current!;
       const by = st.session?.userId ?? "system";
       const orgId = st.projectNotes.find((n) => n.id === noteId)?.orgId ?? "";
-      mutate((s) => ({
-        ...s,
-        noteAttachments: [
-          ...s.noteAttachments,
-          { ...file, id: rid("att"), orgId, noteId, createdBy: by, createdAt: Date.now() },
-        ],
-      }));
+      const row: ProjectNoteAttachment = {
+        ...file,
+        id: rid("att"),
+        orgId,
+        noteId,
+        createdBy: by,
+        createdAt: Date.now(),
+      };
+      mutate((s) => ({ ...s, noteAttachments: [...s.noteAttachments, row] }));
+      persist("attach the file", () => insertNoteAttachment(row));
       showToast("Attached");
     },
     [mutate],
@@ -3391,6 +3422,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         ...s,
         noteAttachments: s.noteAttachments.filter((a) => a.id !== attachmentId),
       }));
+      persist("remove the attachment", () => deleteNoteAttachment(attachmentId));
     },
     [mutate],
   );
