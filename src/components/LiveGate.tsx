@@ -32,7 +32,15 @@ import {
 } from "@/components/onboarding/Highlights";
 import { IAlert, IArrowR, IChevronL, ILock, IShield } from "@/components/WfIcons";
 
-const CODE_LENGTH = 6;
+/*
+ * The code length is a project setting, not ours: Supabase's "Email OTP
+ * length" can be anywhere in this range, and it was set to 8 while this
+ * file assumed 6 — so the field truncated the code and every sign-in
+ * failed. Accept the range instead of asserting a number the app does not
+ * control.
+ */
+const CODE_MIN = 6;
+const CODE_MAX = 10;
 
 type Step = "restoring" | "highlights" | "identity" | "code" | "unlinked";
 
@@ -111,9 +119,7 @@ export default function LiveGate() {
       return;
     }
     setNotice(
-      id.includes("@")
-        ? `We emailed a ${CODE_LENGTH}-digit code to ${id}.`
-        : `We texted a ${CODE_LENGTH}-digit code to ${id}.`,
+      `We emailed a sign-in code to ${id}.`,
     );
     setCode("");
     setStep("code");
@@ -121,7 +127,7 @@ export default function LiveGate() {
   };
 
   const submitCode = async () => {
-    if (code.length < CODE_LENGTH) return;
+    if (code.length < CODE_MIN) return;
     setBusy(true);
     setError(null);
     const res = await verifyOtp(identifier.trim(), code);
@@ -293,10 +299,10 @@ export default function LiveGate() {
             className="wf-input h-16 text-center text-2xl font-bold tracking-[0.5em] tabular-nums"
             inputMode="numeric"
             autoComplete="one-time-code"
-            maxLength={CODE_LENGTH}
-            aria-label={`${CODE_LENGTH}-digit verification code`}
+            maxLength={CODE_MAX}
+            aria-label="Verification code"
             value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH))}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, CODE_MAX))}
             onKeyDown={(e) => {
               if (e.key === "Enter") void submitCode();
             }}
@@ -306,7 +312,7 @@ export default function LiveGate() {
 
           <button
             className="wf-btn wf-btn-primary wf-btn-lg"
-            disabled={busy || code.length < CODE_LENGTH}
+            disabled={busy || code.length < CODE_MIN}
             onClick={() => void submitCode()}
           >
             {busy ? "Verifying…" : "Verify & sign in"}
