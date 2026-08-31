@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { useWorkforce } from "@/lib/store";
 import { Field } from "@/components/ui";
 import { SsoButtons } from "@/components/SsoButtons";
+import { LoginBackdrop } from "@/components/LoginBackdrop";
 import { IAlert, IArrowR, IChevronL, ILock, IShield } from "@/components/WfIcons";
 import { consumeSignInDirect, landingFor } from "@/lib/routes";
 import { isLiveBackend } from "@/lib/supabase/client";
@@ -146,7 +147,7 @@ function LocalGate() {
        keypad that opens with the focused field never covers what the screen
        is asking for. */
     <main
-      className={`wf-phone px-6 ${
+      className={`wf-phone relative isolate px-6 ${
         step === "splash"
           ? "justify-center py-10"
           : step === "highlights"
@@ -154,6 +155,7 @@ function LocalGate() {
             : "justify-start pt-[9dvh] pb-10"
       }`}
     >
+      <LoginBackdrop />
       {step === "splash" ? (
         <div className="flex flex-col items-center gap-6 text-center">
           <WorkfenceSplash onDone={afterSplash} />

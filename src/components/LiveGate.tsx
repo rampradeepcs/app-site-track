@@ -23,6 +23,7 @@ import {
   verifyOtp,
 } from "@/lib/supabase/auth";
 import { SsoButtons } from "./SsoButtons";
+import { LoginBackdrop } from "@/components/LoginBackdrop";
 import { consumeSignInDirect, landingFor } from "@/lib/routes";
 import { Field } from "@/components/ui";
 import { WorkfenceMark } from "@/components/Brand";
@@ -154,7 +155,7 @@ export default function LiveGate() {
        with the focused field never covers what the screen is asking for.
        Matches the local gate. */
     <main
-      className={`wf-phone px-6 ${
+      className={`wf-phone relative isolate px-6 ${
         step === "restoring"
           ? "justify-center py-10"
           : step === "highlights"
@@ -162,6 +163,7 @@ export default function LiveGate() {
             : "justify-start pt-[9dvh] pb-10"
       }`}
     >
+      <LoginBackdrop />
       {step === "restoring" ? (
         <div className="flex flex-col items-center gap-4 text-center">
           <WorkfenceMark size={72} />
