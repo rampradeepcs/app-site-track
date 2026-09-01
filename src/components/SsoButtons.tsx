@@ -14,8 +14,13 @@
  * which is most of a construction site.
  */
 
-import { useState } from "react";
-import { SSO_PROVIDERS, signInWithProvider, type SsoProvider } from "@/lib/supabase/auth";
+import { useEffect, useState } from "react";
+import {
+  SSO_PROVIDERS,
+  currentAuthEmail,
+  signInWithProvider,
+  type SsoProvider,
+} from "@/lib/supabase/auth";
 import { isLiveBackend } from "@/lib/supabase/client";
 
 function GoogleMark() {
@@ -49,6 +54,54 @@ const MARKS: Record<SsoProvider, () => React.JSX.Element> = {
 
 export function SsoButtons({ onError }: { onError?: (message: string) => void }) {
   const [busy, setBusy] = useState<SsoProvider | null>(null);
+
+  /*
+   * Recover when the browser comes back without a session.
+   *
+   * The happy path leaves this button reading "Opening…" on purpose — the
+   * app is about to be replaced by the system browser. But every unhappy
+   * path returns here too: the user cancels, the provider errors, or the
+   * redirect never makes it back to the app. There was nothing listening
+   * for those, so the button said "Opening…" until the app was force
+   * quit — the sign-in looked like it was still in progress when it had
+   * already failed.
+   *
+   * A successful return is handled by SsoReturn and arrives on the deep
+   * link, which can land a moment after the app resumes, so give it that
+   * moment before calling it a failure.
+   */
+  useEffect(() => {
+    if (!busy) return;
+    let cancelled = false;
+    let remove: (() => void) | undefined;
+
+    void (async () => {
+      const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } })
+        .Capacitor;
+      if (typeof cap?.isNativePlatform !== "function" || !cap.isNativePlatform()) return;
+
+      const { App } = await import("@capacitor/app");
+      const handle = await App.addListener("appStateChange", ({ isActive }) => {
+        if (!isActive) return;
+        window.setTimeout(async () => {
+          if (cancelled) return;
+          const email = await currentAuthEmail();
+          if (cancelled || email) return;
+          setBusy(null);
+          onError?.(
+            "Sign-in didn't complete. Check your connection and try again.",
+          );
+        }, 1500);
+      });
+      if (cancelled) void handle.remove();
+      else remove = () => void handle.remove();
+    })();
+
+    return () => {
+      cancelled = true;
+      remove?.();
+    };
+  }, [busy, onError]);
 
   const start = async (provider: SsoProvider) => {
     setBusy(provider);
