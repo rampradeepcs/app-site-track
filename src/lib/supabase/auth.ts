@@ -203,7 +203,14 @@ export async function completeOAuthRedirect(url: string): Promise<AuthResult> {
       const { error } = await sb.auth.setSession({ access_token, refresh_token });
       return error ? { ok: false, error: describe(error) } : { ok: true };
     }
-    const denied = parsed.searchParams.get("error_description");
+    /* Providers put a refusal in either half of the URL depending on the
+       response mode, so look in both before giving up — the difference
+       between naming the reason and shrugging. */
+    const denied =
+      parsed.searchParams.get("error_description") ??
+      parsed.searchParams.get("error") ??
+      hash.get("error_description") ??
+      hash.get("error");
     return { ok: false, error: denied ?? "Sign-in did not complete." };
   } catch (e) {
     return { ok: false, error: describe(e) };

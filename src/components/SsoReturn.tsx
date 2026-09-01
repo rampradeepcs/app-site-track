@@ -17,6 +17,7 @@ import { useEffect } from "react";
 import { isLiveBackend } from "@/lib/supabase/client";
 import { completeOAuthRedirect } from "@/lib/supabase/auth";
 import { showToast } from "@/lib/toast";
+import { recordSsoFailure } from "@/lib/sso-status";
 
 export function SsoReturn() {
   useEffect(() => {
@@ -41,7 +42,11 @@ export function SsoReturn() {
         } catch {
           /* already closed */
         }
-        showToast(res.ok ? "Signed in" : (res.error ?? "Sign-in failed"), res.ok ? "success" : "danger");
+        const reason = res.error ?? "Sign-in failed";
+        // Written down as well as shown: the toast fires while the user is
+        // still watching the browser close, and is missed more often than not.
+        if (!res.ok) recordSsoFailure(reason);
+        showToast(res.ok ? "Signed in" : reason, res.ok ? "success" : "danger");
       });
       if (cancelled) void handle.remove();
       else remove = () => void handle.remove();

@@ -14,11 +14,23 @@
  * code, and land you wherever the record says you belong.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useRouter } from "next/navigation";
 import { useWorkforce } from "@/lib/store";
 import { Field } from "@/components/ui";
 import { SsoButtons } from "@/components/SsoButtons";
+import {
+  clearSsoFailure,
+  readSsoFailure,
+  serverSsoFailure,
+  subscribeSsoFailure,
+} from "@/lib/sso-status";
 import { LoginBackdrop } from "@/components/LoginBackdrop";
 import { IAlert, IArrowR, IChevronL, ILock, IShield } from "@/components/WfIcons";
 import { consumeSignInDirect, landingFor } from "@/lib/routes";
@@ -56,6 +68,17 @@ function LocalGate() {
   const [identifier, setIdentifier] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  /* A sign-on that came back and failed left its reason behind. Shown here,
+     where the person is actually looking, rather than lost to a toast that
+     fired while the browser was still closing. Read as an external store so
+     the prerendered HTML and the device agree on the first paint. */
+  const ssoFailure = useSyncExternalStore(
+    subscribeSsoFailure,
+    readSsoFailure,
+    serverSsoFailure,
+  );
+  const shownError = error ?? ssoFailure;
   const codeRef = useRef<HTMLInputElement>(null);
 
   /*
@@ -210,13 +233,13 @@ function LocalGate() {
             />
           </Field>
 
-          {error ? (
+          {shownError ? (
             <p
               role="alert"
               className="flex items-start gap-2 rounded-xl bg-[var(--wf-red-soft)] px-3 py-2 text-[0.8rem] text-[var(--wf-red)]"
             >
               <IAlert size={15} className="mt-0.5 shrink-0" />
-              <span className="min-w-0">{error}</span>
+              <span className="min-w-0">{shownError}</span>
             </p>
           ) : null}
 
@@ -228,7 +251,14 @@ function LocalGate() {
             {match || isDemoAddress ? "Send code" : "Continue"} <IArrowR size={17} />
           </button>
 
-          <SsoButtons onError={setError} />
+          <SsoButtons
+            onError={setError}
+            onStart={() => {
+              // A new attempt supersedes whatever the last one reported.
+              clearSsoFailure();
+              setError(null);
+            }}
+          />
 
           {/*
            * No "create your company" link any more. Signing in *is* the

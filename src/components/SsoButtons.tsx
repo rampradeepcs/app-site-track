@@ -52,7 +52,13 @@ const MARKS: Record<SsoProvider, () => React.JSX.Element> = {
   azure: OutlookMark,
 };
 
-export function SsoButtons({ onError }: { onError?: (message: string) => void }) {
+export function SsoButtons({
+  onError,
+  onStart,
+}: {
+  onError?: (message: string) => void;
+  onStart?: () => void;
+}) {
   const [busy, setBusy] = useState<SsoProvider | null>(null);
 
   /*
@@ -104,6 +110,7 @@ export function SsoButtons({ onError }: { onError?: (message: string) => void })
   }, [busy, onError]);
 
   const start = async (provider: SsoProvider) => {
+    onStart?.();
     setBusy(provider);
     const res = await signInWithProvider(provider);
     if (!res.ok) {
