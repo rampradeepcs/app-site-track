@@ -127,6 +127,12 @@ function StartWizard() {
       cancelled = true;
     };
   }, []);
+
+  /* Signed in through a provider that already vouched for this address.
+     Everything about verification — the step, its place on the rail, the
+     way back to it — is off for them. */
+  const alreadyVerified =
+    !!verifiedEmail && verifiedEmail === email.trim().toLowerCase();
   const [company, setCompany] = useState("");
   const [site, setSite] = useState<PremiseFields>({
     name: "",
@@ -176,7 +182,11 @@ function StartWizard() {
         case "verify":
           return "identity";
         case "company":
-          return "verify";
+          /* Straight back to their details. Walking to "verify" put a
+             verified arrival on an OTP screen they had never been shown and
+             could not answer — the flow only skipped that step going
+             forwards. */
+          return alreadyVerified ? "identity" : "verify";
         case "site":
           return "company";
         case "office":
@@ -188,9 +198,6 @@ function StartWizard() {
       }
     });
   };
-
-  const alreadyVerified =
-    !!verifiedEmail && verifiedEmail === email.trim().toLowerCase();
 
   /* ------------------------------------------------------------- identity */
 
@@ -333,14 +340,8 @@ function StartWizard() {
     );
   }
 
-  /* Someone whose address the provider already confirmed never sees the
-     verification step, so the rail must not count it: company setup is step
-     2 of 4 for them, not step 3 of 5. */
-  const rail: readonly Step[] = alreadyVerified
-    ? FORM_STEPS.filter((f) => f !== "verify")
-    : FORM_STEPS;
-  const railIndex = rail.indexOf(step);
-  const railSiteIndex = rail.indexOf("site");
+  const railIndex = FORM_STEPS.indexOf(step as (typeof FORM_STEPS)[number]);
+  const railSiteIndex = FORM_STEPS.indexOf("site");
 
   return (
     <main className="wf-phone gap-5 px-6 py-8">
@@ -355,14 +356,24 @@ function StartWizard() {
             </button>
             <WorkfenceMark size={26} title="Workfence" />
           </div>
-          <div className="wf-steps" role="progressbar" aria-valuemin={1}
-               aria-valuemax={rail.length}
-               aria-valuenow={Math.max(1, railIndex + 1)}
-               aria-label="Signup progress">
-            {rail.map((s, i) => (
-              <span key={s} data-on={i <= (step === "office" ? railSiteIndex : railIndex)} />
-            ))}
-          </div>
+          {/*
+            * No rail for an arrival the provider already vouched for.
+            *
+            * They are not filling in a signup form — they signed in, and the
+            * rest is setting up their company. A progress bar counting steps
+            * frames it as a queue to get through, and it was counting a step
+            * they never see. The screens still say where they are.
+            */}
+          {alreadyVerified ? null : (
+            <div className="wf-steps" role="progressbar" aria-valuemin={1}
+                 aria-valuemax={FORM_STEPS.length}
+                 aria-valuenow={Math.max(1, railIndex + 1)}
+                 aria-label="Signup progress">
+              {FORM_STEPS.map((s, i) => (
+                <span key={s} data-on={i <= (step === "office" ? railSiteIndex : railIndex)} />
+              ))}
+            </div>
+          )}
         </>
       ) : null}
 
