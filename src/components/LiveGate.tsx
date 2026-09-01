@@ -23,10 +23,9 @@ import { useRouter } from "next/navigation";
 import { useWorkforce } from "@/lib/store";
 import {
   currentAppUser,
-  currentAuthEmail,
   onAuthChange,
   sendOtp,
-  signOut,
+  sessionEmail,
   verifyOtp,
 } from "@/lib/supabase/auth";
 import { SsoButtons } from "./SsoButtons";
@@ -58,7 +57,7 @@ import { IAlert, IArrowR, IChevronL, ILock, IShield } from "@/components/WfIcons
 const CODE_MIN = 6;
 const CODE_MAX = 10;
 
-type Step = "restoring" | "highlights" | "identity" | "code" | "unlinked" | "persona";
+type Step = "restoring" | "highlights" | "identity" | "code" | "persona";
 
 export default function LiveGate() {
   const { state, loginAs } = useWorkforce();
@@ -112,22 +111,24 @@ export default function LiveGate() {
   useEffect(() => {
     let cancelled = false;
     if (state.session) return; // the effect above is already taking them in
-    const arrive = () =>
-      setStep(consumeSignInDirect() ? "identity" : "highlights");
-    /* Three states here, not two. No session at all means sign in. A session
-       that resolves to a worker means go in. A session that resolves to
-       nobody means this address is on no company — say so, rather than
-       presenting a sign-in form to someone already signed in. That last case
-       used to depend on whether SIGNED_IN happened to fire during start-up,
-       so the same cold start could show either screen. */
+    /* Consumed once per mount, before anything branches on it: someone who
+       asked for the sign-in form must get it, not be sent back to the flow
+       they just left. Without that this and /start bounce off each other. */
+    const askedToSignIn = consumeSignInDirect();
+    const arrive = () => setStep(askedToSignIn ? "identity" : "highlights");
+    /* Three states, not two. No session means sign in. A session that
+       resolves to a worker means go in — including one that only resolves
+       because enter() just claimed the record carrying this address. A
+       session that resolves to nobody belongs to no company yet, so it goes
+       to founding one rather than to a sign-in form they have already
+       passed. */
     enter()
       .then(async (ok) => {
         if (cancelled || ok) return;
-        const who = await currentAuthEmail();
+        const who = await sessionEmail();
         if (cancelled) return;
-        if (who) {
-          setIdentifier(who);
-          setStep("unlinked");
+        if (who && !askedToSignIn) {
+          router.replace("/start");
           return;
         }
         arrive();
@@ -138,7 +139,8 @@ export default function LiveGate() {
     return () => {
       cancelled = true;
     };
-    // Runs once: this is session restore, not a subscription.
+    // Runs once: this is session restore, not a subscription. router is
+    // stable across renders, so listing it would not change when this runs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -162,12 +164,13 @@ export default function LiveGate() {
       if (!signedIn) return;
       void (async () => {
         if (cancelled || state.session) return;
+        // enter() resolves the address to a worker record, claiming one that
+        // carries it if this account had never been linked. Whichever control
+        // they used, the same address reaches the same place.
         const ok = await enter();
         if (cancelled || ok) return;
-        const who = await currentAuthEmail();
-        if (cancelled) return;
-        if (who) setIdentifier(who);
-        setStep("unlinked");
+        // Authenticated, and on no company: straight to founding one.
+        router.replace("/start");
       })();
     });
     return () => {
@@ -226,16 +229,13 @@ export default function LiveGate() {
       setError(res.error ?? "That code did not work.");
       return;
     }
-    // Verified with Supabase but possibly not yet a member of any tenant —
-    // a real state, and one worth naming rather than showing an empty app.
+    // Verified, and now the same question the other control asks: does this
+    // address belong to a worker record? enter() claims one if it does. If
+    // not, this person is on no company yet, and founding one is the answer
+    // — the same answer Google and Outlook get for the same address.
     const ok = await enter();
     setBusy(false);
-    if (!ok) {
-      // The SSO path never touched the form, so ask the session who this is.
-      const who = await currentAuthEmail();
-      if (who) setIdentifier(who);
-      setStep("unlinked");
-    }
+    if (!ok) router.replace("/start");
   };
 
   return (
@@ -265,57 +265,6 @@ export default function LiveGate() {
         />
       ) : step === "persona" ? (
         <PersonaChooser />
-      ) : step === "unlinked" ? (
-        <div className="wf-fade-in flex flex-col gap-5 text-center">
-          <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[var(--wf-red-soft)] text-[var(--wf-red)]">
-            <IAlert size={30} />
-          </span>
-          <div>
-            <h1 className="wf-display text-2xl">New to Workfence</h1>
-            <p className="mt-2 text-sm text-[var(--wf-muted)]">
-              <span className="font-semibold text-[var(--wf-fg)]">{identifier}</span> signed
-              in successfully, and isn&apos;t on any company yet. Set one up, and
-              this address becomes its administrator.
-            </p>
-          </div>
-          {/*
-           * An unrecognised identity is a new company, not a dead end — the
-           * sign-in and the sign-up are the same door, and which side you
-           * land on is decided by the address rather than by which link you
-           * happened to press.
-           */}
-          <button
-            className="wf-btn wf-btn-primary wf-btn-lg"
-            onClick={() =>
-              router.push(`/start?email=${encodeURIComponent(identifier)}`)
-            }
-          >
-            Set up my company <IArrowR size={17} />
-          </button>
-          {/*
-           * Kept, because the other reason to be unlinked is mundane and
-           * common: an employee whose administrator has not added them yet.
-           * Pushing them into creating a second empty company would be the
-           * worse failure of the two.
-           */}
-          <p className="text-[0.76rem] leading-relaxed text-[var(--wf-muted)]">
-            Expecting to join a company that already exists? Ask whoever runs
-            it to add this address, then sign in again.
-          </p>
-          <button
-            className="wf-btn wf-btn-ghost"
-            onClick={async () => {
-              await signOut();
-              setIdentifier("");
-              setCode("");
-              setError(null);
-              setNotice(null);
-              setStep("identity");
-            }}
-          >
-            Use a different account
-          </button>
-        </div>
       ) : step === "identity" ? (
         <div className="wf-fade-in flex flex-col gap-6">
           <div className="flex flex-col items-center gap-3 text-center">

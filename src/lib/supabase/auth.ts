@@ -75,13 +75,36 @@ export async function currentAppUser(): Promise<User | null> {
   if (!sb) return null;
   const { data: session } = await sb.auth.getUser();
   if (!session.user) return null;
-  const { data, error } = await sb
-    .from("users")
-    .select("*")
-    .eq("auth_id", session.user.id)
-    .maybeSingle();
-  if (error || !data) return null;
-  return toUser(data as UserRow);
+
+  const read = async (): Promise<User | null> => {
+    const { data, error } = await sb
+      .from("users")
+      .select("*")
+      .eq("auth_id", session.user!.id)
+      .maybeSingle();
+    return error || !data ? null : toUser(data as UserRow);
+  };
+
+  const linked = await read();
+  if (linked) return linked;
+
+  /*
+   * No linked record — but that is not the same as not being a member.
+   *
+   * A worker record carries the address; auth_id is only attached to it when
+   * the account is first created, by the on_auth_user_created trigger. Anyone
+   * whose sign-in predates their invitation is never linked by that, so they
+   * authenticate perfectly well, resolve to nobody, and get offered the flow
+   * for founding a company they already belong to.
+   *
+   * claim_user_record settles it against the address the token was issued
+   * for. It is the same question whichever control they used — a code sent to
+   * the address, or Google or Outlook vouching for it — so both arrive here
+   * and both get the same answer.
+   */
+  const { error: claimError } = await sb.rpc("claim_user_record");
+  if (claimError) return null;
+  return read();
 }
 
 /** Fires on sign-in, sign-out and token refresh. */
@@ -251,11 +274,32 @@ export async function completeOAuthRedirect(url: string): Promise<AuthResult> {
  * signed in — which on the onboarding screen meant emailing a code to an
  * address the user had just proved through Google.
  */
-export async function sessionEmail(): Promise<string | null> {
+export type SessionIdentity = { email: string; name: string | null };
+
+/**
+ * Who is signed in on this device, and what the provider called them.
+ *
+ * Google and Outlook both hand over a display name with the address. Asking
+ * someone to type a name their identity provider just supplied is a form to
+ * fill in for no reason, so onboarding starts from this.
+ */
+export async function sessionIdentity(): Promise<SessionIdentity | null> {
   const sb = supabase();
   if (!sb) return null;
   const { data } = await sb.auth.getSession();
-  return data.session?.user?.email ?? null;
+  const user = data.session?.user;
+  if (!user?.email) return null;
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  /* Providers disagree on the key: Google sends full_name, Azure tends to
+     send name. Take the first that is actually a name. */
+  const named = ["full_name", "name", "display_name", "preferred_username"]
+    .map((k) => meta[k])
+    .find((v): v is string => typeof v === "string" && v.trim().length > 0);
+  return { email: user.email, name: named?.trim() ?? null };
+}
+
+export async function sessionEmail(): Promise<string | null> {
+  return (await sessionIdentity())?.email ?? null;
 }
 
 export async function currentAuthEmail(): Promise<string | null> {

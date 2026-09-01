@@ -44,6 +44,7 @@ import {
   verifyOtp,
   currentAppUser,
   sessionEmail,
+  sessionIdentity,
 } from "@/lib/supabase/auth";
 import { provisionCompanyRemote } from "@/lib/supabase/repository";
 import type { TrackingMode } from "@/lib/types";
@@ -97,26 +98,35 @@ function StartWizard() {
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  /* Arriving from a sign-in that found no company: the address is already
-     known, so asking for it again would be asking twice. */
-  /* The address this device has already proved, if any. A person arriving
-     from a Google or Outlook sign-in does not need to be sent a code, and
-     the button should not offer to send one. */
+  const [email, setEmail] = useState(
+    () => searchParams.get("email")?.trim().toLowerCase() ?? "",
+  );
+  const [code, setCode] = useState("");
+
+  /*
+   * What the identity provider already established.
+   *
+   * Someone who reached this screen through Google or Outlook has an address
+   * the provider has confirmed and, usually, the name it holds for them.
+   * Asking them to type both back is asking for what we were just given, so
+   * the fields start filled and the address is not editable — it is the
+   * address the session is for, and letting them change it here would only
+   * produce a company owned by an address nobody has verified.
+   */
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
-    void sessionEmail().then((who) => {
-      if (!cancelled && who) setVerifiedEmail(who.trim().toLowerCase());
+    void sessionIdentity().then((who) => {
+      if (cancelled || !who) return;
+      setVerifiedEmail(who.email.trim().toLowerCase());
+      setEmail(who.email.trim().toLowerCase());
+      /* Fill the name in; never overwrite something already typed. */
+      if (who.name) setName((current) => current || who.name!);
     });
     return () => {
       cancelled = true;
     };
   }, []);
-
-  const [email, setEmail] = useState(
-    () => searchParams.get("email")?.trim().toLowerCase() ?? "",
-  );
-  const [code, setCode] = useState("");
   const [company, setCompany] = useState("");
   const [site, setSite] = useState<PremiseFields>({
     name: "",
@@ -323,7 +333,14 @@ function StartWizard() {
     );
   }
 
-  const railIndex = FORM_STEPS.indexOf(step as (typeof FORM_STEPS)[number]);
+  /* Someone whose address the provider already confirmed never sees the
+     verification step, so the rail must not count it: company setup is step
+     2 of 4 for them, not step 3 of 5. */
+  const rail: readonly Step[] = alreadyVerified
+    ? FORM_STEPS.filter((f) => f !== "verify")
+    : FORM_STEPS;
+  const railIndex = rail.indexOf(step);
+  const railSiteIndex = rail.indexOf("site");
 
   return (
     <main className="wf-phone gap-5 px-6 py-8">
@@ -339,11 +356,11 @@ function StartWizard() {
             <WorkfenceMark size={26} title="Workfence" />
           </div>
           <div className="wf-steps" role="progressbar" aria-valuemin={1}
-               aria-valuemax={FORM_STEPS.length}
+               aria-valuemax={rail.length}
                aria-valuenow={Math.max(1, railIndex + 1)}
                aria-label="Signup progress">
-            {FORM_STEPS.map((s, i) => (
-              <span key={s} data-on={i <= (step === "office" ? 3 : railIndex)} />
+            {rail.map((s, i) => (
+              <span key={s} data-on={i <= (step === "office" ? railSiteIndex : railIndex)} />
             ))}
           </div>
         </>
@@ -392,7 +409,11 @@ function StartWizard() {
           <Field
             label="Work email"
             required
-            hint="This is how you sign in, and it becomes your company's administrator."
+            hint={
+              alreadyVerified
+                ? "Confirmed by the account you signed in with. This becomes your company's administrator."
+                : "This is how you sign in, and it becomes your company's administrator."
+            }
           >
             <input
               className="wf-input"
@@ -404,6 +425,8 @@ function StartWizard() {
               placeholder="you@company.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={alreadyVerified}
+              readOnly={alreadyVerified}
             />
           </Field>
           <Field label="Mobile number" hint="Optional. How your crew reaches you.">
@@ -426,7 +449,7 @@ function StartWizard() {
                 ? "Just a moment…"
                 : "Sending code…"
               : alreadyVerified
-                ? "Continue"
+                ? "Next"
                 : "Send me a code"}{" "}
             <IArrowR size={17} />
           </button>

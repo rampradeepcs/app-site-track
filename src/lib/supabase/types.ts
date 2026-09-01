@@ -362,6 +362,15 @@ export type Database = {
         Args: { payload: SignupPayload };
         Returns: ProvisionResult;
       };
+      /**
+       * Links the caller to an unclaimed worker record bearing their
+       * confirmed address. Returns the row id, or null when there is none —
+       * see supabase/migrations/*_claim_user_record_on_sign_in.sql.
+       */
+      claim_user_record: {
+        Args: Record<string, never>;
+        Returns: string | null;
+      };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
