@@ -24,6 +24,7 @@ import { useWorkforce } from "@/lib/store";
 import {
   currentAppUser,
   currentAuthEmail,
+  onAuthChange,
   sendOtp,
   signOut,
   verifyOtp,
@@ -126,6 +127,40 @@ export default function LiveGate() {
     // Runs once: this is session restore, not a subscription.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /*
+   * A session can also arrive without this screen asking for one.
+   *
+   * The code path calls enter() itself, so it resolves the identity and
+   * names an address that belongs to no company. A single sign-on does not:
+   * it finishes in the root deep-link listener, which has a session and no
+   * opinion about what to do with it. The restore effect above deliberately
+   * runs once, so nothing was watching, and a Google sign-in ended with a
+   * valid token and the sign-in form still on screen — the product looked
+   * like it had ignored the sign-in it had just completed.
+   *
+   * Same two outcomes as the code path, decided in the same way: in, or
+   * told plainly that the address matches no worker record.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    const off = onAuthChange((signedIn) => {
+      if (!signedIn) return;
+      void (async () => {
+        if (cancelled || state.session) return;
+        const ok = await enter();
+        if (cancelled || ok) return;
+        const who = await currentAuthEmail();
+        if (cancelled) return;
+        if (who) setIdentifier(who);
+        setStep("unlinked");
+      })();
+    });
+    return () => {
+      cancelled = true;
+      off();
+    };
+  }, [enter, state.session]);
 
   const finishHighlights = () => {
     markHighlightsSeen();
