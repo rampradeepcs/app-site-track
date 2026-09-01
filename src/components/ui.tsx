@@ -179,7 +179,7 @@ export function KpiCard({
       className={`wf-card flex flex-col gap-1.5 p-4 text-left ${onClick ? "cursor-pointer transition hover:border-[var(--wf-line-strong)]" : ""}`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[0.68rem] font-semibold uppercase tracking-[0.09em] text-[var(--wf-muted)]">
+        <span className="wf-kpi-label text-[0.68rem] font-semibold uppercase tracking-[0.09em] text-[var(--wf-muted)]">
           {label}
         </span>
         {icon ? <span style={{ color: accent }}>{icon}</span> : null}
@@ -316,7 +316,7 @@ export function Segmented<T extends string>({
       role="tablist"
       aria-label={ariaLabel}
       className={`wf-seg max-w-full ${className}`}
-      style={{ minHeight: size === "sm" ? 28 : 32 }}
+      style={{ minHeight: size === "sm" ? 36 : 40 }}
     >
       {pill ? (
         <span
@@ -333,7 +333,10 @@ export function Segmented<T extends string>({
           aria-selected={o.value === value}
           onClick={() => onChange(o.value)}
           className="wf-seg-item inline-flex items-center justify-center whitespace-nowrap"
-          style={{ minHeight: size === "sm" ? 24 : 28 }}
+          /* 32px minimum even at "sm". The old 24 was a comfortable
+             *reading* size and an uncomfortable *tapping* one — these sit
+             under a thumb on a site, often through a glove. */
+          style={{ minHeight: size === "sm" ? 32 : 36 }}
         >
           {o.label}
         </button>

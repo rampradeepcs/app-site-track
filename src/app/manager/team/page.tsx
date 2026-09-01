@@ -148,9 +148,9 @@ export default function TeamPage() {
           <Stat label="Present" value={String(stats?.present ?? 0)} tone="green" />
           <Stat label="Absent" value={String(stats?.absent ?? 0)} />
           <Stat label="Late" value={String(stats?.late ?? 0)} tone={stats?.late ? "warn" : undefined} />
-          <Stat label="Working now" value={String(stats?.working ?? 0)} />
+          <Stat label="On site" value={String(stats?.working ?? 0)} />
           <Stat
-            label="Avg working"
+            label="Avg hours"
             value={stats?.avgWorkedMs ? fmtClock(stats.avgWorkedMs).slice(0, 5) : "—"}
           />
         </div>
@@ -176,7 +176,7 @@ export default function TeamPage() {
               href={`/manager/group-attendance?project=${team.projectId}&team=${team.id}`}
               className="wf-btn wf-btn-primary flex-1"
             >
-              <ICamera size={16} /> Group attendance
+              <ICamera size={16} /> Group photo
             </Link>
             <button className="wf-btn wf-btn-ghost flex-1" onClick={() => setLogging(true)}>
               <IClipboard size={16} /> Log update
@@ -226,12 +226,15 @@ export default function TeamPage() {
                     size={38}
                     ring={b.state === "working" ? "green" : "none"}
                   />
+                  {/* The name gets the line to itself. Sharing it with a
+                      Leader chip and a status chip left "Anand Sekar" reading
+                      "Ana…" — three characters of the one thing on the row
+                      you are actually looking for. Leader moves down to the
+                      detail line, where it costs a word instead of a name. */}
                   <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-1.5">
-                      <span className="truncate font-semibold">{b.user.name}</span>
-                      {b.user.id === team.leaderId ? <Chip tone="blue">Leader</Chip> : null}
-                    </span>
+                    <span className="block truncate font-semibold">{b.user.name}</span>
                     <span className="block truncate text-[0.7rem] text-[var(--wf-muted)]">
+                      {b.user.id === team.leaderId ? "Leader · " : ""}
                       {b.user.employeeCode} · {b.user.designation}
                       {b.state === "working" && b.place !== "—" ? ` · ${b.place}` : ""}
                     </span>
@@ -239,6 +242,10 @@ export default function TeamPage() {
                   <span className="flex shrink-0 flex-col items-end gap-1">
                     {b.state === "working" ? (
                       <Chip tone="green">{fmtClock(b.workedMs).slice(0, 5)}</Chip>
+                    ) : b.user.status !== "active" ? (
+                      /* Employment status outranks the register: a man on
+                         approved leave has not failed to turn up. */
+                      <StatusChip status={b.user.status} />
                     ) : (
                       <StatusChip status={b.attendance ? b.attendance.status : "not-in"} />
                     )}

@@ -64,7 +64,7 @@ export default function TeamsPage() {
       <ScreenHeader
         back
         title="Labour teams"
-        sub={`${teams.length} teams · ${totals.workers} workers · ${totals.present} in today`}
+        sub={`${teams.length} teams · ${totals.present} of ${totals.workers} in today`}
         action={
           mayManage ? (
             <button

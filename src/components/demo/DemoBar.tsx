@@ -66,6 +66,18 @@ export function DemoBar() {
     setHasTabs(!!document.querySelector(".wf-tabbar"));
   }, [pathname]);
 
+  /* Tell the page a floating chip is present, so it can reserve the room —
+     the chip is fixed, and without this it sits on the last card. */
+  const demoOn = wf.isDemo;
+  useEffect(() => {
+    const root = document.documentElement;
+    if (demoOn) root.dataset.demoChip = "true";
+    else delete root.dataset.demoChip;
+    return () => {
+      delete root.dataset.demoChip;
+    };
+  }, [demoOn]);
+
   if (!wf.isDemo) return null;
 
   const persona = personaById(currentPersonaId());

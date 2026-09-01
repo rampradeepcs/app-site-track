@@ -151,8 +151,12 @@ export default function NotesPage() {
               { value: "timeline", label: "Timeline" },
             ]}
           />
+          {/* Sits in the same row as the segmented control, so it matches
+              its height — 42 against 38 read as a misalignment, not a
+              second control. */}
           <button
-            className={`wf-btn wf-btn-sm ${includeClosed ? "wf-btn-primary" : "wf-btn-ghost"}`}
+            className={`wf-btn wf-btn-sm shrink-0 ${includeClosed ? "wf-btn-primary" : "wf-btn-ghost"}`}
+            style={{ minHeight: 36, height: 36 }}
             onClick={() => setIncludeClosed((v) => !v)}
             aria-pressed={includeClosed}
           >
@@ -290,10 +294,15 @@ export default function NotesPage() {
         onClick={onOpen}
         style={critical ? { boxShadow: "0 0 0 1px var(--wf-warn)" } : undefined}
       >
-        <div className="flex items-center gap-2">
-          {note.pinned ? <span aria-hidden>📌</span> : null}
-          <span className="min-w-0 flex-1 truncate font-semibold">{note.title}</span>
-          <Chip tone={PRIORITY_TONE[note.priority]}>{note.priority}</Chip>
+        {/* The title is the note. It gets two lines before it gives up any
+            characters, and the priority chip — five predictable words, none
+            of them news — sits above it rather than eating into the line. */}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            {note.pinned ? <span aria-hidden>📌</span> : null}
+            <Chip tone={PRIORITY_TONE[note.priority]}>{note.priority}</Chip>
+          </div>
+          <span className="line-clamp-2 font-semibold leading-snug">{note.title}</span>
         </div>
         {note.body ? (
           <p className="line-clamp-2 text-[0.78rem] leading-relaxed text-[var(--wf-muted)]">

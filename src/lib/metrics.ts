@@ -341,16 +341,22 @@ export interface LiveStatus {
   workedMs: number;
 }
 
-export function liveBoard(s: WorkforceState, projectId?: string, now = Date.now()): LiveStatus[] {
+/**
+ * One employee's standing right now.
+ *
+ * Split out of liveBoard because two questions look alike and are not: "who
+ * is on site" wants only active staff, while "who is on this team" wants the
+ * whole roster — the person on leave included, since their absence is the
+ * fact the screen exists to show.
+ */
+export function liveStatusFor(
+  s: WorkforceState,
+  user: User,
+  now = Date.now(),
+): LiveStatus {
   const today = todayISO(now);
-  return s.users
-    .filter(
-      (u) =>
-        u.role === "employee" &&
-        u.status === "active" &&
-        (!projectId || u.projectIds.includes(projectId)),
-    )
-    .map((user): LiveStatus => {
+  {
+    {
       const att =
         s.attendance.find(
           (a) => a.employeeId === user.id && a.date === today && a.checkIn,
@@ -383,7 +389,20 @@ export function liveBoard(s: WorkforceState, projectId?: string, now = Date.now(
           ? (att.checkOut?.at ?? now) - (att.checkIn?.at ?? now)
           : 0,
       };
-    });
+    }
+  }
+}
+
+/** Everyone currently on the payroll and on site — the live screens. */
+export function liveBoard(s: WorkforceState, projectId?: string, now = Date.now()): LiveStatus[] {
+  return s.users
+    .filter(
+      (u) =>
+        u.role === "employee" &&
+        u.status === "active" &&
+        (!projectId || u.projectIds.includes(projectId)),
+    )
+    .map((user) => liveStatusFor(s, user, now));
 }
 
 /**

@@ -12,7 +12,7 @@
  * register while leaving them in March's.
  */
 
-import { liveBoard, type LiveStatus } from "./metrics";
+import { liveStatusFor, type LiveStatus } from "./metrics";
 import { todayISO } from "./format";
 import type {
   LabourTeam,
@@ -86,6 +86,8 @@ export function teamUsers(s: WorkforceState, teamId: string): User[] {
 
 export interface TeamStats {
   size: number;
+  /** On approved leave today — counted apart from absence. */
+  onLeave: number;
   present: number;
   absent: number;
   late: number;
@@ -106,11 +108,20 @@ export function teamStats(
   teamId: string,
   now = Date.now(),
 ): TeamStats {
+  /* Built from the membership rows outward, not by filtering the live
+     board inward. The live board is active-staff-only by design, so
+     intersecting with it used to drop anyone on leave — the roster said
+     "Members (4)", listed three, and named the missing one as Leader in
+     the panel above it. On a team screen, the member on leave is the
+     entry you most need to see. */
   const ids = new Set(activeMembers(s, teamId).map((m) => m.employeeId));
-  const board = liveBoard(s, undefined, now).filter((b) => ids.has(b.user.id));
+  const board = s.users
+    .filter((u) => ids.has(u.id))
+    .map((u) => liveStatusFor(s, u, now));
   const today = todayISO(now);
 
   let present = 0;
+  let onLeave = 0;
   let late = 0;
   let working = 0;
   let workedTotal = 0;
@@ -125,6 +136,7 @@ export function teamStats(
       workedTotal += b.workedMs;
       workedCount += 1;
     }
+    else if (b.user.status === "on-leave") onLeave += 1;
     if (att?.status === "late") late += 1;
     if (b.state === "working") working += 1;
   }
@@ -132,7 +144,10 @@ export function teamStats(
   return {
     size: ids.size,
     present,
-    absent: ids.size - present,
+    onLeave,
+    /* Approved leave is not absence. Rolling the two together inflated the
+       absence rate that performance scoring and payroll both read from. */
+    absent: ids.size - present - onLeave,
     late,
     working,
     avgWorkedMs: workedCount ? Math.round(workedTotal / workedCount) : 0,

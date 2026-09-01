@@ -85,7 +85,7 @@ export default function ManagerDashboard() {
         <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
           <KpiCard label="On site now" value={stats.currentlyWorking} tone="green" icon={<IHardHat size={17} />} sub={`of ${stats.workforce} workforce`} />
           <KpiCard label="Present today" value={stats.presentToday} tone="blue" icon={<IUsers size={17} />} sub={`${pct(stats.attendancePct)} attendance`} />
-          <KpiCard label="Late check-ins" value={stats.lateToday} tone={stats.lateToday ? "amber" : "neutral"} icon={<IClock size={17} />} sub="today" />
+          <KpiCard label="Late" value={stats.lateToday} tone={stats.lateToday ? "amber" : "neutral"} icon={<IClock size={17} />} sub="today" />
           <KpiCard label="Checked out" value={stats.checkedOut} tone="neutral" icon={<ICheckCircle size={17} />} sub={`avg ${fmtDuration(stats.avgWorkedMinutes)}`} />
         </div>
         <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
@@ -101,8 +101,8 @@ export default function ManagerDashboard() {
          * three numbers reconcile by construction (spec §16).
          */}
         <div className="grid grid-cols-3 gap-2.5">
-          <KpiCard label="Individual check-ins" value={sources.individual} sub="today" />
-          <KpiCard label="Group attendance" value={sources.group} tone="blue" sub="from team photos" />
+          <KpiCard label="Individual" value={sources.individual} sub="check-ins today" />
+          <KpiCard label="Group" value={sources.group} tone="blue" sub="from team photos" />
           <KpiCard label="Total present" value={sources.total} tone="green" sub="no double counting" />
         </div>
 

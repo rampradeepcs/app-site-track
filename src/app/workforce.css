@@ -588,8 +588,15 @@ select.wf-input {
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239aa7ba' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 0.9rem center;
-  padding-right: 2.4rem;
+  background-position: right 0.7rem center;
+  /* The chevron is 14px. 2.4rem reserved nearly three times that, and the
+     20px it wasted was the difference between "Chennai Metro Expansion —
+     Package A" reading whole and reading as "— Package" — a name that looks
+     complete and is wrong. */
+  padding-right: 1.9rem;
+  /* Chromium honours this on a select. Without it a long name is clipped
+     flat, with no sign anything is missing. */
+  text-overflow: ellipsis;
 }
 
 /* Field labels: small, medium weight, sentence case, with air below. */
@@ -615,6 +622,20 @@ select.wf-input {
   letter-spacing: 0.02em;
   white-space: nowrap;
   border: 1px solid transparent;
+}
+
+/*
+ * A chip that is a control needs a control's target.
+ *
+ * .wf-chip does two jobs: a static badge ("Late", "critical") and a tappable
+ * filter ("Present 19"). At 28px the badge reads correctly and the filter is
+ * a miss waiting to happen — these are tapped on a site, one-handed, often
+ * through a glove. The element type already tells the two apart, so only the
+ * interactive ones pay for the height.
+ */
+button.wf-chip,
+a.wf-chip {
+  min-height: 32px;
 }
 
 /* ------------------------------------------------------- status pulse */
@@ -1281,6 +1302,23 @@ a.wf-row:active, button.wf-row:active {
     var(--wf-shadow);
   -webkit-tap-highlight-color: transparent;
 }
+/*
+ * Reserve the space the floating demo chip occupies.
+ *
+ * The chip is `position: fixed`, so it sits over whatever is beneath it —
+ * and on an inner screen, where the tab bar is hidden, that is the last row
+ * of the list. Nothing scrolled it clear: the layout reserved 16px, and the
+ * chip is roughly three times that. The result was a permanently half-hidden
+ * final card on every list in the demonstration, which is the one mode
+ * anybody actually looks at.
+ *
+ * Set on <html> by the DemoBar while it is mounted, so a real install pays
+ * nothing for it.
+ */
+[data-demo-chip="true"] .wf {
+  padding-bottom: 4.25rem;
+}
+
 .wf-demo-chip[data-tabs="false"] {
   bottom: calc(var(--wf-safe-bottom) + 14px);
 }
@@ -1312,4 +1350,15 @@ a.wf-row:active, button.wf-row:active {
 }
 @media (prefers-reduced-motion: reduce) {
   .wf-demo-dot { animation: none; }
+}
+
+
+/*
+ * Tile labels are short, uppercase and tracked-out, which makes a mid-word
+ * break unusually loud: "LATE CHECK-" over "INS" reads as two labels. Break
+ * between words or not at all.
+ */
+.wf-kpi-label {
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
