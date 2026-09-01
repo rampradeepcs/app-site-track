@@ -1,0 +1,19 @@
+# Nothing here is used to build the website.
+#
+# Without this the CLI uploads the Android wrapper and the static export
+# alongside the source — tens of megabytes Vercel then ignores, because it
+# runs the build itself. On a slow link that upload is what fails, and it
+# fails as "Upload aborted" with no clue which file it was on.
+
+# The Capacitor wrapper and everything Gradle leaves behind.
+android/
+
+# The static export, produced locally with STATIC_EXPORT=true for the APK.
+# The website is built on Vercel from source.
+out/
+
+# Local build and tooling output.
+.next/
+*.apk
+*.keystore
+coverage/
