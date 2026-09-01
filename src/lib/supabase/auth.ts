@@ -193,7 +193,23 @@ export async function completeOAuthRedirect(url: string): Promise<AuthResult> {
     const parsed = new URL(url);
     const code = parsed.searchParams.get("code");
     if (code) {
-      const { error } = await sb.auth.exchangeCodeForSession(code);
+      /*
+       * The flow id has to be handed over explicitly.
+       *
+       * supabase-js keeps a PKCE verifier per concurrent flow, under
+       * `<key>-flow-<id>-code-verifier`. Given no flow id it looks for one in
+       * `window.location.href` — which on the web is the callback URL and on
+       * a device is `https://localhost/`, the WebView's own address. The id
+       * is in the deep link, which that never sees, so the lookup fell
+       * through to the legacy fixed key, found nothing, and every device
+       * sign-in failed with "PKCE code verifier not found in storage" while
+       * the real verifier sat in storage one key away.
+       */
+      const flowId = parsed.searchParams.get("sb_flow_id");
+      const { error } = await sb.auth.exchangeCodeForSession(
+        code,
+        flowId ? { flowId } : undefined,
+      );
       return error ? { ok: false, error: describe(error) } : { ok: true };
     }
     const hash = new URLSearchParams(parsed.hash.replace(/^#/, ""));

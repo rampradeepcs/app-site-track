@@ -12,7 +12,13 @@
  * Rendered only when credentials are configured; see `isLiveBackend`.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useRouter } from "next/navigation";
 import { useWorkforce } from "@/lib/store";
 import {
@@ -23,6 +29,12 @@ import {
   verifyOtp,
 } from "@/lib/supabase/auth";
 import { SsoButtons } from "./SsoButtons";
+import {
+  clearSsoFailure,
+  readSsoFailure,
+  serverSsoFailure,
+  subscribeSsoFailure,
+} from "@/lib/sso-status";
 import { DEMO_EMAIL } from "@/lib/demo/mode";
 import { PersonaChooser } from "@/components/demo/PersonaPicker";
 import { LoginBackdrop } from "@/components/LoginBackdrop";
@@ -56,6 +68,16 @@ export default function LiveGate() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /* A device sign-on that came back and failed left its reason behind.
+     Shown here, where the person is looking, rather than lost to a toast
+     that fired while the browser was still closing. */
+  const ssoFailure = useSyncExternalStore(
+    subscribeSsoFailure,
+    readSsoFailure,
+    serverSsoFailure,
+  );
+  const shownError = error ?? ssoFailure;
   const [notice, setNotice] = useState<string | null>(null);
   const codeRef = useRef<HTMLInputElement | null>(null);
 
@@ -278,7 +300,7 @@ export default function LiveGate() {
             />
           </Field>
 
-          {error ? <ErrorNote>{error}</ErrorNote> : null}
+          {shownError ? <ErrorNote>{shownError}</ErrorNote> : null}
 
           <button
             className="wf-btn wf-btn-primary wf-btn-lg"
@@ -288,7 +310,14 @@ export default function LiveGate() {
             {busy ? "Sending…" : "Send code"} <IArrowR size={17} />
           </button>
 
-          <SsoButtons onError={setError} />
+          <SsoButtons
+            onError={setError}
+            onStart={() => {
+              // A fresh attempt supersedes whatever the last one reported.
+              clearSsoFailure();
+              setError(null);
+            }}
+          />
 
           <p className="flex items-center justify-center gap-1.5 text-center text-[0.7rem] text-[var(--wf-faint)]">
             <IShield size={13} /> Location is tracked only during an active shift
@@ -330,7 +359,7 @@ export default function LiveGate() {
             }}
           />
 
-          {error ? <ErrorNote>{error}</ErrorNote> : null}
+          {shownError ? <ErrorNote>{shownError}</ErrorNote> : null}
 
           <button
             className="wf-btn wf-btn-primary wf-btn-lg"

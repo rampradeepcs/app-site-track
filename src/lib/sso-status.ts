@@ -11,9 +11,11 @@
  * silently done nothing.
  *
  * So the reason is written down, and the sign-in screen reads it as an
- * external store. Kept in sessionStorage rather than a module variable
- * because the WebView can be torn down and rebuilt while the system browser
- * is in front of it — which is precisely when a long sign-in goes wrong.
+ * external store. In localStorage rather than a module variable or
+ * sessionStorage: the WebView can be torn down and rebuilt while the system
+ * browser is in front of it, which is precisely when a long sign-in goes
+ * wrong, and both of those die with the page session. It is cleared on read
+ * and when a fresh attempt starts, so nothing stale survives.
  */
 
 const KEY = "workfence.sso.failure";
@@ -39,7 +41,7 @@ export function subscribeSsoFailure(fn: () => void): () => void {
 export function readSsoFailure(): string | null {
   if (cache === undefined) {
     try {
-      cache = sessionStorage.getItem(KEY);
+      cache = localStorage.getItem(KEY);
     } catch {
       cache = null;
     }
@@ -56,7 +58,7 @@ export function serverSsoFailure(): string | null {
 export function recordSsoFailure(reason: string) {
   cache = reason;
   try {
-    sessionStorage.setItem(KEY, reason);
+    localStorage.setItem(KEY, reason);
   } catch {
     /* private mode or storage disabled — the toast still fires */
   }
@@ -68,7 +70,7 @@ export function clearSsoFailure() {
   if (cache === null) return;
   cache = null;
   try {
-    sessionStorage.removeItem(KEY);
+    localStorage.removeItem(KEY);
   } catch {
     /* nothing stored */
   }
