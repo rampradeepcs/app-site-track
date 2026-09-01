@@ -38,6 +38,7 @@ import {
 import { useWorkforce, type CompanyDraft, type CrewInvite } from "@/lib/store";
 import { useSignUp } from "@/lib/onboarding";
 import { requestSignInDirect } from "@/lib/routes";
+import { describeError } from "@/lib/errors";
 import { isLiveBackend } from "@/lib/supabase/client";
 import {
   sendOtp,
@@ -316,7 +317,7 @@ function StartWizard() {
       setStep("done");
     } catch (e) {
       ownSession.current = false;
-      setError(e instanceof Error ? e.message : String(e));
+      setError(describeError(e));
     } finally {
       setBusy(false);
     }

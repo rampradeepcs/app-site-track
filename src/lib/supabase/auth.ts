@@ -14,6 +14,7 @@
  */
 
 import { requireSupabase, supabase } from "./client";
+import { describeError } from "../errors";
 import type { User } from "../types";
 import { toUser } from "./repository";
 import type { UserRow } from "./types";
@@ -128,7 +129,7 @@ export function onAuthChange(cb: (signedIn: boolean) => void): () => void {
  * value, and only a missing client actually throws.
  */
 function describe(e: unknown): string {
-  const msg = e instanceof Error ? e.message : String(e);
+  const msg = describeError(e);
   if (/failed to fetch|networkerror|load failed/i.test(msg)) {
     return "Couldn't reach the server. Check your connection and try again.";
   }

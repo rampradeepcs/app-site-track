@@ -22,6 +22,8 @@
  *    and the shell says so.
  */
 
+import { demoActive } from "../demo/mode";
+import { describeErrorSentence } from "../errors";
 import { isLiveBackend } from "./client";
 
 export interface SyncFailure {
@@ -65,6 +67,20 @@ function report(f: SyncFailure | null) {
  */
 export function persist(action: string, write: () => Promise<unknown>): void {
   if (!isLiveBackend) return;
+  /*
+   * The demonstration does not touch the server.
+   *
+   * isLiveBackend only says credentials exist, not that the data in front of
+   * you is real. With a backend configured, every demo mutation was being
+   * posted to Postgres carrying demo identifiers — which are not UUIDs, so
+   * each one came back "invalid input syntax for type uuid:
+   * \"demo-user-employee\"" and raised the red banner above the screen. A
+   * presenter walking through check-in, a work update and a voice note
+   * collected an alert at every step, all of them saying a save had failed
+   * that was never supposed to happen. It is also what the demo promises in
+   * as many words: nothing here reaches a real company's records.
+   */
+  if (demoActive()) return;
   void write().then(
     () => {
       // Only clear a failure that this same action raised; another pending
@@ -72,7 +88,7 @@ export function persist(action: string, write: () => Promise<unknown>): void {
       if (last?.action === action) clearSyncFailure();
     },
     (e: unknown) => {
-      const raw = e instanceof Error ? e.message : String(e);
+      const raw = describeErrorSentence(e);
       report({
         action,
         message: /failed to fetch|networkerror|load failed/i.test(raw)
