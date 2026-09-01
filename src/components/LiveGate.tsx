@@ -114,9 +114,23 @@ export default function LiveGate() {
     if (state.session) return; // the effect above is already taking them in
     const arrive = () =>
       setStep(consumeSignInDirect() ? "identity" : "highlights");
+    /* Three states here, not two. No session at all means sign in. A session
+       that resolves to a worker means go in. A session that resolves to
+       nobody means this address is on no company — say so, rather than
+       presenting a sign-in form to someone already signed in. That last case
+       used to depend on whether SIGNED_IN happened to fire during start-up,
+       so the same cold start could show either screen. */
     enter()
-      .then((ok) => {
-        if (!cancelled && !ok) arrive();
+      .then(async (ok) => {
+        if (cancelled || ok) return;
+        const who = await currentAuthEmail();
+        if (cancelled) return;
+        if (who) {
+          setIdentifier(who);
+          setStep("unlinked");
+          return;
+        }
+        arrive();
       })
       .catch(() => {
         if (!cancelled) arrive();

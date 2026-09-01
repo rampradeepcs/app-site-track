@@ -39,7 +39,12 @@ import { useWorkforce, type CompanyDraft, type CrewInvite } from "@/lib/store";
 import { useSignUp } from "@/lib/onboarding";
 import { requestSignInDirect } from "@/lib/routes";
 import { isLiveBackend } from "@/lib/supabase/client";
-import { sendOtp, verifyOtp, currentAppUser } from "@/lib/supabase/auth";
+import {
+  sendOtp,
+  verifyOtp,
+  currentAppUser,
+  sessionEmail,
+} from "@/lib/supabase/auth";
 import { provisionCompanyRemote } from "@/lib/supabase/repository";
 import type { TrackingMode } from "@/lib/types";
 
@@ -94,6 +99,20 @@ function StartWizard() {
   const [phone, setPhone] = useState("");
   /* Arriving from a sign-in that found no company: the address is already
      known, so asking for it again would be asking twice. */
+  /* The address this device has already proved, if any. A person arriving
+     from a Google or Outlook sign-in does not need to be sent a code, and
+     the button should not offer to send one. */
+  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void sessionEmail().then((who) => {
+      if (!cancelled && who) setVerifiedEmail(who.trim().toLowerCase());
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [email, setEmail] = useState(
     () => searchParams.get("email")?.trim().toLowerCase() ?? "",
   );
@@ -160,6 +179,9 @@ function StartWizard() {
     });
   };
 
+  const alreadyVerified =
+    !!verifiedEmail && verifiedEmail === email.trim().toLowerCase();
+
   /* ------------------------------------------------------------- identity */
 
   const submitIdentity = async () => {
@@ -170,7 +192,30 @@ function StartWizard() {
       return;
     }
     setBusy(true);
-    const res = await sendOtp(phone.trim());
+
+    /*
+     * Someone who arrived here from a Google or Outlook sign-in has already
+     * proved this address belongs to them. Asking them to receive a code and
+     * type it back proves nothing twice, so if the session already holds this
+     * address, go straight on.
+     */
+    const address = email.trim().toLowerCase();
+    const verified = (await sessionEmail())?.trim().toLowerCase();
+    if (verified && verified === address) {
+      setBusy(false);
+      setStep("company");
+      return;
+    }
+
+    /*
+     * The code goes to the address, not the mobile number. This sent the
+     * phone to an email endpoint, so GoTrue was handed "9944311118" and
+     * answered "unable to validate email address: invalid format" — a
+     * correct complaint about a number nobody had claimed was an address.
+     * Left over from making the address the identity; the mobile number is
+     * contact detail now and is not verified.
+     */
+    const res = await sendOtp(address);
     setBusy(false);
     if (!res.ok) {
       setError(res.error ?? "Couldn't send the code.");
@@ -187,7 +232,7 @@ function StartWizard() {
       return;
     }
     setBusy(true);
-    const res = await verifyOtp(phone.trim(), code);
+    const res = await verifyOtp(email.trim().toLowerCase(), code);
     setBusy(false);
     if (!res.ok) {
       setError(res.error ?? "That code didn't work.");
@@ -376,7 +421,14 @@ function StartWizard() {
             disabled={busy || !name.trim() || !isUsableEmail(email)}
             onClick={submitIdentity}
           >
-            {busy ? "Sending code…" : "Send me a code"} <IArrowR size={17} />
+            {busy
+              ? alreadyVerified
+                ? "Just a moment…"
+                : "Sending code…"
+              : alreadyVerified
+                ? "Continue"
+                : "Send me a code"}{" "}
+            <IArrowR size={17} />
           </button>
           <button
             className="cursor-pointer text-center text-[0.8rem] font-semibold text-[var(--wf-muted)] hover:text-[var(--wf-fg)]"
@@ -393,10 +445,10 @@ function StartWizard() {
       {step === "verify" ? (
         <div className="wf-fade-in flex flex-col gap-5">
           <header>
-            <h1 className="wf-display text-2xl">Verify your number</h1>
+            <h1 className="wf-display text-2xl">Verify your email</h1>
             <p className="mt-1 text-sm text-[var(--wf-muted)]">
               Enter the {OTP_LENGTH}-digit code sent to{" "}
-              <span className="font-semibold text-[var(--wf-fg)]">{phone}</span>.
+              <span className="font-semibold text-[var(--wf-fg)]">{email}</span>.
             </p>
             {!isLiveBackend ? (
               <p className="mt-1 text-[0.72rem] text-[var(--wf-faint)]">

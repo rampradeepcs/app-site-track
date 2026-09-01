@@ -241,6 +241,23 @@ export async function completeOAuthRedirect(url: string): Promise<AuthResult> {
  * screen has no idea what was typed — nothing was. This is how it finds out
  * who just arrived, and therefore whether they are new.
  */
+/**
+ * The signed-in address, read from the stored session.
+ *
+ * currentAuthEmail asks the server, which is the right answer when the
+ * question is "is this token still good". It is the wrong one for "who is
+ * already signed in on this device": it costs a round trip, it is unanswerable
+ * offline, and a single blip makes it indistinguishable from nobody being
+ * signed in — which on the onboarding screen meant emailing a code to an
+ * address the user had just proved through Google.
+ */
+export async function sessionEmail(): Promise<string | null> {
+  const sb = supabase();
+  if (!sb) return null;
+  const { data } = await sb.auth.getSession();
+  return data.session?.user?.email ?? null;
+}
+
 export async function currentAuthEmail(): Promise<string | null> {
   const sb = supabase();
   if (!sb) return null;
