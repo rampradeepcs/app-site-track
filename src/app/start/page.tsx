@@ -652,8 +652,8 @@ function StartWizard() {
             </span>
             <h1 className="wf-display mt-3 text-2xl">Add your crew</h1>
             <p className="mt-1 text-sm text-[var(--wf-muted)]">
-              They sign in with the number you add here — no passwords, no
-              invite codes to chase. You can add the rest later.
+              They sign in with the email address you add here — no passwords,
+              no invite codes to chase. You can add the rest later.
             </p>
           </header>
           <InviteCrew invites={crew} onChange={setCrew} />

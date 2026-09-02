@@ -48,12 +48,23 @@ export function contactKey(c: { email?: string; phone?: string }): string {
   return mail || phoneKey(c.phone);
 }
 
+/**
+ * Enough of an address to be an identity.
+ *
+ * A crew member signs in with this, and users.email is NOT NULL, so an
+ * invite without one cannot become a person — the whole company creation
+ * fails on it. The mobile number is contact detail and is optional.
+ */
+export function isUsableEmail(raw: string | undefined): boolean {
+  return /.+@.+\..+/.test((raw ?? "").trim());
+}
+
 export function isUsablePhone(raw: string | undefined): boolean {
   return phoneKey(raw).length >= 7;
 }
 
 /** A person with two numbers is one row in the sheet, not two. */
-function dedupeByPhone(contacts: CrewInvite[]): CrewInvite[] {
+function dedupeByContact(contacts: CrewInvite[]): CrewInvite[] {
   const seen = new Set<string>();
   return contacts.filter((c) => {
     const k = contactKey(c);
@@ -75,7 +86,7 @@ function ContactSheet({
   onCancel,
 }: {
   contacts: CrewInvite[];
-  /** phoneKeys already on the invite list — shown ticked and untappable. */
+  /** contactKeys already on the invite list — shown ticked and untappable. */
   alreadyIn: Set<string>;
   onAdd: (chosen: CrewInvite[]) => void;
   onCancel: () => void;
@@ -130,7 +141,7 @@ function ContactSheet({
           <input
             className="wf-input wf-input-search"
             type="search"
-            placeholder="Search name or number"
+            placeholder="Search name or email"
             aria-label="Search contacts"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -156,7 +167,7 @@ function ContactSheet({
                       {c.name}
                     </span>
                     <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
-                      {added ? "Already on the list" : c.phone}
+                      {added ? "Already on the list" : c.email || c.phone}
                     </span>
                   </span>
                   <span
@@ -212,6 +223,7 @@ export function InviteCrew({
   onChange: (next: CrewInvite[]) => void;
 }) {
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
@@ -229,9 +241,11 @@ export function InviteCrew({
   const source = useSyncExternalStore(subscribeNever, contactSource, serverNone);
 
   const merge = (incoming: CrewInvite[]) => {
-    const seen = new Set(invites.map((i) => phoneKey(i.phone)));
+    /* Keyed on contactKey, which prefers the address — the same person
+       reached twice, once from contacts and once typed in, is one invite. */
+    const seen = new Set(invites.map((i) => contactKey(i)));
     const fresh = incoming.filter((i) => {
-      const k = phoneKey(i.phone);
+      const k = contactKey(i);
       if (!k || seen.has(k)) return false;
       seen.add(k);
       return true;
@@ -241,14 +255,14 @@ export function InviteCrew({
   };
 
   const addPicked = (contacts: CrewInvite[]) => {
-    const usable = contacts.filter((c) => c.name && isUsablePhone(c.phone));
+    const usable = contacts.filter((c) => c.name && isUsableEmail(c.email));
     const added = merge(usable);
     const skipped = contacts.length - added;
 
     setNote(
       added === 0
-        ? "Already on the list, or no usable number."
-        : `Added ${added}${skipped > 0 ? ` — skipped ${skipped} without a usable number` : ""}.`,
+        ? "Already on the list, or no email address on the contact."
+        : `Added ${added}${skipped > 0 ? ` — skipped ${skipped} without an email address` : ""}.`,
     );
   };
 
@@ -286,12 +300,12 @@ export function InviteCrew({
         setNote(error);
         return;
       }
-      const usable = contacts.filter((c) => c.name && isUsablePhone(c.phone));
+      const usable = contacts.filter((c) => c.name && isUsableEmail(c.email));
       if (usable.length === 0) {
-        setNote("No contacts with a phone number on this device.");
+        setNote("No contacts with an email address on this device.");
         return;
       }
-      setSheet(dedupeByPhone(usable));
+      setSheet(dedupeByContact(usable));
       return;
     }
 
@@ -299,9 +313,16 @@ export function InviteCrew({
   };
 
   const addManual = () => {
-    if (!name.trim() || !isUsablePhone(phone)) return;
-    merge([{ name: name.trim(), phone: phone.trim() }]);
+    if (!name.trim() || !isUsableEmail(email)) return;
+    merge([
+      {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim() || undefined,
+      },
+    ]);
     setName("");
+    setEmail("");
     setPhone("");
     setNote(null);
   };
@@ -326,7 +347,7 @@ export function InviteCrew({
       ) : (
         <p className="wf-card2 p-3 text-[0.78rem] leading-relaxed text-[var(--wf-muted)]">
           This device can&apos;t open the contact list. Add people by name and
-          number below — the Android app picks them straight from contacts.
+          email below — the Android app picks them straight from contacts.
         </p>
       )}
 
@@ -342,18 +363,30 @@ export function InviteCrew({
           />
           <input
             className="wf-input min-w-0 flex-1"
-            placeholder="Mobile"
-            inputMode="tel"
-            aria-label="Crew member mobile number"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            placeholder="Work email"
+            type="email"
+            inputMode="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            aria-label="Crew member work email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addManual()}
           />
         </div>
+        <input
+          className="wf-input"
+          placeholder="Mobile (optional)"
+          inputMode="tel"
+          aria-label="Crew member mobile number, optional"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && addManual()}
+        />
         <button
           className="wf-btn wf-btn-ghost wf-btn-sm w-fit"
           onClick={addManual}
-          disabled={!name.trim() || !isUsablePhone(phone)}
+          disabled={!name.trim() || !isUsableEmail(email)}
         >
           <IPlus size={14} /> Add
         </button>
@@ -367,7 +400,7 @@ export function InviteCrew({
         <ul className="flex flex-col gap-2">
           {invites.map((c, i) => (
             <li
-              key={`${phoneKey(c.phone)}_${i}`}
+              key={`${contactKey(c)}_${i}`}
               className="wf-card2 flex items-center gap-3 p-2.5"
             >
               <Avatar name={c.name} hue={(i * 47) % 360} size={36} />
@@ -394,7 +427,7 @@ export function InviteCrew({
       {sheet ? (
         <ContactSheet
           contacts={sheet}
-          alreadyIn={new Set(invites.map((i) => phoneKey(i.phone)))}
+          alreadyIn={new Set(invites.map((i) => contactKey(i)))}
           onCancel={() => setSheet(null)}
           onAdd={(picked) => {
             setSheet(null);
