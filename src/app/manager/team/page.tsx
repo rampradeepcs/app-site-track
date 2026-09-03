@@ -223,6 +223,7 @@ export default function TeamPage() {
                   <Avatar
                     name={b.user.name}
                     hue={b.user.avatarHue}
+                    photo={b.user.photo}
                     size={38}
                     ring={b.state === "working" ? "green" : "none"}
                   />
@@ -289,7 +290,7 @@ export default function TeamPage() {
                 return (
                   <article key={u.id} className="wf-card2 px-3.5 py-3">
                     <div className="flex items-center gap-2">
-                      <Avatar name={who?.name ?? "?"} hue={who?.avatarHue ?? 0} size={22} />
+                      <Avatar name={who?.name ?? "?"} hue={who?.avatarHue ?? 0} photo={who?.photo} size={22} />
                       <span className="text-[0.8rem] font-semibold">{who?.name}</span>
                       <Chip tone={u.teamId === team.id ? "blue" : "neutral"}>
                         {u.teamId === team.id ? `Team · ${u.category}` : u.category}
@@ -344,7 +345,7 @@ export default function TeamPage() {
                 const to = state.labourTeams.find((t) => t.id === m.transferredToTeamId);
                 return (
                   <div key={m.id} className="wf-card2 flex items-center gap-3 px-3.5 py-2.5">
-                    <Avatar name={u?.name ?? "?"} hue={u?.avatarHue ?? 0} size={26} />
+                    <Avatar name={u?.name ?? "?"} hue={u?.avatarHue ?? 0} photo={u?.photo} size={26} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[0.82rem] font-semibold">
                         {u?.name ?? m.employeeId}

@@ -196,7 +196,7 @@ function LiveInner() {
                   : undefined
               }
             >
-              <Avatar name={b.user.name} hue={b.user.avatarHue} size={36} ring="green" />
+              <Avatar name={b.user.name} hue={b.user.avatarHue} photo={b.user.photo} size={36} ring="green" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold">{b.user.name}</span>
                 <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
@@ -249,7 +249,7 @@ function LiveCard({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <Avatar name={b.user.name} hue={b.user.avatarHue} size={52} ring="green" />
+        <Avatar name={b.user.name} hue={b.user.avatarHue} photo={b.user.photo} size={52} ring="green" />
         <div className="min-w-0 flex-1">
           <p className="text-[0.78rem] text-[var(--wf-muted)]">
             {b.user.designation} · {b.user.employeeCode}

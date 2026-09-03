@@ -143,7 +143,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         <div className="mt-auto hidden items-center gap-2.5 border-t border-[var(--wf-line)] p-4 md:flex">
-          <Avatar name={currentUser?.name ?? "?"} hue={currentUser?.avatarHue ?? 265} size={34} />
+          <Avatar name={currentUser?.name ?? "?"} hue={currentUser?.avatarHue ?? 265} photo={currentUser?.photo} size={34} />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[0.8rem] font-semibold">{currentUser?.name}</span>
             <span className="block text-[0.66rem] text-[var(--wf-muted)]">Product Owner</span>

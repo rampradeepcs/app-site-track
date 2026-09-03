@@ -499,7 +499,7 @@ export function AccountPanel({
     <div className="wf-card flex flex-col gap-3.5 p-4">
       {identity ? (
       <div className="flex items-center gap-3">
-        <Avatar name={currentUser.name} hue={currentUser.avatarHue} size={44} />
+        <Avatar name={currentUser.name} hue={currentUser.avatarHue} photo={currentUser.photo} size={44} />
         <div className="min-w-0 flex-1">
           <p className="wf-display truncate">{currentUser.name}</p>
           <p className="truncate text-[0.74rem] text-[var(--wf-muted)]">

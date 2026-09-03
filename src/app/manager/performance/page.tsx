@@ -80,7 +80,7 @@ export default function ManagerPerformance() {
                       href={`/manager/employee?id=${a.user.id}`}
                       className="flex items-center gap-3 rounded-lg px-1 py-1 transition hover:bg-[var(--wf-surface2)]"
                     >
-                      <Avatar name={a.user.name} hue={a.user.avatarHue} size={32} />
+                      <Avatar name={a.user.name} hue={a.user.avatarHue} photo={a.user.photo} size={32} />
                       {/* Every remark, as its own chip. Joined into one
                           truncated line the third reason was invisible —
                           and "5 late check-ins" being the part that got
@@ -127,7 +127,7 @@ export default function ManagerPerformance() {
                   <span className="w-5 text-center text-[0.78rem] font-bold tabular-nums text-[var(--wf-faint)]">
                     {i + 1}
                   </span>
-                  <Avatar name={user.name} hue={user.avatarHue} size={38} />
+                  <Avatar name={user.name} hue={user.avatarHue} photo={user.photo} size={38} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[0.86rem] font-semibold">{user.name}</span>
                     <span className="block text-[0.68rem] text-[var(--wf-muted)]">

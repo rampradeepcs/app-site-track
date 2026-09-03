@@ -77,6 +77,29 @@ export async function currentAppUser(): Promise<User | null> {
   const { data: session } = await sb.auth.getUser();
   if (!session.user) return null;
 
+  /*
+   * One call links, refreshes and reads.
+   *
+   * sync_my_profile claims an unclaimed record bearing the confirmed address,
+   * brings it up to date with what Google or Outlook just said about the
+   * person — name and phone where the record had none, the photograph, which
+   * provider vouched and when — and hands the row back. The database does
+   * the same on its own at every sign-in, whichever control was used; asking
+   * here as well covers the one moment that trigger cannot see: right after
+   * provision_company, when the founder's record is younger than their
+   * sign-in.
+   */
+  const { data: synced, error: syncError } = await sb.rpc("sync_my_profile");
+  if (!syncError) {
+    const row = (synced ?? [])[0];
+    return row ? toUser(row as UserRow) : null;
+  }
+
+  /*
+   * A backend that predates the sync answers "function not found". Fall back
+   * to the older two steps — read, then claim by address — so an app in the
+   * field keeps signing people in against a database that has not caught up.
+   */
   const read = async (): Promise<User | null> => {
     const { data, error } = await sb
       .from("users")
@@ -85,24 +108,8 @@ export async function currentAppUser(): Promise<User | null> {
       .maybeSingle();
     return error || !data ? null : toUser(data as UserRow);
   };
-
   const linked = await read();
   if (linked) return linked;
-
-  /*
-   * No linked record — but that is not the same as not being a member.
-   *
-   * A worker record carries the address; auth_id is only attached to it when
-   * the account is first created, by the on_auth_user_created trigger. Anyone
-   * whose sign-in predates their invitation is never linked by that, so they
-   * authenticate perfectly well, resolve to nobody, and get offered the flow
-   * for founding a company they already belong to.
-   *
-   * claim_user_record settles it against the address the token was issued
-   * for. It is the same question whichever control they used — a code sent to
-   * the address, or Google or Outlook vouching for it — so both arrive here
-   * and both get the same answer.
-   */
   const { error: claimError } = await sb.rpc("claim_user_record");
   if (claimError) return null;
   return read();

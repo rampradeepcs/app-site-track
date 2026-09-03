@@ -99,6 +99,7 @@ export default function EmployeeTeam() {
                     <Avatar
                       name={b.user.name}
                       hue={b.user.avatarHue}
+                      photo={b.user.photo}
                       size={34}
                       ring={b.state === "working" ? "green" : "none"}
                     />

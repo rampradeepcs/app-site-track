@@ -39,9 +39,25 @@ export interface User {
   email: string;
   /** Contact number. Useful, but no longer how anyone is identified. */
   phone?: string;
-  /** Initials-based avatar tint; photos are generated, never fetched. */
+  /** Initials-based avatar tint, drawn whenever there is no photo. */
   avatarHue: number;
+  /**
+   * A photograph, if there is one. Filled from Google or Outlook when the
+   * person signs in with them, unless somebody has set one by hand.
+   */
   photo?: string;
+  /**
+   * Which identity provider last vouched for this person, and when.
+   *
+   * Written by the database at every sign-in, never by the app: who
+   * confirmed an address is not something a client gets to say about
+   * itself. Absent in demo data and for anyone who has never signed in.
+   */
+  authProvider?: "google" | "azure" | "email" | (string & {});
+  /** The provider has confirmed the address. */
+  emailVerified?: boolean;
+  /** Last sign-in, ms since epoch. Absent for an invitee who never has. */
+  lastSignInAt?: number;
   status: EmployeeStatus;
   projectIds: string[];
   /** Contracted shift for punctuality scoring, minutes from midnight. */

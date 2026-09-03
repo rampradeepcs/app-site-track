@@ -188,7 +188,7 @@ export default function AdminOverview() {
                   href={`/manager/employee?id=${a.user.id}`}
                   className="wf-card2 flex items-center gap-3 px-3.5 py-2.5 transition hover:border-[var(--wf-line-strong)]"
                 >
-                  <Avatar name={a.user.name} hue={a.user.avatarHue} size={34} />
+                  <Avatar name={a.user.name} hue={a.user.avatarHue} photo={a.user.photo} size={34} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[0.84rem] font-semibold">{a.user.name}</span>
                     <span className="block truncate text-[0.68rem] text-[var(--wf-amber)]">

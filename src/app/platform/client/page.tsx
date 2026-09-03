@@ -319,7 +319,7 @@ function ClientInner() {
                       <tr key={u.id}>
                         <td>
                           <span className="flex items-center gap-2">
-                            <Avatar name={u.name} hue={u.avatarHue} size={26} />
+                            <Avatar name={u.name} hue={u.avatarHue} photo={u.photo} size={26} />
                             <span className="font-semibold">{u.name}</span>
                           </span>
                         </td>

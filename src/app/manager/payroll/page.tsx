@@ -492,7 +492,7 @@ export default function ManagerPayroll() {
                     >
                       <td>
                         <span className="flex items-center gap-2.5">
-                          <Avatar name={user.name} hue={user.avatarHue} size={30} />
+                          <Avatar name={user.name} hue={user.avatarHue} photo={user.photo} size={30} />
                           <span className="min-w-0">
                             <span className="block truncate font-semibold">{user.name}</span>
                             <span className="block text-[0.68rem] text-[var(--wf-muted)]">
@@ -680,7 +680,7 @@ function OvertimeApprovalRow({ att }: { att: Attendance }) {
   return (
     <div className="wf-card2 p-3.5">
       <div className="flex items-center gap-2.5">
-        <Avatar name={user.name} hue={user.avatarHue} size={34} />
+        <Avatar name={user.name} hue={user.avatarHue} photo={user.photo} size={34} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[0.88rem] font-semibold">{user.name}</p>
           <p className="truncate text-[0.7rem] text-[var(--wf-muted)]">

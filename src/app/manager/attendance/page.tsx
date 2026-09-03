@@ -264,7 +264,7 @@ function AttendanceInner() {
                   <tr key={r.att.id}>
                     <td className="whitespace-nowrap">
                       <span className="flex items-center gap-2">
-                        <Avatar name={r.user!.name} hue={r.user!.avatarHue} size={28} />
+                        <Avatar name={r.user!.name} hue={r.user!.avatarHue} photo={r.user!.photo} size={28} />
                         <span>
                           <span className="block font-semibold leading-tight">{r.user!.name}</span>
                           <span className="block text-[0.66rem] text-[var(--wf-faint)]">

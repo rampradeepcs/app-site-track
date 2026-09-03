@@ -109,6 +109,7 @@ function EmployeeInner() {
           <Avatar
             name={user.name}
             hue={user.avatarHue}
+            photo={user.photo}
             size={64}
             ring={live?.state === "working" ? "green" : "none"}
           />

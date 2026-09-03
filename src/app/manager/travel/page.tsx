@@ -184,7 +184,7 @@ function ApprovalsTab({
             className="wf-card flex w-full cursor-pointer items-center gap-3 p-3.5 text-left transition hover:border-[var(--wf-line-strong)]"
             onClick={() => onReview(trip)}
           >
-            {user ? <Avatar name={user.name} hue={user.avatarHue} size={36} /> : null}
+            {user ? <Avatar name={user.name} hue={user.avatarHue} photo={user.photo} size={36} /> : null}
             {/* Who and how much own the top line; the route and the GPS
                 verdict sit under it, so a full name never has to compete
                 with a chip for the same 110 pixels. */}
@@ -224,7 +224,7 @@ function ReviewSheet({ trip, onDone }: { trip: TravelAllowance; onDone: () => vo
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        {user ? <Avatar name={user.name} hue={user.avatarHue} size={38} /> : null}
+        {user ? <Avatar name={user.name} hue={user.avatarHue} photo={user.photo} size={38} /> : null}
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{user?.name}</p>
           <p className="text-[0.72rem] text-[var(--wf-muted)]">

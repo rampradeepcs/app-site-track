@@ -335,7 +335,7 @@ export function GroupAttendance({
                       className="wf-card2 flex items-center gap-3 px-3.5 py-2.5"
                     >
                       <span className="relative shrink-0">
-                        <Avatar name={u.name} hue={u.avatarHue} size={34} />
+                        <Avatar name={u.name} hue={u.avatarHue} photo={u.photo} size={34} />
                         <span className="absolute -top-1 -left-1 grid h-4 w-4 place-items-center rounded-full bg-[var(--wf-green)] text-[0.55rem] font-bold text-black">
                           {candidates.indexOf(c) + 1}
                         </span>

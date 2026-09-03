@@ -170,7 +170,7 @@ export function EmployeePicker({
                       key={u.id}
                       className="flex items-center gap-3 rounded-xl px-1.5 py-2"
                     >
-                      <Avatar name={u.name} hue={u.avatarHue} size={36} />
+                      <Avatar name={u.name} hue={u.avatarHue} photo={u.photo} size={36} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[0.88rem] font-semibold">
                           {u.name}
@@ -189,7 +189,7 @@ export function EmployeePicker({
                       aria-pressed={selected?.has(u.id) ?? false}
                       onClick={() => onToggle(u)}
                     >
-                      <Avatar name={u.name} hue={u.avatarHue} size={32} />
+                      <Avatar name={u.name} hue={u.avatarHue} photo={u.photo} size={32} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[0.86rem] font-semibold">
                           {u.name}

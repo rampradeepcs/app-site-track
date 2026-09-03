@@ -460,7 +460,7 @@ export default function GroupAttendancePage() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={d.thumb} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
                     ) : (
-                      <Avatar name={u.name} hue={u.avatarHue} size={40} />
+                      <Avatar name={u.name} hue={u.avatarHue} photo={u.photo} size={40} />
                     )}
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[0.84rem] font-semibold">{u.name}</span>
@@ -576,7 +576,7 @@ export default function GroupAttendancePage() {
                     className="wf-card2 flex cursor-pointer items-center gap-3 px-3.5 py-2.5 text-left"
                     onClick={() => assignFaceTo(assigning, u.id)}
                   >
-                    <Avatar name={u.name} hue={u.avatarHue} size={30} />
+                    <Avatar name={u.name} hue={u.avatarHue} photo={u.photo} size={30} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[0.82rem] font-semibold">{u.name}</span>
                       <span className="block text-[0.68rem] text-[var(--wf-muted)]">

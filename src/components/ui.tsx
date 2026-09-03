@@ -18,12 +18,23 @@ export function Avatar({
   hue,
   size = 40,
   ring,
+  photo,
 }: {
   name: string;
   hue: number;
   size?: number;
   ring?: "green" | "amber" | "red" | "none";
+  /**
+   * A photograph to show instead of initials — the one Google or Outlook
+   * supplied at sign-in, typically. Falls back to initials if it fails to
+   * load, so a dead link never shows a broken image on a site.
+   */
+  photo?: string | null;
 }) {
+  /* Remembers which address failed rather than a bare flag, so a new photo
+     for the same person gets its own chance. */
+  const [failed, setFailed] = useState<string | null>(null);
+  const showPhoto = !!photo && failed !== photo;
   const ringColor =
     ring === "green"
       ? "var(--wf-green)"
@@ -35,7 +46,7 @@ export function Avatar({
   return (
     <span
       aria-hidden="true"
-      className="grid shrink-0 place-items-center rounded-full font-semibold"
+      className="grid shrink-0 place-items-center overflow-hidden rounded-full font-semibold"
       style={{
         width: size,
         height: size,
@@ -45,7 +56,21 @@ export function Avatar({
         boxShadow: ring && ring !== "none" ? `0 0 0 2px var(--wf-bg), 0 0 0 4px ${ringColor}` : undefined,
       }}
     >
-      {initialsOf(name)}
+      {showPhoto ? (
+        /* Google's avatar host refuses requests that carry a referrer from
+           an origin it does not know, which a WebView's is. */
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={photo}
+          alt=""
+          referrerPolicy="no-referrer"
+          draggable={false}
+          onError={() => setFailed(photo)}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      ) : (
+        initialsOf(name)
+      )}
     </span>
   );
 }

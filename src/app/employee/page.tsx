@@ -309,6 +309,7 @@ export default function EmployeeHome() {
             <Avatar
               name={currentUser.name}
               hue={currentUser.avatarHue}
+              photo={currentUser.photo}
               size={42}
               ring={onBreak ? "amber" : "green"}
             />

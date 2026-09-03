@@ -179,7 +179,7 @@ export default function ManagerDashboard() {
                   href={`/manager/employee?id=${b.user.id}`}
                   className="wf-card2 flex items-center gap-3 px-3 py-2.5 transition hover:border-[var(--wf-line-strong)]"
                 >
-                  <Avatar name={b.user.name} hue={b.user.avatarHue} size={38} ring="green" />
+                  <Avatar name={b.user.name} hue={b.user.avatarHue} photo={b.user.photo} size={38} ring="green" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[0.88rem] font-semibold">{b.user.name}</span>
                     <span className="block truncate text-[0.7rem] text-[var(--wf-muted)]">
@@ -269,7 +269,7 @@ export default function ManagerDashboard() {
                   href={`/manager/employee?id=${a.user.id}`}
                   className="wf-card2 flex items-center gap-3 px-3.5 py-2.5 transition hover:border-[var(--wf-line-strong)]"
                 >
-                  <Avatar name={a.user.name} hue={a.user.avatarHue} size={36} />
+                  <Avatar name={a.user.name} hue={a.user.avatarHue} photo={a.user.photo} size={36} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[0.84rem] font-semibold">{a.user.name}</span>
                     <span className="block truncate text-[0.68rem] text-[var(--wf-amber)]">
@@ -341,7 +341,7 @@ export default function ManagerDashboard() {
                     <tr key={b.user.id}>
                       <td>
                         <span className="flex items-center gap-2">
-                          <Avatar name={b.user.name} hue={b.user.avatarHue} size={28} />
+                          <Avatar name={b.user.name} hue={b.user.avatarHue} photo={b.user.photo} size={28} />
                           <span className="font-semibold">{b.user.name}</span>
                         </span>
                       </td>

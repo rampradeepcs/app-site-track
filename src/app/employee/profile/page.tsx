@@ -105,7 +105,7 @@ function ProfileInner() {
         {tab === "profile" && (
           <>
             <div className="wf-card flex items-center gap-4 p-4">
-              <Avatar name={currentUser.name} hue={currentUser.avatarHue} size={62} />
+              <Avatar name={currentUser.name} hue={currentUser.avatarHue} photo={currentUser.photo} size={62} />
               <div className="min-w-0 flex-1">
                 <h2 className="wf-display text-lg">{currentUser.name}</h2>
                 <p className="text-[0.8rem] text-[var(--wf-muted)]">

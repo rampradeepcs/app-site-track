@@ -121,6 +121,7 @@ export default function WorkforcePage() {
                 <Avatar
                   name={b.user.name}
                   hue={b.user.avatarHue}
+                  photo={b.user.photo}
                   size={42}
                   ring={b.state === "working" ? "green" : "none"}
                 />

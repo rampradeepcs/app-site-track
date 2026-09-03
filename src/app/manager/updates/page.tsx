@@ -347,7 +347,7 @@ export default function ManagerUpdates() {
             return (
               <article key={u.id} className="wf-card2 p-3.5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Avatar name={emp?.name ?? "?"} hue={emp?.avatarHue ?? 0} size={26} />
+                  <Avatar name={emp?.name ?? "?"} hue={emp?.avatarHue ?? 0} photo={emp?.photo} size={26} />
                   <span className="text-[0.82rem] font-semibold">{emp?.name}</span>
                   <Chip tone={u.kind === "daily" ? "blue" : "neutral"}>
                     {u.kind === "daily" ? "Daily" : u.category}

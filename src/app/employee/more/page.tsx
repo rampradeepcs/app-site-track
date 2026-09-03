@@ -131,7 +131,7 @@ export default function EmployeeMore() {
       <div className="flex flex-col gap-4 px-4">
         {/* who you are, at a glance */}
         <div className="wf-card flex items-center gap-3.5 p-4">
-          <Avatar name={currentUser.name} hue={currentUser.avatarHue} size={48} />
+          <Avatar name={currentUser.name} hue={currentUser.avatarHue} photo={currentUser.photo} size={48} />
           <div className="min-w-0 flex-1">
             <p className="wf-display truncate text-[1.05rem]">
               {currentUser.name}

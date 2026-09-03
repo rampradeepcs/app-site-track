@@ -86,6 +86,13 @@ export type UserRow = {
   supervisor_rating: number | null;
   joined_at: string;
   vehicle: Json | null;
+  /* Written by the database at every sign-in from the identity provider —
+     see supabase/migrations/*_sync_profile_from_provider.sql. Never sent
+     back up by the app. */
+  auth_provider: string | null;
+  auth_profile: Json | null;
+  email_verified: boolean;
+  last_sign_in_at: string | null;
 }
 
 export type ProjectRow = {
@@ -370,6 +377,16 @@ export type Database = {
       claim_user_record: {
         Args: Record<string, never>;
         Returns: string | null;
+      };
+      /**
+       * Links (if needed) and refreshes the caller's own record from what
+       * Google or Outlook said about them, and returns it. Empty for an
+       * account on no company — see
+       * supabase/migrations/*_sync_profile_from_provider.sql.
+       */
+      sync_my_profile: {
+        Args: Record<string, never>;
+        Returns: UserRow[];
       };
     };
     Enums: { [_ in never]: never };

@@ -195,7 +195,7 @@ export default function TeamsPage() {
                     .map((m) => {
                       const u = state.users.find((x) => x.id === m.employeeId);
                       return u ? (
-                        <Avatar key={m.id} name={u.name} hue={u.avatarHue} size={22} />
+                        <Avatar key={m.id} name={u.name} hue={u.avatarHue} photo={u.photo} size={22} />
                       ) : null;
                     })}
                   {st.size > 8 ? (

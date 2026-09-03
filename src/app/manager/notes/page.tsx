@@ -310,7 +310,7 @@ export default function NotesPage() {
           </p>
         ) : null}
         <div className="flex items-center gap-2 text-[0.66rem] text-[var(--wf-faint)]">
-          <Avatar name={author?.name ?? "?"} hue={author?.avatarHue ?? 0} size={16} />
+          <Avatar name={author?.name ?? "?"} hue={author?.avatarHue ?? 0} photo={author?.photo} size={16} />
           <span className="truncate">{author?.name ?? "—"}</span>
           <span>·</span>
           <span>{note.category}</span>

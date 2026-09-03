@@ -189,7 +189,7 @@ export default function GroupAttendanceHistory() {
                       key={m.id}
                       className="wf-card2 flex items-center gap-3 px-3.5 py-2.5"
                     >
-                      <Avatar name={u?.name ?? "?"} hue={u?.avatarHue ?? 0} size={30} />
+                      <Avatar name={u?.name ?? "?"} hue={u?.avatarHue ?? 0} photo={u?.photo} size={30} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[0.82rem] font-semibold">
                           {u?.name ?? m.employeeId}

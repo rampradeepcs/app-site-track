@@ -19,11 +19,43 @@ import {
   StatusChip,
   useNowTick,
 } from "@/components/ui";
-import { fmtClock, pct } from "@/lib/format";
+import { fmtClock, fmtDateShort, pct } from "@/lib/format";
 import { liveBoard, performanceFor } from "@/lib/metrics";
 import { useWorkforce } from "@/lib/store";
+import { isLiveBackend } from "@/lib/supabase/client";
 import type { Role, User } from "@/lib/types";
 import { IArrowR, IEdit, IPlus, ISearch, IShield, IUsers } from "@/components/WfIcons";
+
+/**
+ * Whether this person has ever signed in, and how.
+ *
+ * The database writes it at every sign-in from what Google, Outlook or the
+ * emailed code vouched for, so this is the register's answer to "did the
+ * invite land" — the thing an administrator otherwise finds out by asking.
+ * Live backend only: demo people have never signed in anywhere, and saying
+ * so on every row would be noise.
+ */
+function SignInNote({ u }: { u: User }) {
+  if (!isLiveBackend) return null;
+  if (!u.lastSignInAt) {
+    return (
+      <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
+        Not signed in yet
+      </span>
+    );
+  }
+  const via =
+    u.authProvider === "google"
+      ? "Google"
+      : u.authProvider === "azure"
+        ? "Outlook"
+        : "email code";
+  return (
+    <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
+      Signed in with {via} · {fmtDateShort(u.lastSignInAt)}
+    </span>
+  );
+}
 
 /** Role names read as labels, not as enum values. */
 const ROLE_LABEL: Record<string, string> = {
@@ -126,6 +158,7 @@ export default function AdminTeam() {
                 <Avatar
                   name={u.name}
                   hue={u.avatarHue}
+                  photo={u.photo}
                   size={42}
                   ring={live?.state === "working" ? "green" : "none"}
                 />
@@ -143,6 +176,7 @@ export default function AdminTeam() {
                     {perf ? ` · ${pct(perf.attendancePct)} att · score ${Math.round(perf.overall)}` : ""}
                     {live?.state === "working" ? ` · on site ${fmtClock(live.workedMs).slice(0, 5)}` : ""}
                   </span>
+                  <SignInNote u={u} />
                 </Link>
                 <span className="flex shrink-0 items-center gap-1.5">
                   {u.status !== "active" && <StatusChip status="not-in" label={u.status} />}

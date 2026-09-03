@@ -90,6 +90,9 @@ export function toUser(r: UserRow): User {
     shiftEnd: r.shift_end,
     joinedAt: ms(r.joined_at),
     supervisorRating: r.supervisor_rating ?? undefined,
+    authProvider: r.auth_provider ?? undefined,
+    emailVerified: r.email_verified ?? undefined,
+    lastSignInAt: r.last_sign_in_at ? ms(r.last_sign_in_at) : undefined,
   };
 }
 
