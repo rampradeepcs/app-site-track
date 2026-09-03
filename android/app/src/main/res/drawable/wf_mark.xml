@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Workfence mark, the same three strokes as src/lib/brand.ts.
+
+  A vector, not a raster, so one file serves every density and the launch
+  screen cannot drift from the logo in the app. The group translates the
+  paths because the source viewBox starts at 90,330 and a VectorDrawable
+  viewport always starts at 0,0.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="180dp"
+    android:height="75dp"
+    android:viewportWidth="820"
+    android:viewportHeight="340">
+    <group android:translateX="-90" android:translateY="-330">
+        <path android:fillColor="@color/wf_white"
+            android:pathData="M103 345H192.521L286.537 507.232L317.224 453.285L357.685 523.651L281.846 654.805L103 345Z" />
+        <path android:fillColor="@color/wf_white"
+            android:pathData="M281.846 345H371.367L461.279 499.805L506.039 422.598L461.279 345H896.178L852.004 422.598H595.56L460.693 654.805L281.846 345Z" />
+        <path android:fillColor="@color/wf_white"
+            android:pathData="M640.32 499.218H814.084L768.737 577.011H685.08L640.515 655L595.364 577.207L640.32 499.218Z" />
+    </group>
+</vector>

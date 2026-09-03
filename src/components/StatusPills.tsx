@@ -76,7 +76,11 @@ export function StatusPills({
             type="button"
             aria-pressed={on}
             onClick={() => onChange(on ? null : status)}
-            className="shrink-0 cursor-pointer rounded-full"
+            /* A chip is 28px, which reads well and taps badly. The wrapper
+               is what the thumb actually hits, so the height goes here —
+               .wf-chip's own rule only reaches chips that are themselves the
+               control. */
+            className="wf-chip-tap shrink-0 cursor-pointer rounded-full"
             style={on ? { boxShadow: "0 0 0 1.5px var(--wf-fg)" } : undefined}
           >
             <StatusChip

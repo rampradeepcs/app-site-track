@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The app is pure black. Anything the system paints before the WebView
+      does — the launch window, the splash, the background behind a resize —
+      has to be the same black, or the difference reads as a flash.
+    -->
+    <color name="wf_black">#FF000000</color>
+    <color name="wf_white">#FFFFFFFF</color>
+    <color name="colorPrimary">#FF000000</color>
+    <color name="colorPrimaryDark">#FF000000</color>
+    <color name="colorAccent">#FFFFFFFF</color>
+</resources>

@@ -60,6 +60,29 @@ html {
   font-size: clamp(1rem, 0.52rem + 2.25vw, 1.15rem);
 }
 
+/*
+ * The page's own ground.
+ *
+ * .wf paints the app's background, but body was transparent, so anything
+ * drawn before the app mounts — the WebView's own background on a device,
+ * the browser's between navigations — showed through. Paired with an Android
+ * theme that inherited from Theme.AppCompat.Light, that gap was a white
+ * flash at every launch.
+ *
+ * The token lives on .wf, which body is not inside, so it is restated here
+ * per theme rather than referenced. Getting this wrong is visible: body left
+ * on black under the light theme frames the app in a dark band.
+ */
+html,
+body {
+  background: #000000;
+}
+
+html[data-theme="light"],
+html[data-theme="light"] body {
+  background: #f6f6f6;
+}
+
 .wf {
   /* ---- surfaces (dark) ----
      True black canvas with charcoal cards stepped above it. The steps are
@@ -635,6 +658,14 @@ select.wf-input {
  */
 button.wf-chip,
 a.wf-chip {
+  min-height: 32px;
+}
+
+/* A button whose whole content is a chip: the chip stays its reading size
+   and the button around it carries the target. */
+.wf-chip-tap {
+  display: inline-flex;
+  align-items: center;
   min-height: 32px;
 }
 

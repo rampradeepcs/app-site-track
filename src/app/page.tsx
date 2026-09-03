@@ -187,12 +187,13 @@ function LocalGate() {
           </p>
         </div>
       ) : step === "highlights" ? (
-        <Highlights
-          onDone={finishHighlights}
-          onSkip={finishHighlights}
-        />
+        <div className="wf-fade-in contents">
+          <Highlights onDone={finishHighlights} onSkip={finishHighlights} />
+        </div>
       ) : step === "persona" ? (
-        <PersonaChooser />
+        <div className="wf-fade-in">
+          <PersonaChooser />
+        </div>
       ) : step === "identify" ? (
         <div className="wf-fade-in flex flex-col gap-6">
           <div className="flex flex-col items-center gap-3 text-center">

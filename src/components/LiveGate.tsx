@@ -79,6 +79,20 @@ export default function LiveGate() {
   );
   const shownError = error ?? ssoFailure;
   const [notice, setNotice] = useState<string | null>(null);
+
+  /*
+   * Whether the session check has taken long enough to be worth mentioning.
+   *
+   * A restored session usually resolves in well under a second, and saying
+   * "Checking your session…" for 80ms then removing it is a flicker, not
+   * information. Past the threshold it fades in, and someone on a bad
+   * connection learns the app is doing something rather than stuck.
+   */
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => setSlow(true), 450);
+    return () => window.clearTimeout(t);
+  }, []);
   const codeRef = useRef<HTMLInputElement | null>(null);
 
   /**
@@ -254,17 +268,30 @@ export default function LiveGate() {
     >
       <LoginBackdrop />
       {step === "restoring" ? (
+        /*
+         * Deliberately not faded in: this is the first thing drawn, and the
+         * native splash behind it is the same mark on the same black, so it
+         * should look like nothing happened rather than like a new screen.
+         * The line underneath is held back — see `slow` — because a session
+         * that resolves quickly would otherwise flash it and take it away.
+         */
         <div className="flex flex-col items-center gap-4 text-center">
           <WorkfenceMark size={72} />
-          <p className="text-sm text-[var(--wf-muted)]">Checking your session…</p>
+          <p
+            className="text-sm text-[var(--wf-muted)] transition-opacity duration-300"
+            style={{ opacity: slow ? 1 : 0 }}
+          >
+            Checking your session…
+          </p>
         </div>
       ) : step === "highlights" ? (
-        <Highlights
-          onDone={finishHighlights}
-          onSkip={finishHighlights}
-        />
+        <div className="wf-fade-in contents">
+          <Highlights onDone={finishHighlights} onSkip={finishHighlights} />
+        </div>
       ) : step === "persona" ? (
-        <PersonaChooser />
+        <div className="wf-fade-in">
+          <PersonaChooser />
+        </div>
       ) : step === "identity" ? (
         <div className="wf-fade-in flex flex-col gap-6">
           <div className="flex flex-col items-center gap-3 text-center">
