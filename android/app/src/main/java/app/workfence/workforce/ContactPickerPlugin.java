@@ -4,6 +4,9 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.database.Cursor;
+
+import java.util.HashMap;
+import java.util.Map;
 import android.net.Uri;
 import android.provider.ContactsContract;
 
@@ -74,6 +77,7 @@ public class ContactPickerPlugin extends Plugin {
 
         Uri uri = data.getData();
         String[] projection = {
+            ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
             ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
             ContactsContract.CommonDataKinds.Phone.NUMBER
         };
@@ -84,11 +88,16 @@ public class ContactPickerPlugin extends Plugin {
                 call.resolve(out);
                 return;
             }
+            int idIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.CONTACT_ID);
             int nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME);
             int numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
+            String pickedId = idIndex >= 0 ? cursor.getString(idIndex) : null;
+            Map<String, String> emails = emailsByContactId();
             out.put("cancelled", false);
             out.put("name", nameIndex >= 0 ? cursor.getString(nameIndex) : "");
             out.put("phone", numberIndex >= 0 ? cursor.getString(numberIndex) : "");
+            out.put("email", pickedId != null && emails.containsKey(pickedId)
+                ? emails.get(pickedId) : "");
             call.resolve(out);
         } catch (SecurityException e) {
             // The read grant rides on the returned URI. If it is gone — an OEM
@@ -124,12 +133,50 @@ public class ContactPickerPlugin extends Plugin {
         }
     }
 
+    /**
+     * Email addresses, keyed by contact id.
+     *
+     * Addresses live in a different data row from phone numbers, so they are
+     * a second query rather than more columns on the first. Reading them at
+     * all is the point: a crew member signs in with an address, so a contact
+     * list carrying only numbers is a list of people who cannot be invited.
+     */
+    private Map<String, String> emailsByContactId() {
+        Map<String, String> emails = new HashMap<>();
+        String[] projection = {
+            ContactsContract.CommonDataKinds.Email.CONTACT_ID,
+            ContactsContract.CommonDataKinds.Email.ADDRESS
+        };
+        try (Cursor cursor = getContext().getContentResolver().query(
+                ContactsContract.CommonDataKinds.Email.CONTENT_URI,
+                projection, null, null, null)) {
+            if (cursor == null) return emails;
+            int idIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Email.CONTACT_ID);
+            int addressIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Email.ADDRESS);
+            while (cursor.moveToNext()) {
+                if (idIndex < 0 || addressIndex < 0) continue;
+                String id = cursor.getString(idIndex);
+                String address = cursor.getString(addressIndex);
+                // First address wins; a contact with several is not a choice
+                // worth putting in front of somebody adding a crew.
+                if (id != null && address != null && !emails.containsKey(id)) {
+                    emails.put(id, address);
+                }
+            }
+        } catch (Exception ignored) {
+            // A contact list with no addresses is still a usable contact list.
+        }
+        return emails;
+    }
+
     private void resolveContactList(PluginCall call) {
         String[] projection = {
+            ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
             ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
             ContactsContract.CommonDataKinds.Phone.NUMBER
         };
 
+        Map<String, String> emails = emailsByContactId();
         JSArray contacts = new JSArray();
         try (Cursor cursor = getContext().getContentResolver().query(
                 ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
@@ -138,12 +185,15 @@ public class ContactPickerPlugin extends Plugin {
                 null,
                 ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " COLLATE NOCASE ASC")) {
             if (cursor != null) {
+                int idIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.CONTACT_ID);
                 int nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME);
                 int numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
                 while (cursor.moveToNext()) {
                     JSObject row = new JSObject();
+                    String id = idIndex >= 0 ? cursor.getString(idIndex) : null;
                     row.put("name", nameIndex >= 0 ? cursor.getString(nameIndex) : "");
                     row.put("phone", numberIndex >= 0 ? cursor.getString(numberIndex) : "");
+                    row.put("email", id != null && emails.containsKey(id) ? emails.get(id) : "");
                     contacts.put(row);
                 }
             }

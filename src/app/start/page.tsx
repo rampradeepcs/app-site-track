@@ -39,6 +39,7 @@ import { useWorkforce, type CompanyDraft, type CrewInvite } from "@/lib/store";
 import { useSignUp } from "@/lib/onboarding";
 import { requestSignInDirect } from "@/lib/routes";
 import { describeError } from "@/lib/errors";
+import { emailProblem, isUsableEmail } from "@/lib/email";
 import { isLiveBackend } from "@/lib/supabase/client";
 import {
   sendOtp,
@@ -59,7 +60,6 @@ const FALLBACK_CENTRE = { lat: 11.0273, lng: 77.0037 };
 
 const OTP_LENGTH = isLiveBackend ? 6 : 4;
 
-const isUsableEmail = (raw: string) => /.+@.+\..+/.test(raw.trim());
 
 export default function StartPage() {
   return (
@@ -103,6 +103,7 @@ function StartWizard() {
     () => searchParams.get("email")?.trim().toLowerCase() ?? "",
   );
   const [code, setCode] = useState("");
+  const [touchedEmail, setTouchedEmail] = useState(false);
 
   /*
    * What the identity provider already established.
@@ -437,9 +438,17 @@ function StartWizard() {
               placeholder="you@company.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onBlur={() => setTouchedEmail(true)}
               disabled={alreadyVerified}
               readOnly={alreadyVerified}
             />
+            {/* The button being disabled says something is wrong and not
+                what. This says what. */}
+            {!alreadyVerified && touchedEmail && emailProblem(email) ? (
+              <p className="mt-1.5 text-[0.76rem] text-[var(--wf-red)]">
+                {emailProblem(email)}
+              </p>
+            ) : null}
           </Field>
           <Field label="Mobile number" hint="Optional. How your crew reaches you.">
             <input

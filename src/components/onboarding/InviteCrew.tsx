@@ -28,6 +28,7 @@ import {
   type ContactSource,
 } from "@/lib/contacts";
 import type { CrewInvite } from "@/lib/store";
+import { emailProblem, isUsableEmail } from "@/lib/email";
 
 /** Digits only, so "+91 90000 00001" and "9000000001" are the same person. */
 export function phoneKey(raw: string | undefined): string {
@@ -46,17 +47,6 @@ export function phoneKey(raw: string | undefined): string {
 export function contactKey(c: { email?: string; phone?: string }): string {
   const mail = c.email?.trim().toLowerCase();
   return mail || phoneKey(c.phone);
-}
-
-/**
- * Enough of an address to be an identity.
- *
- * A crew member signs in with this, and users.email is NOT NULL, so an
- * invite without one cannot become a person — the whole company creation
- * fails on it. The mobile number is contact detail and is optional.
- */
-export function isUsableEmail(raw: string | undefined): boolean {
-  return /.+@.+\..+/.test((raw ?? "").trim());
 }
 
 export function isUsablePhone(raw: string | undefined): boolean {
@@ -278,6 +268,21 @@ export function InviteCrew({
     // Nothing back and no error means the picker was dismissed. Saying
     // "added 0" to someone who deliberately backed out is noise.
     if (contacts.length === 0) return;
+
+    /*
+     * One contact, no address on it. Dropping them silently is the worst
+     * answer: the person picked somebody deliberately. Carry the name and
+     * number into the form so all that is left to type is the address —
+     * which is most of what the picker was saving them anyway.
+     */
+    const only = contacts[0];
+    if (contacts.length === 1 && only.name && !isUsableEmail(only.email)) {
+      setName(only.name);
+      setPhone(only.phone ?? "");
+      setEmail("");
+      setNote(`${only.name} has no email address saved. Add one to invite them.`);
+      return;
+    }
     addPicked(contacts);
   };
 
@@ -383,6 +388,9 @@ export function InviteCrew({
           onChange={(e) => setPhone(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addManual()}
         />
+        {emailProblem(email) ? (
+          <p className="text-[0.76rem] text-[var(--wf-red)]">{emailProblem(email)}</p>
+        ) : null}
         <button
           className="wf-btn wf-btn-ghost wf-btn-sm w-fit"
           onClick={addManual}

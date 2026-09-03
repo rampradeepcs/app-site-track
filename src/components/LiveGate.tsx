@@ -29,6 +29,7 @@ import {
   verifyOtp,
 } from "@/lib/supabase/auth";
 import { SsoButtons } from "./SsoButtons";
+import { emailProblem, isUsableEmail } from "@/lib/email";
 import {
   clearSsoFailure,
   readSsoFailure,
@@ -79,6 +80,8 @@ export default function LiveGate() {
   );
   const shownError = error ?? ssoFailure;
   const [notice, setNotice] = useState<string | null>(null);
+  /* Nothing is wrong with an address they have not finished typing. */
+  const [touchedEmail, setTouchedEmail] = useState(false);
 
   /*
    * Whether the session check has taken long enough to be worth mentioning.
@@ -322,14 +325,27 @@ export default function LiveGate() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") void requestCode();
               }}
+              onBlur={() => setTouchedEmail(true)}
             />
           </Field>
 
-          {shownError ? <ErrorNote>{shownError}</ErrorNote> : null}
+          {/*
+            * Said as soon as they look away from the field, not held back
+            * until they press the button. The address was previously checked
+            * only for being non-empty, so "arun" was accepted, sent, and came
+            * back as whatever the mail service calls a malformed address —
+            * which is not the sentence somebody needs in order to spot their
+            * own typo.
+            */}
+          {touchedEmail && emailProblem(identifier) ? (
+            <ErrorNote>{emailProblem(identifier)}</ErrorNote>
+          ) : shownError ? (
+            <ErrorNote>{shownError}</ErrorNote>
+          ) : null}
 
           <button
             className="wf-btn wf-btn-primary wf-btn-lg"
-            disabled={busy || identifier.trim() === ""}
+            disabled={busy || !isUsableEmail(identifier)}
             onClick={() => void requestCode()}
           >
             {busy ? "Sending…" : "Send code"} <IArrowR size={17} />
