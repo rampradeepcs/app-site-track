@@ -319,6 +319,8 @@ interface StoreApi {
   loginAs: (user: User) => void;
   /** Stand up a whole new tenant from the self-serve signup, and sign in. */
   provisionCompany: (draft: CompanyDraft) => ProvisionedCompany;
+  /** Re-read this tenant from the backend — after creating it, for instance. */
+  reloadFromBackend: () => Promise<void>;
   logout: () => void;
   currentUser: User | null;
   setActiveProject: (projectId: string) => void;
@@ -538,6 +540,102 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
   const gpsDropRef = useRef<{ until: number } | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
+  /**
+   * Pull this tenant from the backend into state.
+   *
+   * Exposed as well as run on mount, because the moment a company is created
+   * is the moment local state is most wrong. The RPC builds the organisation,
+   * the founder and the crew server-side with ids this client has never seen,
+   * and onboarding read back only the founder — so everyone they had just
+   * invited existed in Postgres and nowhere on screen, and stayed missing
+   * until something else happened to trigger a re-read.
+   *
+   * The two rules that make it safe to run against a real database are
+   * unchanged: it re-runs on sign-in, because every RLS policy resolves
+   * through auth.uid() and a read issued before authentication is correctly
+   * answered with nothing; and an empty result never overwrites, because zero
+   * users means "not authorised" far more often than "empty tenant" — the
+   * signed-in person is themselves a row.
+   */
+  const reloadFromBackend = useCallback(async () => {
+    if (!isLiveBackend || demoActive()) return;
+    let live: Awaited<ReturnType<typeof fetchWorkforce>>;
+    try {
+      live = await fetchWorkforce();
+    } catch (err) {
+      console.error("[Workfence] Supabase hydration failed; staying on local state.", err);
+      return;
+    }
+    if (live.users.length === 0) {
+      console.warn(
+        "[Workfence] Supabase returned no visible rows — not signed in, " +
+          "or this identity is not linked to an organisation. Keeping local state.",
+      );
+      return;
+    }
+    setState((prev) =>
+      prev
+        ? {
+            ...prev,
+            users: live.users,
+            projects: live.projects,
+            attendance: live.attendance,
+            updates: live.updates,
+          }
+        : prev,
+    );
+    // Shifts, salary, payroll, travel and allowance rules follow in their own
+    // round: RLS may legitimately answer parts of it with nothing (a manager
+    // who may not read salary), and that must not void the workforce read
+    // that already succeeded. Teams and notes likewise.
+    await Promise.all([
+      fetchOperations()
+        .then((ops) => {
+          setState((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  shifts: ops.shifts,
+                  shiftAssignments: ops.shiftAssignments,
+                  comp: ops.comp,
+                  payPolicy: ops.payPolicy ?? prev.payPolicy,
+                  payrollRuns: ops.payrollRuns,
+                  travelSessions: ops.travelSessions,
+                  petrolRules: ops.petrolRules,
+                  foodRules: ops.foodRules,
+                  allowanceDecisions: ops.allowanceDecisions,
+                }
+              : prev,
+          );
+        })
+        .catch((err) => {
+          console.error(
+            "[Workfence] Shift/payroll/allowance hydration failed; keeping local state.",
+            err,
+          );
+        }),
+      fetchTeamWorld()
+        .then((tw) => {
+          setState((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  labourTeams: tw.labourTeams,
+                  teamMembers: tw.teamMembers,
+                  groupAttendance: tw.groupAttendance,
+                  groupAttendanceMembers: tw.groupAttendanceMembers,
+                  projectNotes: tw.projectNotes,
+                  noteAttachments: tw.noteAttachments,
+                }
+              : prev,
+          );
+        })
+        .catch((err) => {
+          console.error("[Workfence] Team/notes hydration failed; keeping local state.", err);
+        }),
+    ]);
+  }, []);
+
   /* hydrate on the client only — the seed depends on Date.now() */
   useEffect(() => {
     let next: WorkforceState | null = null;
@@ -604,101 +702,13 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     // Demo mode is local by construction: it never reads or writes a real
     // tenant's rows, whatever backend this build is pointed at.
     if (isLiveBackend && !demoActive()) {
-      let cancelled = false;
-      const hydrate = () => {
-        fetchWorkforce()
-          .then((live) => {
-            if (cancelled) return;
-            if (live.users.length === 0) {
-              console.warn(
-                "[Workfence] Supabase returned no visible rows — not signed in, " +
-                  "or this identity is not linked to an organisation. Keeping local state.",
-              );
-              return;
-            }
-            setState((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    users: live.users,
-                    projects: live.projects,
-                    attendance: live.attendance,
-                    updates: live.updates,
-                  }
-                : prev,
-            );
-            // Shifts, salary, payroll, travel and allowance rules follow in
-            // their own round: RLS may legitimately answer parts of it with
-            // nothing (a manager who may not read salary), and that must not
-            // void the workforce read that already succeeded.
-            fetchOperations()
-              .then((ops) => {
-                if (cancelled) return;
-                setState((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        shifts: ops.shifts,
-                        shiftAssignments: ops.shiftAssignments,
-                        comp: ops.comp,
-                        payPolicy: ops.payPolicy ?? prev.payPolicy,
-                        payrollRuns: ops.payrollRuns,
-                        travelSessions: ops.travelSessions,
-                        petrolRules: ops.petrolRules,
-                        foodRules: ops.foodRules,
-                        allowanceDecisions: ops.allowanceDecisions,
-                      }
-                    : prev,
-                );
-              })
-              .catch((err) => {
-                console.error(
-                  "[Workfence] Shift/payroll/allowance hydration failed; keeping local state.",
-                  err,
-                );
-              });
-
-            // Teams, captures and notes get their own round for the same
-            // reason: note visibility is enforced in the database, so a
-            // labourer's session legitimately reads fewer notes than a
-            // manager's, and a short answer here is not a failure.
-            fetchTeamWorld()
-              .then((tw) => {
-                if (cancelled) return;
-                setState((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        labourTeams: tw.labourTeams,
-                        teamMembers: tw.teamMembers,
-                        groupAttendance: tw.groupAttendance,
-                        groupAttendanceMembers: tw.groupAttendanceMembers,
-                        projectNotes: tw.projectNotes,
-                        noteAttachments: tw.noteAttachments,
-                      }
-                    : prev,
-                );
-              })
-              .catch((err) => {
-                console.error(
-                  "[Workfence] Team/notes hydration failed; keeping local state.",
-                  err,
-                );
-              });
-          })
-          .catch((err) => {
-            console.error("[Workfence] Supabase hydration failed; staying on local state.", err);
-          });
-      };
-      hydrate(); // a persisted session may already be valid
+      void reloadFromBackend();
       const off = onAuthChange((signedIn) => {
-        if (signedIn) hydrate();
+        if (signedIn) void reloadFromBackend();
       });
-      return () => {
-        cancelled = true;
-        off();
-      };
+      return () => off();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* persist (debounced via rAF batching of React updates) */
@@ -3981,6 +3991,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     login,
     loginAs,
     provisionCompany,
+    reloadFromBackend,
     logout,
     currentUser,
     setActiveProject,

@@ -78,7 +78,7 @@ export default function StartPage() {
 function StartWizard() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { state, loginAs } = useWorkforce();
+  const { state, loginAs, reloadFromBackend } = useWorkforce();
   const { signUp, signupsEnabled } = useSignUp();
 
   const [step, setStep] = useState<Step>("highlights");
@@ -315,6 +315,11 @@ function StartWizard() {
       const me = await currentAppUser();
       if (!me) throw new Error("Company created, but signing you in failed.");
       loginAs(me);
+      // And read back the rest of it. Reading only the founder left the crew
+      // they had just invited on the server and nowhere on screen: Team and
+      // roles showed one person, and stayed that way until something else
+      // happened to trigger a re-read.
+      await reloadFromBackend();
       setStep("done");
     } catch (e) {
       ownSession.current = false;
