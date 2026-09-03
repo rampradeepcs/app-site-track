@@ -110,6 +110,13 @@ const ITEMS: Item[] = [
     sub: "Tracking policy, privacy, audit trail, data export",
     roles: ["admin", "superadmin"],
   },
+  {
+    href: "/admin/subscription",
+    icon: <IWallet size={18} />,
+    label: "Subscription",
+    sub: "Your plan, what it includes, usage and invoices",
+    roles: ["admin", "superadmin"],
+  },
 ];
 
 export default function AdminMore() {

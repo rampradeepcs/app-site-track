@@ -40,6 +40,7 @@ import type {
   PlatformState,
   Subscription,
   SupportTicket,
+  TicketKind,
   TicketStatus,
 } from "./saas-types";
 
@@ -100,6 +101,21 @@ interface PlatformApi {
 
   /* support */
   setTicketStatus: (ticketId: string, status: TicketStatus) => void;
+  /**
+   * Raise a ticket from the client side.
+   *
+   * The one thing a company admin may write on the billing tables — RLS lets
+   * their org insert a ticket and nothing else — so it is how a plan change
+   * is asked for rather than taken.
+   */
+  raiseTicket: (input: {
+    orgId: string;
+    subject: string;
+    body: string;
+    kind?: TicketKind;
+    priority?: SupportTicket["priority"];
+    raisedBy?: string;
+  }) => SupportTicket;
 
   /* platform */
   updatePlatformSettings: (patch: Partial<PlatformSettings>) => void;
@@ -647,6 +663,27 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
 
   /* ------------------------------------------------------------ support */
 
+  const raiseTicket = useCallback<PlatformApi["raiseTicket"]>(
+    (input) => {
+      const now = Date.now();
+      const ticket: SupportTicket = {
+        id: pid("tkt"),
+        orgId: input.orgId,
+        subject: input.subject,
+        body: input.body,
+        kind: input.kind ?? "subscription",
+        status: "open",
+        priority: input.priority ?? "normal",
+        openedAt: now,
+        updatedAt: now,
+        raisedBy: input.raisedBy ?? "",
+      };
+      mutate((s) => ({ ...s, tickets: [ticket, ...s.tickets] }));
+      return ticket;
+    },
+    [mutate],
+  );
+
   const setTicketStatus = useCallback<PlatformApi["setTicketStatus"]>(
     (ticketId, status) =>
       mutate((s) => ({
@@ -736,6 +773,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
             extendTrial,
             convertTrial,
             setInvoiceStatus,
+            raiseTicket,
             setTicketStatus,
             updatePlatformSettings,
             startImpersonation,
@@ -746,7 +784,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
     [
       platform, onboardClient, updateOrg, updateBilling, setOrgStatus, savePlan,
       archivePlan, changePlan, updateSubscription, overrideLimit, overrideFeature,
-      extendTrial, convertTrial, setInvoiceStatus, setTicketStatus,
+      extendTrial, convertTrial, setInvoiceStatus, raiseTicket, setTicketStatus,
       updatePlatformSettings, startImpersonation, stopImpersonation, resetPlatform,
     ],
   );
