@@ -31,6 +31,7 @@ import { recordSsoFailure } from "@/lib/sso-status";
 import { useWorkforce } from "@/lib/store";
 import { landingFor } from "@/lib/routes";
 import { describeError } from "@/lib/errors";
+import { leaveDemoFor } from "@/lib/demo/mode";
 
 export function SsoReturn() {
   const router = useRouter();
@@ -97,7 +98,7 @@ export function SsoReturn() {
             router.replace(landingFor(user.role));
           } else {
             console.info("[sso] no worker record for this address; onboarding");
-            router.replace("/start");
+            if (!leaveDemoFor("/start")) router.replace("/start");
           }
           showToast("Signed in", "success");
         } catch (e) {

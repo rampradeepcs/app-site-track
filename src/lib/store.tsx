@@ -58,6 +58,8 @@ import {
   setCurrentPersona,
   setDemoActive,
   workforceKey,
+  isDemoUserId,
+  leaveDemoFor,
 } from "./demo/mode";
 import { buildDemoData } from "./demo/seed";
 import { isLiveBackend } from "./supabase/client";
@@ -1237,6 +1239,11 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
    */
   const loginAs = useCallback(
     (user: User) => {
+      /* A real person arriving while the demonstration is on leaves it
+         first — the reload brings them back through the gate with the
+         company's own data underneath. Demo personas sign in here too, and
+         stay where they are. */
+      if (!isDemoUserId(user.id) && leaveDemoFor("/")) return;
       mutate((s) => ({
         ...s,
         users: s.users.some((u) => u.id === user.id)

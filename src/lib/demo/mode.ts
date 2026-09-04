@@ -64,6 +64,31 @@ export function setDemoActive(on: boolean): void {
 }
 
 /** Wipe the demo namespace so the next entry reseeds from scratch (spec §28). */
+/** Whether an id was minted by the demonstration's seed. */
+export function isDemoUserId(id: string): boolean {
+  return id.startsWith("demo-");
+}
+
+/**
+ * Leave the demonstration because a real person has signed in.
+ *
+ * The demo is entered on purpose, by one address, and lives in its own
+ * storage namespace. A real sign-in — a code, Google, Outlook — is the
+ * opposite intent, and must not land inside it: with the flag still on, the
+ * store kept hydrating the demonstration's forty-five people over the
+ * company's own, skipped every read from the backend, and the DEMO chip sat
+ * on a real onboarding screen. Switching namespaces means re-hydrating
+ * every provider, and a reload is the honest way to make them all agree
+ * (see enterDemo). Returns true when it reloaded, so the caller stops;
+ * false when there was no demo to leave.
+ */
+export function leaveDemoFor(path: string): boolean {
+  if (!demoActive()) return false;
+  setDemoActive(false);
+  window.location.replace(path);
+  return true;
+}
+
 export function clearDemoData(): void {
   try {
     localStorage.removeItem(DEMO_WORKFORCE_KEY);

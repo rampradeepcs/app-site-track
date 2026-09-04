@@ -37,7 +37,7 @@ import {
   serverSsoFailure,
   subscribeSsoFailure,
 } from "@/lib/sso-status";
-import { DEMO_EMAIL } from "@/lib/demo/mode";
+import { DEMO_EMAIL, leaveDemoFor } from "@/lib/demo/mode";
 import { PersonaChooser } from "@/components/demo/PersonaPicker";
 import { LoginBackdrop } from "@/components/LoginBackdrop";
 import { consumeSignInDirect, landingFor } from "@/lib/routes";
@@ -105,6 +105,13 @@ export default function LiveGate() {
    * in exactly one place. Returns false for an identity that authenticated
    * but matches no worker record.
    */
+  /* Authenticated, on no company: founding one is the answer. A real
+     session leaves the demonstration on the way, or the wizard would run
+     on top of the demo's own data. */
+  const toOnboarding = useCallback(() => {
+    if (!leaveDemoFor("/start")) router.replace("/start");
+  }, [router]);
+
   const enter = useCallback(async (): Promise<boolean> => {
     const user = await currentAppUser();
     if (!user) return false;
@@ -146,7 +153,7 @@ export default function LiveGate() {
         const who = await sessionEmail();
         if (cancelled) return;
         if (who && !askedToSignIn) {
-          router.replace("/start");
+          toOnboarding();
           return;
         }
         arrive();
@@ -190,7 +197,7 @@ export default function LiveGate() {
           const ok = await enter();
           if (cancelled || ok) return;
           // Authenticated, and on no company: straight to founding one.
-          router.replace("/start");
+          toOnboarding();
         } catch (e) {
           // Said on screen. A rejection here used to vanish into the
           // console, and the screen kept waiting for a sign-in that had
@@ -203,7 +210,7 @@ export default function LiveGate() {
       cancelled = true;
       off();
     };
-  }, [enter, state.session]);
+  }, [enter, toOnboarding, state.session]);
 
   const finishHighlights = () => {
     markHighlightsSeen();
@@ -261,7 +268,7 @@ export default function LiveGate() {
     // — the same answer Google and Outlook get for the same address.
     const ok = await enter();
     setBusy(false);
-    if (!ok) router.replace("/start");
+    if (!ok) toOnboarding();
   };
 
   return (
