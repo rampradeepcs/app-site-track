@@ -382,7 +382,10 @@ export async function fetchPlatform() {
     sb.from("plans").select("*"),
     sb.from("subscriptions").select("*"),
     sb.from("invoices").select("*").order("issued_at", { ascending: false }),
-    sb.from("usage_snapshots").select("*"),
+    // Measured, not recorded: the view counts people, check-ins, tracking
+    // and updates from the operational tables at read time, so the figure
+    // is never a snapshot nothing wrote — see *_usage_live.sql.
+    sb.from("usage_live").select("*"),
     sb.from("support_tickets").select("*").order("opened_at", { ascending: false }),
     // The trail, newest first. RLS answers a client admin with nothing here,
     // which is right: the audit is the platform owner's.

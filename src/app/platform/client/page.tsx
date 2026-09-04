@@ -370,7 +370,10 @@ function ClientInner() {
         )}
 
         {/* --------------------------------------------------- subscription */}
-        {tab === "subscription" && <SubscriptionPanel orgId={org.id} />}
+        {/* Keyed on the subscription: the panel seeds its inputs from the
+            row on first render, and the row arrives from the server after
+            the page does. */}
+        {tab === "subscription" && <SubscriptionPanel key={sub?.id ?? "none"} orgId={org.id} />}
 
         {/* -------------------------------------------------------- billing */}
         {tab === "billing" && (

@@ -371,6 +371,8 @@ export type Database = {
       subscriptions: Table<SubscriptionRow>;
       invoices: Table<InvoiceRow>;
       usage_snapshots: Table<UsageRow>;
+      /** usage_snapshots computed from the operational tables at read time. */
+      usage_live: Table<UsageRow>;
       support_tickets: Table<SupportTicketRow>;
       platform_audit: Table<PlatformAuditRow>;
       platform_settings: Table<PlatformSettingsRow>;

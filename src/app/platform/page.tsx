@@ -13,6 +13,7 @@ import { HealthPill, MetricCard, StatusPill } from "@/components/platform/bits";
 import { SectionTitle, useNowTick } from "@/components/ui";
 import { entitlementsFor } from "@/lib/entitlements";
 import { usePlatform } from "@/lib/platform-store";
+import { useWorkforce } from "@/lib/store";
 import {
   clientGrowth,
   clientHealth,
@@ -26,7 +27,34 @@ import { IArrowR, IAlert, IUsers } from "@/components/WfIcons";
 
 export default function PlatformDashboard() {
   const { platform } = usePlatform();
+  const { state } = useWorkforce();
   const now = useNowTick(60);
+
+  /*
+   * People, not seats.
+   *
+   * Every person every client has added, and how many of them have used
+   * the app lately: signed in — the database writes the moment of each
+   * sign-in — or checked in to a shift. Both are events with a time on
+   * them, so this is measured, not modelled. The owner's own record is
+   * nobody's employee and is left out.
+   */
+  const people = useMemo(() => {
+    const day = 86_400_000;
+    const all = state.users.filter((u) => u.orgId && u.role !== "superadmin");
+    const since = new Date(now - 30 * day).toISOString().slice(0, 10);
+    const worked = new Set(
+      state.attendance.filter((a) => a.date >= since).map((a) => a.employeeId),
+    );
+    const usedRecently = (u: (typeof all)[number]) =>
+      (u.lastSignInAt !== undefined && now - u.lastSignInAt <= 30 * day) || worked.has(u.id);
+    return {
+      total: all.length,
+      active: all.filter(usedRecently).length,
+      today: all.filter((u) => u.lastSignInAt !== undefined && now - u.lastSignInAt <= day).length,
+      never: all.filter((u) => !u.lastSignInAt && !worked.has(u.id)).length,
+    };
+  }, [state.users, state.attendance, now]);
 
   const stats = useMemo(() => platformStats(platform, now), [platform, now]);
   const growth = useMemo(() => clientGrowth(platform, 8, now), [platform, now]);
@@ -96,10 +124,16 @@ export default function PlatformDashboard() {
           <MetricCard label="ARR" value={money(stats.arr)} sub="annualised" tone="violet" />
           <MetricCard label="Outstanding" value={money(stats.outstanding)} sub={`${stats.failedPayments} failed`} tone={stats.outstanding > 0 ? "amber" : "neutral"} />
         </div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
           <MetricCard label="Trials expiring" value={stats.expiringTrials} sub="next 14 days" tone={stats.expiringTrials ? "amber" : "neutral"} />
           <MetricCard label="Renewals" value={stats.renewalsThisMonth} sub="this month" />
           <MetricCard label="Suspended" value={stats.suspendedClients} tone={stats.suspendedClients ? "red" : "neutral"} sub="incl. payment hold" />
+          <MetricCard
+            label="Active users"
+            value={people.active.toLocaleString("en-IN")}
+            sub={`${people.today} today · ${people.never} never used it · ${people.total} in all`}
+            tone={people.active > 0 ? "green" : "neutral"}
+          />
           <MetricCard label="Active employees" value={stats.activeEmployees.toLocaleString("en-IN")} sub={`${stats.activeProjects} projects`} />
           <MetricCard label="Daily check-ins" value={stats.dailyCheckIns.toLocaleString("en-IN")} sub={`${stats.trackingSessions.toLocaleString("en-IN")} tracking sessions`} />
         </div>

@@ -17,6 +17,12 @@ import type { FeatureSet, PlanLimits, SubscriptionStatus } from "@/lib/saas-type
 import { FEATURE_LABELS } from "@/lib/saas-types";
 import { IArrowR, IRefresh } from "@/components/WfIcons";
 
+/* Date inputs speak ISO days; the store speaks milliseconds. Midnight local,
+   because a renewal "on the 4th" means the 4th where the client is. */
+const toDateInput = (ms?: number) =>
+  ms ? new Date(ms - new Date(ms).getTimezoneOffset() * 60_000).toISOString().slice(0, 10) : "";
+const fromDateInput = (s: string) => new Date(`${s}T00:00:00`).getTime();
+
 const LIMIT_ROWS: Array<[keyof PlanLimits, string, string?]> = [
   ["employees", "Employees"],
   ["managers", "Managers"],
@@ -42,6 +48,9 @@ export function SubscriptionPanel({ orgId }: { orgId: string }) {
   const ent = entitlementsFor(platform, orgId);
   const [discount, setDiscount] = useState(String(sub?.discountPercent ?? ""));
   const [price, setPrice] = useState(String(sub?.customPrice ?? ""));
+  const [credit, setCredit] = useState(String(sub?.creditBalance ?? 0));
+  const [notes, setNotes] = useState(sub?.notes ?? "");
+  const [trialDays, setTrialDays] = useState("14");
 
   if (!sub || !plan) {
     return <p className="wf-card px-4 py-10 text-center text-sm text-[var(--wf-muted)]">No subscription on this account.</p>;
@@ -78,8 +87,24 @@ export function SubscriptionPanel({ orgId }: { orgId: string }) {
           <SubPill status={sub.status} />
           {sub.status === "trial" && (
             <>
-              <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={() => extendTrial(orgId, 14)}>
-                Extend 14 days
+              <label className="flex items-center gap-1.5 text-[0.74rem] text-[var(--wf-muted)]">
+                Extend by
+                <input
+                  type="number"
+                  min={1}
+                  aria-label="Days to extend the trial by"
+                  className="wf-input w-16 px-2 py-1 text-right"
+                  value={trialDays}
+                  onChange={(e) => setTrialDays(e.target.value)}
+                />
+                days
+              </label>
+              <button
+                className="wf-btn wf-btn-ghost wf-btn-sm"
+                disabled={!(Number(trialDays) > 0)}
+                onClick={() => extendTrial(orgId, Math.round(Number(trialDays)))}
+              >
+                Extend trial
               </button>
               <button className="wf-btn wf-btn-primary wf-btn-sm" onClick={() => convertTrial(orgId)}>
                 Convert to paid <IArrowR size={13} />
@@ -172,8 +197,48 @@ export function SubscriptionPanel({ orgId }: { orgId: string }) {
             <input
               type="number"
               className="wf-input"
-              value={sub.creditBalance}
-              onChange={(e) => updateSubscription(orgId, { creditBalance: Number(e.target.value) })}
+              value={credit}
+              onChange={(e) => setCredit(e.target.value)}
+              onBlur={() => updateSubscription(orgId, { creditBalance: Number(credit) || 0 })}
+            />
+          </Field>
+        </div>
+      </div>
+
+      {/* dates — set by hand when a deal says so, not only by the buttons */}
+      <div className="wf-card p-4">
+        <SectionTitle>Dates</SectionTitle>
+        <div className="grid gap-3 md:grid-cols-3">
+          <Field label="Started">
+            <input
+              type="date"
+              className="wf-input"
+              value={toDateInput(sub.startedAt)}
+              onChange={(e) =>
+                e.target.value && updateSubscription(orgId, { startedAt: fromDateInput(e.target.value) })
+              }
+            />
+          </Field>
+          <Field label="Trial ends" hint="Blank when the account is not on trial.">
+            <input
+              type="date"
+              className="wf-input"
+              value={toDateInput(sub.trialEndsAt)}
+              onChange={(e) =>
+                updateSubscription(orgId, {
+                  trialEndsAt: e.target.value ? fromDateInput(e.target.value) : undefined,
+                })
+              }
+            />
+          </Field>
+          <Field label="Renews on" hint="The next invoice is raised for this date.">
+            <input
+              type="date"
+              className="wf-input"
+              value={toDateInput(sub.renewsAt)}
+              onChange={(e) =>
+                e.target.value && updateSubscription(orgId, { renewsAt: fromDateInput(e.target.value) })
+              }
             />
           </Field>
         </div>
@@ -285,11 +350,20 @@ export function SubscriptionPanel({ orgId }: { orgId: string }) {
             );
           })}
         </div>
-        {sub.notes && (
-          <p className="mt-3 border-t border-[var(--wf-line)] pt-2.5 text-[0.76rem] text-[var(--wf-muted)]">
-            <strong className="text-[var(--wf-fg)]">Note.</strong> {sub.notes}
-          </p>
-        )}
+      </div>
+
+      {/* why this client is set up the way it is */}
+      <div className="wf-card p-4">
+        <SectionTitle>Notes</SectionTitle>
+        <Field label="Account notes" hint="Why this client is configured this way. Seen here only.">
+          <textarea
+            className="wf-input min-h-24"
+            value={notes}
+            placeholder="Negotiated terms, who agreed them, what was promised…"
+            onChange={(e) => setNotes(e.target.value)}
+            onBlur={() => updateSubscription(orgId, { notes: notes.trim() || undefined })}
+          />
+        </Field>
       </div>
     </div>
   );
