@@ -312,7 +312,7 @@ function ClientInner() {
               <div className="wf-scroll-x">
                 <table className="wf-table">
                   <thead>
-                    <tr><th>Name</th><th>Role</th><th>Designation</th><th>Department</th><th>Status</th></tr>
+                    <tr><th>Name</th><th>Role</th><th>Designation</th><th>Department</th><th>Status</th><th>Signed in</th></tr>
                   </thead>
                   <tbody>
                     {orgUsers.map((u) => (
@@ -327,6 +327,14 @@ function ClientInner() {
                         <td className="text-[var(--wf-muted)]">{u.designation}</td>
                         <td className="text-[var(--wf-muted)]">{u.department}</td>
                         <td className="capitalize text-[var(--wf-muted)]">{u.status}</td>
+                        {/* Written by the database at every sign-in: which
+                            provider vouched, and when. The register's answer
+                            to "has this person actually used the app". */}
+                        <td className="whitespace-nowrap text-[var(--wf-muted)]">
+                          {u.lastSignInAt
+                            ? `${u.authProvider === "google" ? "Google" : u.authProvider === "azure" ? "Outlook" : "Email code"} · ${fmtRelative(u.lastSignInAt, now)}`
+                            : "Not yet"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

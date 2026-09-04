@@ -196,6 +196,39 @@ export type InvoiceRow = {
   failure_reason: string | null;
 }
 
+export type SupportTicketRow = {
+  id: string;
+  org_id: string;
+  subject: string;
+  body: string;
+  kind: "account" | "subscription" | "payment" | "technical" | "access";
+  status: "open" | "in-progress" | "waiting" | "resolved";
+  priority: string;
+  raised_by: string;
+  opened_at: string;
+  updated_at: string;
+}
+
+export type PlatformAuditRow = {
+  id: string;
+  at: string;
+  actor_id: string | null;
+  actor_name: string;
+  org_id: string | null;
+  action: string;
+  target: string;
+  previous_value: string | null;
+  new_value: string | null;
+  detail: string | null;
+  ip: string | null;
+}
+
+/** One row, id 1: the platform-wide settings object as JSON. */
+export type PlatformSettingsRow = {
+  id: number;
+  settings: Json;
+}
+
 export type ProjectMemberRow = {
   project_id: string;
   user_id: string;
@@ -338,6 +371,9 @@ export type Database = {
       subscriptions: Table<SubscriptionRow>;
       invoices: Table<InvoiceRow>;
       usage_snapshots: Table<UsageRow>;
+      support_tickets: Table<SupportTicketRow>;
+      platform_audit: Table<PlatformAuditRow>;
+      platform_settings: Table<PlatformSettingsRow>;
       users: Table<UserRow>;
       projects: Table<ProjectRow>;
       attendance: Table<AttendanceRow>;

@@ -31,6 +31,9 @@ import type {
   UsageRow,
   UserRow,
   WorkUpdateRow,
+  SupportTicketRow,
+  PlatformAuditRow,
+  PlatformSettingsRow,
 } from "./types";
 import type { ProvisionResult, SignupPayload } from "./types";
 import type {
@@ -61,7 +64,10 @@ import type {
   Invoice,
   Organization,
   Plan,
+  PlatformAuditEntry,
+  PlatformSettings,
   Subscription,
+  SupportTicket,
   UsageSnapshot,
 } from "../saas-types";
 
@@ -291,6 +297,42 @@ export function toUsage(r: UsageRow): UsageSnapshot {
   };
 }
 
+export function toTicket(r: SupportTicketRow): SupportTicket {
+  return {
+    id: r.id,
+    orgId: r.org_id,
+    subject: r.subject,
+    body: r.body,
+    kind: r.kind,
+    status: r.status,
+    priority: r.priority as SupportTicket["priority"],
+    openedAt: ms(r.opened_at),
+    updatedAt: ms(r.updated_at),
+    raisedBy: r.raised_by,
+  };
+}
+
+export function toAudit(r: PlatformAuditRow): PlatformAuditEntry {
+  return {
+    id: r.id,
+    at: ms(r.at),
+    actorId: r.actor_id ?? "system",
+    actorName: r.actor_name,
+    orgId: r.org_id ?? undefined,
+    action: r.action,
+    target: r.target,
+    previousValue: r.previous_value ?? undefined,
+    newValue: r.new_value ?? undefined,
+    detail: r.detail ?? undefined,
+    ip: r.ip ?? undefined,
+  };
+}
+
+/** Keys the database holds; the store lays them over its defaults. */
+export function toSettings(r: PlatformSettingsRow): Partial<PlatformSettings> {
+  return (r.settings ?? {}) as Partial<PlatformSettings>;
+}
+
 /* ---------------------------------------------------------------- reads --- */
 
 /** Everything the client app needs for the signed-in tenant, in one round. */
@@ -335,14 +377,21 @@ export async function fetchTrail(attendanceId: string): Promise<LocationPoint[]>
 /** Platform-side state; RLS returns only this caller's slice. */
 export async function fetchPlatform() {
   const sb = requireSupabase();
-  const [orgs, plans, subs, invoices, usage] = await Promise.all([
+  const [orgs, plans, subs, invoices, usage, tickets, audit, settings] = await Promise.all([
     sb.from("organizations").select("*"),
     sb.from("plans").select("*"),
     sb.from("subscriptions").select("*"),
     sb.from("invoices").select("*").order("issued_at", { ascending: false }),
     sb.from("usage_snapshots").select("*"),
+    sb.from("support_tickets").select("*").order("opened_at", { ascending: false }),
+    // The trail, newest first. RLS answers a client admin with nothing here,
+    // which is right: the audit is the platform owner's.
+    sb.from("platform_audit").select("*").order("at", { ascending: false }).limit(1000),
+    sb.from("platform_settings").select("*").eq("id", 1).maybeSingle(),
   ]);
-  const err = orgs.error ?? plans.error ?? subs.error ?? invoices.error ?? usage.error;
+  const err =
+    orgs.error ?? plans.error ?? subs.error ?? invoices.error ?? usage.error ??
+    tickets.error ?? audit.error ?? settings.error;
   if (err) throw err;
   return {
     organizations: (orgs.data ?? []).map(toOrg),
@@ -350,7 +399,155 @@ export async function fetchPlatform() {
     subscriptions: (subs.data ?? []).map(toSubscription),
     invoices: (invoices.data ?? []).map(toInvoice),
     usage: (usage.data ?? []).map(toUsage),
+    tickets: (tickets.data ?? []).map(toTicket),
+    platformAudit: (audit.data ?? []).map(toAudit),
+    platformSettings: settings.data ? toSettings(settings.data as PlatformSettingsRow) : null,
   };
+}
+
+/* ------------------------------------------------------- platform writes --- */
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const uuidOrNull = (v: string | undefined | null) => (v && UUID.test(v) ? v : null);
+
+export async function upsertOrganization(o: Organization) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("organizations").upsert({
+    id: o.id,
+    name: o.name,
+    code: o.code,
+    industry: o.industry,
+    website: o.website,
+    contact_name: o.contactName,
+    contact_email: o.contactEmail,
+    contact_phone: o.contactPhone,
+    country: o.country,
+    timezone: o.timezone,
+    status: o.status,
+    billing: o.billing as never,
+    branding: o.branding as never,
+    suspended_reason: o.suspendedReason ?? null,
+    created_at: iso(o.createdAt),
+  } as never);
+  if (error) throw error;
+}
+
+export async function upsertPlan(p: Plan) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("plans").upsert({
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    monthly_price: p.monthlyPrice,
+    annual_price: p.annualPrice,
+    currency: p.currency,
+    trial_days: p.trialDays,
+    max_employees: p.limits.employees ?? null,
+    max_managers: p.limits.managers ?? null,
+    max_projects: p.limits.projects ?? null,
+    max_storage_gb: p.limits.storageGb ?? null,
+    route_retention_days: p.limits.routeRetentionDays ?? 30,
+    api_calls_per_month: p.limits.apiCallsPerMonth ?? 0,
+    features: p.features as never,
+    support_level: p.supportLevel,
+    archived: p.archived,
+    created_at: iso(p.createdAt),
+  } as never);
+  if (error) throw error;
+}
+
+export async function upsertSubscription(x: Subscription) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("subscriptions").upsert({
+    id: x.id,
+    org_id: x.orgId,
+    plan_id: x.planId,
+    status: x.status,
+    cycle: x.cycle,
+    started_at: iso(x.startedAt),
+    trial_ends_at: x.trialEndsAt ? iso(x.trialEndsAt) : null,
+    renews_at: iso(x.renewsAt),
+    cancelled_at: x.cancelledAt ? iso(x.cancelledAt) : null,
+    limit_overrides: x.limitOverrides as never,
+    feature_overrides: x.featureOverrides as never,
+    custom_price: x.customPrice ?? null,
+    discount_percent: x.discountPercent ?? null,
+    credit_balance: x.creditBalance,
+    on_limit_reached: x.onLimitReached,
+    notes: x.notes ?? null,
+  } as never);
+  if (error) throw error;
+}
+
+export async function upsertInvoice(i: Invoice) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("invoices").upsert({
+    id: i.id,
+    number: i.number,
+    org_id: i.orgId,
+    subscription_id: uuidOrNull(i.subscriptionId),
+    amount: i.amount,
+    tax_amount: i.taxAmount,
+    currency: i.currency,
+    issued_at: iso(i.issuedAt),
+    due_at: iso(i.dueAt),
+    paid_at: i.paidAt ? iso(i.paidAt) : null,
+    status: i.status,
+    period_label: i.periodLabel,
+    payment_method: i.paymentMethod,
+    failure_reason: i.failureReason ?? null,
+  } as never);
+  if (error) throw error;
+}
+
+export async function upsertTicket(t: SupportTicket) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("support_tickets").upsert({
+    id: t.id,
+    org_id: t.orgId,
+    subject: t.subject,
+    body: t.body,
+    kind: t.kind,
+    status: t.status,
+    priority: t.priority,
+    raised_by: t.raisedBy,
+    opened_at: iso(t.openedAt),
+    updated_at: iso(t.updatedAt),
+  } as never);
+  if (error) throw error;
+}
+
+/**
+ * Append one audit entry. Only the platform owner may write the trail
+ * (RLS), so a refusal is expected for anyone else and is not an error worth
+ * showing — the entry stays in their local view and is dropped on the next
+ * read, which is the right outcome for a record they were never allowed to
+ * make.
+ */
+export async function insertPlatformAudit(e: PlatformAuditEntry) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("platform_audit").insert({
+    id: e.id,
+    at: iso(e.at),
+    actor_id: uuidOrNull(e.actorId),
+    actor_name: e.actorName,
+    org_id: uuidOrNull(e.orgId),
+    action: e.action,
+    target: e.target,
+    previous_value: e.previousValue ?? null,
+    new_value: e.newValue ?? null,
+    detail: e.detail ?? null,
+    ip: e.ip ?? null,
+  } as never);
+  if (error && error.code !== "42501") throw error;
+}
+
+export async function savePlatformSettings(settings: PlatformSettings) {
+  const sb = requireSupabase();
+  const { error } = await sb
+    .from("platform_settings")
+    .upsert({ id: 1, settings: settings as never } as never);
+  if (error) throw error;
 }
 
 /* --------------------------------------------------------------- writes --- */

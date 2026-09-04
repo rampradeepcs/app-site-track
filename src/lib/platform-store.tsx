@@ -27,6 +27,9 @@ import { buildDemoData } from "./demo/seed";
 import { isLiveBackend } from "./supabase/client";
 import { onAuthChange } from "./supabase/auth";
 import { fetchPlatform } from "./supabase/repository";
+import { syncPlatformChanges } from "./supabase/platform-sync";
+import { showToast } from "./toast";
+import { describeError } from "./errors";
 import type {
   BillingProfile,
   FeatureSet,
@@ -50,7 +53,13 @@ import { SEED_VERSION } from "./seed";
 // together and a stale half is worse than no cache at all.
 const KEY = `workfence.platform.v${SEED_VERSION}`;
 let n = 0;
-const pid = (p: string) => `${p}_${Date.now().toString(36)}_${(n++).toString(36)}`;
+/* Real ids: every platform table keys on a uuid, and a row minted here is
+   written there. The readable form remains for the demo and for a runtime
+   without crypto, where nothing is written anywhere. */
+const pid = (p: string) =>
+  typeof globalThis.crypto?.randomUUID === "function"
+    ? globalThis.crypto.randomUUID()
+    : `${p}_${Date.now().toString(36)}_${(n++).toString(36)}`;
 
 export interface OnboardInput {
   org: Omit<Organization, "id" | "createdAt" | "status"> & {
@@ -139,6 +148,56 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
     ref.current = platform;
   }, [platform]);
 
+  /*
+   * The state as the server last gave it, and the state as last seen by the
+   * write-through below. A state that arrived from the server is not ours to
+   * write back; everything that differs from the last seen state after that
+   * is, and goes to Postgres.
+   */
+  const baselineRef = useRef<PlatformState | null>(null);
+  const lastSeenRef = useRef<PlatformState | null>(null);
+
+  /**
+   * Live mode: commercial state comes from Postgres. RLS decides what this
+   * caller may see, so a client admin gets only their own organisation here
+   * while the platform owner gets every tenant — from the same query.
+   *
+   * Never let an empty result overwrite: "no organisations" reads as a
+   * broken product when the real cause is an unauthorised read.
+   */
+  const hydrateFromBackend = useCallback(async () => {
+    if (!isLiveBackend || demoActive()) return;
+    try {
+      const live = await fetchPlatform();
+      if (live.organizations.length === 0) {
+        console.warn(
+          "[Workfence] Supabase returned no visible organisations — not signed in, " +
+            "or this identity has no tenant. Keeping local state.",
+        );
+        return;
+      }
+      const prev = ref.current;
+      if (!prev) return;
+      const next: PlatformState = {
+        ...prev,
+        organizations: live.organizations,
+        plans: live.plans,
+        subscriptions: live.subscriptions,
+        invoices: live.invoices,
+        usage: live.usage,
+        tickets: live.tickets,
+        platformAudit: live.platformAudit,
+        platformSettings: live.platformSettings
+          ? { ...prev.platformSettings, ...live.platformSettings }
+          : prev.platformSettings,
+      };
+      baselineRef.current = next;
+      setPlatform(next);
+    } catch (err) {
+      console.error("[Workfence] Supabase platform hydration failed; staying local.", err);
+    }
+  }, []);
+
   /* hydrate */
   useEffect(() => {
     const seed = demoActive() ? buildDemoData().platform : seedPlatform();
@@ -168,54 +227,41 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
     }
     setPlatform(next);
 
-    // Live mode: commercial state comes from Postgres. RLS decides what this
-    // caller may see, so a client admin gets only their own organisation here
-    // while the platform owner gets every tenant — from the same query.
-    //
-    // Same two rules as the workforce store: re-read on sign-in, because RLS
-    // answers an unauthenticated caller with nothing; and never let an empty
-    // result overwrite, because "no organisations" reads as a broken product
-    // when the real cause is an unauthorised read.
+    // Re-read on sign-in as well as on mount, because RLS answers an
+    // unauthenticated caller with nothing.
     if (isLiveBackend && !demoActive()) {
-      let cancelled = false;
-      const hydrate = () => {
-        fetchPlatform()
-          .then((live) => {
-            if (cancelled) return;
-            if (live.organizations.length === 0) {
-              console.warn(
-                "[Workfence] Supabase returned no visible organisations — not signed in, " +
-                  "or this identity has no tenant. Keeping local state.",
-              );
-              return;
-            }
-            setPlatform((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    organizations: live.organizations,
-                    plans: live.plans,
-                    subscriptions: live.subscriptions,
-                    invoices: live.invoices,
-                    usage: live.usage,
-                  }
-                : prev,
-            );
-          })
-          .catch((err) => {
-            console.error("[Workfence] Supabase platform hydration failed; staying local.", err);
-          });
-      };
-      hydrate();
+      // The first render has to have happened before there is a state to
+      // lay the server's rows over; a macrotask is enough.
+      const t = window.setTimeout(() => void hydrateFromBackend(), 0);
       const off = onAuthChange((signedIn) => {
-        if (signedIn) hydrate();
+        if (signedIn) void hydrateFromBackend();
       });
       return () => {
-        cancelled = true;
+        window.clearTimeout(t);
         off();
       };
     }
+    // Mount-only; hydrateFromBackend is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /*
+   * Write-through. Whatever a mutation changed goes to Postgres, keyed on
+   * identity (see platform-sync). Three states are not ours to write: the
+   * first one loaded, the one the server just gave us, and anything while
+   * the demonstration is on.
+   */
+  useEffect(() => {
+    if (!platform) return;
+    const prev = lastSeenRef.current;
+    lastSeenRef.current = platform;
+    if (!prev || platform === baselineRef.current) return;
+    if (!isLiveBackend || demoActive()) return;
+    syncPlatformChanges(prev, platform).catch((err) => {
+      console.error("[Workfence] A platform change did not reach the server.", err);
+      showToast(`Not saved to the server: ${describeError(err)}`, "danger");
+    });
+  }, [platform]);
 
   /* persist */
   useEffect(() => {
@@ -751,8 +797,13 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
     } catch {
       /* ignore */
     }
-    setPlatform(seedPlatform());
-  }, []);
+    // A fresh seed is not ours to write back either; against a backend the
+    // real state follows straight after it.
+    const fresh = seedPlatform();
+    baselineRef.current = fresh;
+    setPlatform(fresh);
+    void hydrateFromBackend();
+  }, [hydrateFromBackend]);
 
   const api = useMemo<PlatformApi | null>(
     () =>
