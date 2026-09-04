@@ -18,3 +18,7 @@ next-env.d.ts
 /android/local.properties
 /android/capacitor-cordova-android-plugins/build/
 .vercel
+
+# Build artefacts written next to the source by the release steps
+*.apk
+build.err
