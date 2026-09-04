@@ -20,22 +20,23 @@ import { SyncBanner } from "./SyncBanner";
 import {
   IBell,
   ICalendar,
+  ICalendarFill,
   IClipboard,
+  IClipboardFill,
   IGrid,
+  IGridFill,
   IHardHat,
+  IHardHatFill,
   IHistory,
+  IHistoryFill,
   IHome,
+  IHomeFill,
+  ILayers,
+  ILayersFill,
   ILogout,
   IUsers,
-  ILayers,
-  IHomeFill,
-  ICalendarFill,
-  IClipboardFill,
-  IHistoryFill,
-  ILayersFill,
-  IGridFill,
-  IHardHatFill,
   IUsersFill,
+  IWallet,
 } from "./WfIcons";
 
 /**
@@ -179,14 +180,48 @@ const ADMIN_TABS = [
 ];
 
 /**
- * Every top-level destination across all three navigations.
+ * The platform owner's bar.
+ *
+ * The console was a desktop sidebar, deliberately unlike the phone apps —
+ * and then the owner turned out to run it from a phone, like everyone
+ * else. Same shape as the other three: the four surfaces that get opened
+ * every day, and More for the ones that get opened when something needs
+ * changing.
+ */
+const PLATFORM_TABS = [
+  { href: "/platform", label: "Dashboard", icon: IGrid, iconActive: IGridFill },
+  {
+    href: "/platform/clients",
+    label: "Clients",
+    icon: IHardHat,
+    iconActive: IHardHatFill,
+  },
+  { href: "/platform/billing", label: "Billing", icon: IWallet },
+  { href: "/platform/support", label: "Support", icon: IBell },
+  {
+    href: "/platform/more",
+    label: "More",
+    icon: ILayers,
+    iconActive: ILayersFill,
+    alsoActive: [
+      "/platform/subscriptions",
+      "/platform/usage",
+      "/platform/features",
+      "/platform/audit",
+      "/platform/settings",
+    ],
+  },
+];
+
+/**
+ * Every top-level destination across all four navigations.
  *
  * The invariant this protects: a screen must always offer a way out —
  * either the tab bar or a back button. Anything not in this set is a
  * detail screen, and every one of those carries a back affordance.
  */
 const ALL_TAB_ROOTS = new Set(
-  [...EMPLOYEE_TABS, ...MANAGER_TABS, ...ADMIN_TABS].map((t) =>
+  [...EMPLOYEE_TABS, ...MANAGER_TABS, ...ADMIN_TABS, ...PLATFORM_TABS].map((t) =>
     t.href.replace(/\/$/, ""),
   ),
 );
@@ -196,18 +231,30 @@ export function TabBar({ role }: { role: Role }) {
   const { state } = useWorkforce();
   // A signed-in super admin keeps the admin nav even on manager surfaces,
   // so browsing projects/attendance never strands them in the manager shell.
+  // The platform layout asks for its own bar by name; a super admin
+  // anywhere else is browsing a client's surfaces and keeps the admin nav.
   const effective =
-    state.session?.role === "admin" || state.session?.role === "superadmin"
-      ? "admin"
-      : role;
+    role === "superadmin"
+      ? "superadmin"
+      : state.session?.role === "admin" || state.session?.role === "superadmin"
+        ? "admin"
+        : role;
   const tabs =
     effective === "employee"
       ? EMPLOYEE_TABS
       : effective === "admin"
         ? ADMIN_TABS
-        : MANAGER_TABS;
+        : effective === "superadmin"
+          ? PLATFORM_TABS
+          : MANAGER_TABS;
   const base =
-    effective === "employee" ? "/employee" : effective === "admin" ? "/admin" : "/manager";
+    effective === "employee"
+      ? "/employee"
+      : effective === "admin"
+        ? "/admin"
+        : effective === "superadmin"
+          ? "/platform"
+          : "/manager";
 
   /*
    * The bar belongs to the tab roots only.

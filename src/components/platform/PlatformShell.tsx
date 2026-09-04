@@ -1,16 +1,22 @@
 "use client";
 
 /**
- * Super Admin portal chrome — a desktop-first sidebar console, deliberately
- * unlike the mobile-first tab bars the manager and employee apps use.
+ * Super Admin portal chrome.
+ *
+ * Two shapes for one console. On a desk it is the sidebar it always was —
+ * every surface one click away, the owner's name at the foot. On a phone
+ * it is the same shell as everyone else's: the page, and a bar along the
+ * bottom with the four surfaces that get opened every day and More for
+ * the rest. The platform owner runs it from both, so neither gives way.
  */
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
 import { Avatar } from "@/components/ui";
+import { TabBar } from "@/components/shell";
 import {
   IAlert,
   IBell,
@@ -22,7 +28,6 @@ import {
   ILogout,
   IShield,
   IUsers,
-  IX,
 } from "@/components/WfIcons";
 
 const NAV = [
@@ -60,7 +65,6 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   const { currentUser, logout } = useWorkforce();
   const { platform, stopImpersonation } = usePlatform();
   const router = useRouter();
-  const [navOpen, setNavOpen] = useState(false);
 
   const openTickets = platform.tickets.filter((t) => t.status !== "resolved").length;
 
@@ -84,24 +88,9 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* mobile top bar */}
-      <header className="wf-topbar flex items-center gap-3 px-4 py-3 md:hidden">
-        <button
-          aria-label="Open navigation"
-          aria-expanded={navOpen}
-          className="grid h-10 w-10 cursor-pointer place-items-center rounded-xl border border-[var(--wf-line)] bg-[var(--wf-surface)]"
-          onClick={() => setNavOpen((v) => !v)}
-        >
-          {navOpen ? <IX size={18} /> : <IGrid size={18} />}
-        </button>
-        <span className="wf-display">Workfence Platform</span>
-      </header>
-
-      {/* sidebar */}
-      <aside
-        className={`${navOpen ? "block" : "hidden"} border-b border-[var(--wf-line)] bg-[var(--wf-surface)] md:sticky md:top-[var(--wf-safe-top)] md:block md:h-[calc(100dvh-var(--wf-safe-top))] md:w-60 md:shrink-0 md:border-b-0 md:border-r`}
-      >
-        <div className="hidden items-center gap-2.5 px-5 py-5 md:flex">
+      {/* sidebar — the desk's navigation; the phone has the bar below */}
+      <aside className="hidden border-[var(--wf-line)] bg-[var(--wf-surface)] md:sticky md:top-[var(--wf-safe-top)] md:block md:h-[calc(100dvh-var(--wf-safe-top))] md:w-60 md:shrink-0 md:border-r">
+        <div className="flex items-center gap-2.5 px-5 py-5">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--wf-violet)] text-[0.8rem] font-bold text-[var(--wf-on-violet)]">
             SA
           </span>
@@ -112,7 +101,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
             </span>
           </span>
         </div>
-        <nav aria-label="Platform" className="flex flex-col gap-0.5 p-3 md:px-3 md:py-0">
+        <nav aria-label="Platform" className="flex flex-col gap-0.5 px-3">
           {NAV.map((n) => {
             const active =
               n.href === "/platform"
@@ -123,7 +112,6 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={n.href}
                 href={n.href}
-                onClick={() => setNavOpen(false)}
                 aria-current={active ? "page" : undefined}
                 className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[0.86rem] font-semibold transition ${
                   active
@@ -142,7 +130,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <div className="mt-auto hidden items-center gap-2.5 border-t border-[var(--wf-line)] p-4 md:flex">
+        <div className="mt-auto flex items-center gap-2.5 border-t border-[var(--wf-line)] p-4">
           <Avatar name={currentUser?.name ?? "?"} hue={currentUser?.avatarHue ?? 265} photo={currentUser?.photo} size={34} />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[0.8rem] font-semibold">{currentUser?.name}</span>
@@ -162,9 +150,20 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className={`min-w-0 flex-1 ${platform.impersonating ? "pt-9" : ""}`}>
-        {children}
-      </main>
+      {/* On a phone the page and the bar share a column, so the bar sits at
+          the foot of a short page and sticks under a long one — the same
+          arrangement the admin, manager and employee shells use. */}
+      <div className="flex min-h-[calc(100dvh-var(--wf-safe-top))] min-w-0 flex-1 flex-col md:min-h-0">
+        <main className={`min-h-0 min-w-0 flex-1 pb-4 ${platform.impersonating ? "pt-9" : ""}`}>
+          {children}
+        </main>
+        {/* `contents`, not a box: a sticky bar can only travel within its
+            parent, and a wrapper the height of the bar would pin it to the
+            end of the page instead of the foot of the screen. */}
+        <div className="contents md:hidden">
+          <TabBar role="superadmin" />
+        </div>
+      </div>
     </div>
   );
 }
