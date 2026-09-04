@@ -92,11 +92,29 @@ export function SsoButtons({
         window.setTimeout(async () => {
           if (cancelled) return;
           const email = await currentAuthEmail();
-          if (cancelled || email) return;
-          setBusy(null);
-          onError?.(
-            "Sign-in didn't complete. Check your connection and try again.",
-          );
+          if (cancelled) return;
+          if (!email) {
+            setBusy(null);
+            onError?.(
+              "Sign-in didn't complete. Check your connection and try again.",
+            );
+            return;
+          }
+          /*
+           * A session arrived. The deep-link handler takes them in, and this
+           * screen is normally gone within a second of that. If it is still
+           * here after a fair wait, the sign-in landed and nothing followed —
+           * so hand the buttons back with a reason, rather than leaving them
+           * disabled behind "Opening…" until the app is force-quit, which is
+           * what a Microsoft sign-in did.
+           */
+          window.setTimeout(() => {
+            if (cancelled) return;
+            setBusy(null);
+            onError?.(
+              "Signed in, but the app couldn't open your account. Tap again to retry.",
+            );
+          }, 6000);
         }, 1500);
       });
       if (cancelled) void handle.remove();

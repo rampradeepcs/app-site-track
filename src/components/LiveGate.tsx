@@ -29,6 +29,7 @@ import {
   verifyOtp,
 } from "@/lib/supabase/auth";
 import { SsoButtons } from "./SsoButtons";
+import { describeError } from "@/lib/errors";
 import { emailProblem, isUsableEmail } from "@/lib/email";
 import {
   clearSsoFailure,
@@ -181,13 +182,21 @@ export default function LiveGate() {
       if (!signedIn) return;
       void (async () => {
         if (cancelled || state.session) return;
-        // enter() resolves the address to a worker record, claiming one that
-        // carries it if this account had never been linked. Whichever control
-        // they used, the same address reaches the same place.
-        const ok = await enter();
-        if (cancelled || ok) return;
-        // Authenticated, and on no company: straight to founding one.
-        router.replace("/start");
+        console.info("[sso] gate: session arrived");
+        try {
+          // enter() resolves the address to a worker record, claiming one
+          // that carries it if this account had never been linked. Whichever
+          // control they used, the same address reaches the same place.
+          const ok = await enter();
+          if (cancelled || ok) return;
+          // Authenticated, and on no company: straight to founding one.
+          router.replace("/start");
+        } catch (e) {
+          // Said on screen. A rejection here used to vanish into the
+          // console, and the screen kept waiting for a sign-in that had
+          // already failed.
+          if (!cancelled) setError(describeError(e));
+        }
       })();
     });
     return () => {
@@ -313,7 +322,6 @@ export default function LiveGate() {
           >
             <input
               className="wf-input"
-              autoFocus
               type="email"
               inputMode="email"
               autoComplete="email"

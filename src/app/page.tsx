@@ -218,7 +218,6 @@ function LocalGate() {
                 up with an @ on it rather than a keypad. */}
             <input
               className="wf-input"
-              autoFocus
               type="email"
               inputMode="email"
               autoComplete="email"
