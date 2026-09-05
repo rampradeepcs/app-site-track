@@ -229,6 +229,30 @@ export type PlatformSettingsRow = {
   settings: Json;
 }
 
+export type AuditLogRow = {
+  id: string;
+  org_id: string;
+  actor_id: string | null;
+  action: string;
+  target: string;
+  detail: string | null;
+  at: string;
+}
+
+export type NotificationRow = {
+  id: string;
+  org_id: string;
+  audience: "employee" | "manager" | "admin" | "superadmin";
+  user_id: string | null;
+  kind: string;
+  title: string;
+  body: string;
+  severity: string;
+  link: string | null;
+  read: boolean;
+  at: string;
+}
+
 export type ProjectMemberRow = {
   project_id: string;
   user_id: string;
@@ -377,6 +401,8 @@ export type Database = {
       platform_audit: Table<PlatformAuditRow>;
       platform_settings: Table<PlatformSettingsRow>;
       users: Table<UserRow>;
+      audit_log: Table<AuditLogRow>;
+      notifications: Table<NotificationRow>;
       projects: Table<ProjectRow>;
       attendance: Table<AttendanceRow>;
       location_points: Table<LocationPointRow>;

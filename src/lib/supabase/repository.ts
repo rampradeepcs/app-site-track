@@ -34,6 +34,8 @@ import type {
   SupportTicketRow,
   PlatformAuditRow,
   PlatformSettingsRow,
+  AuditLogRow,
+  NotificationRow,
 } from "./types";
 import type { ProvisionResult, SignupPayload } from "./types";
 import type {
@@ -59,6 +61,8 @@ import type {
   User,
   Vehicle,
   WorkUpdate,
+  AppNotification,
+  AuditEntry,
 } from "../types";
 import type {
   Invoice,
@@ -333,19 +337,53 @@ export function toSettings(r: PlatformSettingsRow): Partial<PlatformSettings> {
   return (r.settings ?? {}) as Partial<PlatformSettings>;
 }
 
+export function toAuditEntry(r: AuditLogRow): AuditEntry {
+  return {
+    id: r.id,
+    at: ms(r.at),
+    actorId: r.actor_id ?? "system",
+    action: r.action,
+    target: r.target,
+    detail: r.detail ?? undefined,
+  };
+}
+
+export function toNotification(r: NotificationRow): AppNotification {
+  return {
+    id: r.id,
+    audience: r.audience,
+    userId: r.user_id ?? undefined,
+    kind: r.kind as AppNotification["kind"],
+    title: r.title,
+    body: r.body,
+    at: ms(r.at),
+    read: r.read,
+    severity: r.severity as AppNotification["severity"],
+    link: r.link ?? undefined,
+  };
+}
+
 /* ---------------------------------------------------------------- reads --- */
 
 /** Everything the client app needs for the signed-in tenant, in one round. */
 export async function fetchWorkforce() {
   const sb = requireSupabase();
-  const [users, projects, members, attendance, updates] = await Promise.all([
+  const [users, projects, members, attendance, updates, audit, notifications] = await Promise.all([
     sb.from("users").select("*"),
     sb.from("projects").select("*"),
     sb.from("project_members").select("project_id,user_id"),
     sb.from("attendance").select("*").order("date", { ascending: false }).limit(2000),
     sb.from("work_updates").select("*").order("at", { ascending: false }).limit(500),
+    // Admins see the company's trail; everyone else is answered with nothing,
+    // which is the policy, not a failure.
+    sb.from("audit_log").select("*").order("at", { ascending: false }).limit(500),
+    // Alerts raised on any device in the company — a worker's phone raising a
+    // geofence exit is only useful if the manager's phone hears about it.
+    sb.from("notifications").select("*").order("at", { ascending: false }).limit(300),
   ]);
-  const err = users.error ?? projects.error ?? attendance.error ?? updates.error;
+  const err =
+    users.error ?? projects.error ?? attendance.error ?? updates.error ??
+    audit.error ?? notifications.error;
   if (err) throw err;
 
   const mapped = {
@@ -353,6 +391,8 @@ export async function fetchWorkforce() {
     projects: (projects.data ?? []).map(toProject),
     attendance: (attendance.data ?? []).map(toAttendance),
     updates: (updates.data ?? []).map(toWorkUpdate),
+    audit: (audit.data ?? []).map(toAuditEntry),
+    notifications: (notifications.data ?? []).map(toNotification),
   };
   // Re-hydrate the many-to-many both ways.
   for (const m of (members.data ?? []) as Array<{ project_id: string; user_id: string }>) {
@@ -406,6 +446,64 @@ export async function fetchPlatform() {
     platformAudit: (audit.data ?? []).map(toAudit),
     platformSettings: settings.data ? toSettings(settings.data as PlatformSettingsRow) : null,
   };
+}
+
+/* --------------------------------------------------- audit and alerts --- */
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Append audit entries. Ids are minted on the device, so a retry is the same row, ignored. */
+export async function insertAuditEntries(entries: AuditEntry[], orgId: string) {
+  if (entries.length === 0) return;
+  const sb = requireSupabase();
+  const { error } = await sb.from("audit_log").upsert(
+    entries.map((e) => ({
+      id: e.id,
+      org_id: orgId,
+      actor_id: UUID_RE.test(e.actorId) ? e.actorId : null,
+      action: e.action,
+      target: e.target,
+      detail: e.detail ?? null,
+      at: iso(e.at),
+    })) as never,
+    { onConflict: "id", ignoreDuplicates: true },
+  );
+  // The trail is policy-gated; a refusal is the policy speaking, not a fault
+  // to raise a banner over. The entry stays in the local view.
+  if (error && error.code !== "42501") throw error;
+}
+
+export async function insertNotifications(rows: AppNotification[], orgId: string) {
+  if (rows.length === 0) return;
+  const sb = requireSupabase();
+  const { error } = await sb.from("notifications").upsert(
+    rows.map((n) => ({
+      id: n.id,
+      org_id: orgId,
+      audience: n.audience,
+      user_id: n.userId && UUID_RE.test(n.userId) ? n.userId : null,
+      kind: n.kind,
+      title: n.title,
+      body: n.body,
+      severity: n.severity,
+      link: n.link ?? null,
+      read: n.read,
+      at: iso(n.at),
+    })) as never,
+    { onConflict: "id", ignoreDuplicates: true },
+  );
+  if (error) throw error;
+}
+
+export async function markNotificationsReadRemote(audience: AppNotification["audience"], orgId: string) {
+  const sb = requireSupabase();
+  const { error } = await sb
+    .from("notifications")
+    .update({ read: true } as never)
+    .eq("org_id", orgId)
+    .eq("audience", audience)
+    .eq("read", false);
+  if (error) throw error;
 }
 
 /* ------------------------------------------------------- platform writes --- */

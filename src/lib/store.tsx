@@ -94,6 +94,9 @@ import {
   insertNoteAttachment,
   deleteNoteAttachment,
   fetchTeamWorld,
+  insertAuditEntries,
+  insertNotifications,
+  markNotificationsReadRemote,
 } from "./supabase/repository";
 import { persist, uid } from "./supabase/sync";
 import { nextTeamCode } from "./teams";
@@ -151,12 +154,13 @@ const STORAGE_KEY = `workfence.v${SEED_VERSION}`;
 // Must match the version stamped by buildSeedState() in seed.ts.
 
 
-let idCounter = Math.floor(Math.random() * 1e6);
-/**
- * Id for something that never leaves this device — an outbox entry, a
- * notification, a local audit line. Readable on purpose.
+/*
+ * Every record minted here may be written to Postgres, whose ids are uuids.
+ * The prefix is kept for readability at the call site and no longer appears
+ * in the id: an "aud_…" audit entry could never be inserted, and so never
+ * was. Demo records are minted by the seed with their own ids.
  */
-const rid = (p: string) => `${p}_${Date.now().toString(36)}_${(idCounter++).toString(36)}`;
+const rid = (_prefix: string) => uid();
 
 /** Default contracted shift for a freshly provisioned company: 9-to-6. */
 const DEFAULT_SHIFT = { start: 9 * 60, end: 18 * 60 };
@@ -520,6 +524,11 @@ export function useWorkforce(): StoreApi {
 
 export function WorkforceProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<WorkforceState | null>(null);
+  /* Ids of audit entries and alerts already on the server (or already on
+     this device before a backend was involved). Whatever appears in state
+     beyond these is new here and is written. */
+  const knownAuditRef = useRef<Set<string> | null>(null);
+  const knownNotifRef = useRef<Set<string> | null>(null);
   const [fix, setFix] = useState<LiveFix | null>(null);
   const [simScenario, setSimScenarioRaw] = useState<SimScenario>("approach");
 
@@ -582,6 +591,14 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       );
       return;
     }
+    knownAuditRef.current = new Set([
+      ...(knownAuditRef.current ?? []),
+      ...live.audit.map((a) => a.id),
+    ]);
+    knownNotifRef.current = new Set([
+      ...(knownNotifRef.current ?? []),
+      ...live.notifications.map((n) => n.id),
+    ]);
     setState((prev) =>
       prev
         ? {
@@ -590,6 +607,8 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
             projects: live.projects,
             attendance: live.attendance,
             updates: live.updates,
+            audit: live.audit,
+            notifications: live.notifications,
           }
         : prev,
     );
@@ -719,6 +738,36 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /*
+   * Audit entries and alerts are appended from dozens of places, mostly
+   * inside state updaters where nothing can await. So they are written
+   * from here, by difference: anything in state whose id the server has not
+   * been told about goes up. The first state seen — the one from this
+   * device's storage — is taken as already known, not blasted upward.
+   */
+  useEffect(() => {
+    if (!state) return;
+    const collect = <T extends { id: string }>(
+      ref: React.MutableRefObject<Set<string> | null>,
+      rows: T[],
+    ): T[] => {
+      if (!ref.current) {
+        ref.current = new Set(rows.map((r) => r.id));
+        return [];
+      }
+      const fresh = rows.filter((r) => !ref.current!.has(r.id));
+      for (const r of fresh) ref.current.add(r.id);
+      return fresh;
+    };
+    const audit = collect(knownAuditRef, state.audit);
+    const alerts = collect(knownNotifRef, state.notifications);
+    const orgId = currentOrgId(state);
+    // The platform owner belongs to no company and writes to neither table.
+    if (!isLiveBackend || demoActive() || !orgId) return;
+    if (audit.length) persist("record the audit entry", () => insertAuditEntries(audit, orgId));
+    if (alerts.length) persist("send the alert", () => insertNotifications(alerts, orgId));
+  }, [state]);
 
   /* persist (debounced via rAF batching of React updates) */
   useEffect(() => {
@@ -2073,6 +2122,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
 
   const addPayrollAdjustment = useCallback(
     (month: string, employeeId: string, amount: number, note: string) => {
+      let savedRun: WorkforceState["payrollRuns"][number] | null = null;
       mutate((s) => {
         const orgId = currentOrgId(s);
         let run = (s.payrollRuns ?? []).find(
@@ -2092,6 +2142,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           run = { id: rid("prl"), orgId, month, status: "draft", adjustments: [] };
         }
         const next = { ...run, adjustments: [...run.adjustments, adjustment] };
+        savedRun = next;
         const worker = s.users.find((u) => u.id === employeeId);
         return {
           ...s,
@@ -2109,6 +2160,11 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ].slice(0, 200),
         };
       });
+      // The adjustment is the correction record; it has to outlive the phone.
+      if (savedRun) {
+        const run = savedRun;
+        persist("save the adjustment", () => upsertPayrollRun(run));
+      }
     },
     [mutate],
   );
@@ -2698,6 +2754,8 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       const project = st.projects.find((p) => p.id === projectId);
       const at = Date.now();
       const by = st.session?.userId ?? "system";
+      const orgId = currentOrgId(st);
+      let made: Attendance[] = [];
 
       if (fresh.length) {
         mutate((s) => {
@@ -2723,6 +2781,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
               markedBy: { userId: by, method: "group-photo", at },
             };
           });
+          made = rows;
           return {
             ...s,
             attendance: [...rows, ...s.attendance],
@@ -2740,6 +2799,24 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
             ].slice(0, 200),
           };
         });
+        // Marked from a group photo, but a shift row all the same: it goes
+        // to the server like a check-in from the worker's own phone.
+        for (const row of made) {
+          if (!row.checkIn) continue;
+          const mark = row.checkIn;
+          persist("mark present", () =>
+            insertCheckIn({
+              id: row.id,
+              orgId,
+              employeeId: row.employeeId,
+              projectId,
+              date: row.date,
+              mark,
+              status: row.status,
+              shiftId: row.shiftId,
+            }),
+          );
+        }
       }
 
       const skipped = employeeIds.length - fresh.length;
@@ -3718,6 +3795,8 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           n.audience === audience ? { ...n, read: true } : n,
         ),
       }));
+      const orgId = stateRef.current ? currentOrgId(stateRef.current) : "";
+      if (orgId) persist("mark alerts read", () => markNotificationsReadRemote(audience, orgId));
     },
     [mutate],
   );
