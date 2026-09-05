@@ -35,9 +35,21 @@
           for the life of the activity.
         -->
         <item name="windowSplashScreenBackground">@color/wf_black</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/wf_mark</item>
+        <!--
+          The icon is shown inside a circular mask on Android 12 and later,
+          so the wide mark is set in a square with room around it — a bare
+          mark was clipped at both ends. The compat library draws the same
+          icon on older versions.
+        -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
-        <item name="android:background">@drawable/splash</item>
-        <item name="android:windowBackground">@drawable/splash</item>
+        <!--
+          Plain black, not the mark: this is the window's own background for
+          as long as the launch theme applies, and it shows through whenever
+          the WebView does not cover the window. The mark belongs to the
+          splash icon above, which the system removes once the app has drawn.
+        -->
+        <item name="android:background">@color/wf_black</item>
+        <item name="android:windowBackground">@color/wf_black</item>
     </style>
 </resources>

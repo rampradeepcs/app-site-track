@@ -205,16 +205,58 @@ function orgNameFor(s: WorkforceState): string {
   return s.projects.find((p) => p.orgId === me?.orgId)?.client || mate?.name || "";
 }
 
-/** Next free employee code for a company, e.g. AB-0007. */
-function nextCode(s: WorkforceState, stem: string): string {
-  const n = s.users.filter((u) => u.employeeCode.startsWith(`${stem}-`)).length + 1;
-  return `${stem}-${String(n).padStart(4, "0")}`;
+/**
+ * The prefix a company's codes actually use — "M" for M-0001, M-0002 — read
+ * off the codes that exist, over a guess from the company's name. A company
+ * provisioned as "M" whose next worker came out "AW-0001" had two systems
+ * of codes for no reason anyone could see.
+ */
+function stemOf(codes: string[], fallback: string): string {
+  const tally = new Map<string, number>();
+  for (const c of codes) {
+    const m = /^([A-Za-z0-9]{1,4})-/.exec(c.trim());
+    if (!m) continue;
+    const k = m[1].toUpperCase();
+    tally.set(k, (tally.get(k) ?? 0) + 1);
+  }
+  let best = fallback;
+  let n = 0;
+  for (const [k, v] of tally) if (v > n) { best = k; n = v; }
+  return best;
+}
+
+/** One past the highest number used under a prefix. Never a count: a count repeats after a deletion. */
+function nextNumber(codes: string[], prefix: string): number {
+  let max = 0;
+  for (const c of codes) {
+    if (!c.toUpperCase().startsWith(prefix.toUpperCase())) continue;
+    const n = parseInt(c.slice(prefix.length), 10);
+    if (Number.isFinite(n) && n > max) max = n;
+  }
+  return max + 1;
+}
+
+/** Next free employee code for the signed-in company, e.g. AB-0007. */
+function nextCode(s: WorkforceState, stemGuess: string): string {
+  const org = currentOrgId(s);
+  const codes = s.users.filter((u) => u.orgId === org).map((u) => u.employeeCode);
+  const stem = stemOf(codes, stemGuess);
+  return `${stem}-${String(nextNumber(codes, `${stem}-`)).padStart(4, "0")}`;
 }
 
 /** Next free premise code, e.g. AB-S03. */
-function nextProjectCode(s: WorkforceState, stem: string): string {
-  const n = s.projects.filter((p) => p.code.startsWith(`${stem}-S`)).length + 1;
-  return `${stem}-S${String(n).padStart(2, "0")}`;
+function nextProjectCode(s: WorkforceState, stemGuess: string): string {
+  const org = currentOrgId(s);
+  const codes = s.projects.filter((p) => p.orgId === org).map((p) => p.code);
+  const stem = stemOf(codes, stemGuess);
+  return `${stem}-S${String(nextNumber(codes, `${stem}-S`)).padStart(2, "0")}`;
+}
+
+/** Next free shift code, e.g. SH-03. */
+function nextShiftCode(s: WorkforceState): string {
+  const org = currentOrgId(s);
+  const codes = (s.shifts ?? []).filter((x) => x.orgId === org).map((x) => x.code);
+  return `SH-${String(nextNumber(codes, "SH-")).padStart(2, "0")}`;
 }
 
 /**
@@ -1756,7 +1798,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           id: uid(),
           orgId: patch.orgId ?? currentOrgId(s),
           name: patch.name,
-          code: patch.code ?? `SH-${((s.shifts ?? []).length + 1).toString().padStart(2, "0")}`,
+          code: patch.code?.trim() || nextShiftCode(s),
           kind: patch.kind ?? "fixed",
           startMinute: patch.startMinute ?? 8 * 60 + 30,
           endMinute: patch.endMinute ?? 17 * 60 + 30,
@@ -2852,7 +2894,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         projectId: patch.projectId,
         name: patch.name.trim(),
         type: (patch.type ?? existing?.type ?? "General Labour").trim(),
-        code: existing?.code ?? patch.code ?? nextTeamCode(st, patch.projectId),
+        code: existing?.code ?? (patch.code?.trim() || nextTeamCode(st, patch.projectId)),
         leaderId: patch.leaderId ?? existing?.leaderId,
         siteEngineerId: patch.siteEngineerId ?? existing?.siteEngineerId,
         supervisorId: patch.supervisorId ?? existing?.supervisorId,
@@ -3606,7 +3648,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           name: patch.name,
           email: patch.email ?? "",
           employeeCode:
-            patch.employeeCode ?? nextCode(s, codeStem(orgNameFor(s))),
+            patch.employeeCode?.trim() || nextCode(s, codeStem(orgNameFor(s))),
           role: "employee",
           designation: patch.designation ?? "Worker",
           department: patch.department ?? "Civil",
@@ -3710,7 +3752,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           // safer thing to arrive at by accident, and turning it off is a
           // deliberate choice the manager makes at creation.
           trackingMode: patch.trackingMode ?? "full-shift",
-          code: patch.code ?? nextProjectCode(s, codeStem(orgNameFor(s))),
+          code: patch.code?.trim() || nextProjectCode(s, codeStem(orgNameFor(s))),
           name: patch.name,
           client: patch.client ?? "",
           address: patch.address ?? "",
