@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Bitmap layers, as Android Studio's asset tool would make them: the white
+  mark on transparency inside the safe circle over a black background.
+
+  No monochrome layer, deliberately. Nothing OS themes an app's icon through
+  that layer and could not draw ours: the home icon became a blank white
+  disc, recents the same, and the launch animation fell back to a stock
+  play-glyph blurred behind the splash — through every reinstall, rename
+  and version bump, because the layer was there every time. Without it the
+  launcher uses the icon as drawn, everywhere.
+
+  Named ic_launcher_wf so no cache keyed on the old resource matches.
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background"/>
+    <foreground android:drawable="@mipmap/ic_launcher_wf_fg"/>
+</adaptive-icon>
