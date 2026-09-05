@@ -41,7 +41,13 @@
           mark was clipped at both ends. The compat library draws the same
           icon on older versions.
         -->
-        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <!--
+          No custom splash icon: the system draws the launcher icon, which is
+          the same mark on the same black. Nothing OS drew a custom icon
+          inside a decoration of its own — a large ring and triangle behind
+          the mark — that the app never asked for and cannot switch off; the
+          launcher icon it handles plainly.
+        -->
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
         <!--
           Plain black, not the mark: this is the window's own background for

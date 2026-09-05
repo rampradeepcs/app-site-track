@@ -163,7 +163,9 @@ export default function PlatformDashboard() {
           </div>
           <div className="wf-card p-4">
             <SectionTitle>Revenue by plan</SectionTitle>
-            <div className="flex items-center gap-4">
+            {/* Ring above the legend on a phone, beside it on a desk: side by
+                side at phone width left the plan names as one letter each. */}
+            <div className="flex flex-col items-center gap-4 sm:flex-row">
               <Donut
                 size={148}
                 centerLabel={money(stats.mrr)}
@@ -174,7 +176,7 @@ export default function PlatformDashboard() {
                   label: r.plan.name,
                 }))}
               />
-              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <div className="flex w-full min-w-0 flex-col gap-1.5 sm:flex-1">
                 {byPlan.map((r, i) => (
                   <div key={r.plan.id} className="flex items-center gap-2 text-[0.74rem]">
                     <i
