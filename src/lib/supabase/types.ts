@@ -14,6 +14,8 @@ export type OrgRow = {
   id: string;
   name: string;
   code: string;
+  /** Subdomain label: magnolia in magnolia.<base domain>. */
+  slug: string;
   industry: string;
   website: string;
   contact_name: string;
@@ -451,6 +453,16 @@ export type Database = {
       sync_my_profile: {
         Args: Record<string, never>;
         Returns: UserRow[];
+      };
+      /** Public: name and branding of the company at a subdomain, or null. */
+      tenant_branding: {
+        Args: { p_slug: string };
+        Returns: Json | null;
+      };
+      /** Platform owner only: organisation + subscription + unlinked admin in one transaction. */
+      provision_client: {
+        Args: { payload: Json };
+        Returns: Json;
       };
     };
     Enums: { [_ in never]: never };

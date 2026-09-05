@@ -160,6 +160,8 @@ export interface Organization {
   id: string;
   name: string;
   code: string;
+  /** Subdomain label; see lib/tenant.ts. Absent only on records minted locally. */
+  slug?: string;
   industry: string;
   website: string;
   contactName: string;

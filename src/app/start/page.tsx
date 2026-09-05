@@ -38,6 +38,7 @@ import {
 import { useWorkforce, type CompanyDraft, type CrewInvite } from "@/lib/store";
 import { useSignUp } from "@/lib/onboarding";
 import { requestSignInDirect } from "@/lib/routes";
+import { useTenant } from "@/lib/tenant";
 import { describeError } from "@/lib/errors";
 import { emailProblem, isUsableEmail } from "@/lib/email";
 import { isLiveBackend } from "@/lib/supabase/client";
@@ -82,6 +83,12 @@ function StartWizard() {
   const { signUp, signupsEnabled } = useSignUp();
 
   const [step, setStep] = useState<Step>("highlights");
+
+  /* A client's subdomain is theirs: nobody founds a new company under it. */
+  const tenant = useTenant();
+  useEffect(() => {
+    if (tenant) router.replace("/");
+  }, [tenant, router]);
 
   /* The gate already ran the highlights on this device's first launch, so
      arriving here from its "Create your company" would replay them. Checked

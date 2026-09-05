@@ -31,6 +31,8 @@ import {
 import { entitlementsFor } from "@/lib/entitlements";
 import { fmtDateLong, fmtRelative } from "@/lib/format";
 import { usePlatform } from "@/lib/platform-store";
+import { isValidSlug, slugify, tenantUrl } from "@/lib/tenant";
+import { showToast } from "@/lib/toast";
 import {
   clientHealth,
   invoicesFor,
@@ -602,14 +604,36 @@ function ClientInner() {
                   />
                 </Field>
                 <Field
-                  label="Custom domain"
-                  hint={ent.features.customDomain ? undefined : "Not available on this plan — enable it under Subscription."}
+                  label="Subdomain"
+                  hint={`Opens at ${tenantUrl(org.slug ?? "")}. Lowercase letters, digits and hyphens.`}
                 >
-                  <input
-                    className="wf-input"
-                    disabled={!ent.features.customDomain}
+                  <Committed
+                    value={org.slug ?? ""}
+                    onCommit={(v) => {
+                      const next = slugify(v);
+                      if (!isValidSlug(next)) {
+                        showToast("A subdomain is 3 to 30 lowercase letters, digits or hyphens.", "danger");
+                        return;
+                      }
+                      if (platform.organizations.some((o) => o.id !== org.id && o.slug === next)) {
+                        showToast(`${next} is already another client's subdomain.`, "danger");
+                        return;
+                      }
+                      updateOrg(org.id, { slug: next });
+                    }}
+                  />
+                </Field>
+                <Field
+                  label="Own domain"
+                  hint={
+                    ent.features.customDomain
+                      ? "Recorded for the client. Serving the app on a domain they own is not connected yet; the subdomain above is what works."
+                      : "Not available on this plan — enable it under Subscription."
+                  }
+                >
+                  <Committed
                     value={org.branding.customDomain ?? ""}
-                    onChange={(e) => updateOrg(org.id, { branding: { ...org.branding, customDomain: e.target.value } })}
+                    onCommit={(v) => updateOrg(org.id, { branding: { ...org.branding, customDomain: v.trim() || undefined } })}
                   />
                 </Field>
               </div>

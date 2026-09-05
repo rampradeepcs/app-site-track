@@ -41,6 +41,7 @@ import { DEMO_EMAIL, leaveDemoFor } from "@/lib/demo/mode";
 import { PersonaChooser } from "@/components/demo/PersonaPicker";
 import { LoginBackdrop } from "@/components/LoginBackdrop";
 import { consumeSignInDirect, landingFor } from "@/lib/routes";
+import { useTenant } from "@/lib/tenant";
 import { Field } from "@/components/ui";
 import { WorkfenceMark } from "@/components/Brand";
 import {
@@ -64,6 +65,8 @@ type Step = "restoring" | "highlights" | "identity" | "code" | "persona";
 export default function LiveGate() {
   const { state, loginAs } = useWorkforce();
   const router = useRouter();
+  /* On a client's subdomain the door carries their name. */
+  const tenant = useTenant();
 
   const [step, setStep] = useState<Step>("restoring");
   const [identifier, setIdentifier] = useState("");
@@ -316,9 +319,11 @@ export default function LiveGate() {
           <div className="flex flex-col items-center gap-3 text-center">
             <WorkfenceMark size={62} />
             <div>
-              <h1 className="wf-display text-2xl">Sign in to Workfence</h1>
+              <h1 className="wf-display text-2xl">Sign in to {tenant?.appName ?? "Workfence"}</h1>
               <p className="mt-1 text-sm text-[var(--wf-muted)]">
-                We&apos;ll send a one-time code. No password to remember on site.
+                {tenant
+                  ? `${tenant.name} on Workfence. We'll send a one-time code.`
+                  : "We'll send a one-time code. No password to remember on site."}
               </p>
             </div>
           </div>

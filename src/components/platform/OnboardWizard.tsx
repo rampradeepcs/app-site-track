@@ -9,6 +9,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { usePlatform } from "@/lib/platform-store";
+import { useWorkforce } from "@/lib/store";
+import { isLiveBackend } from "@/lib/supabase/client";
+import { provisionClientRemote } from "@/lib/supabase/repository";
+import { describeError } from "@/lib/errors";
+import { isValidSlug, slugify, tenantUrl } from "@/lib/tenant";
 import type { FeatureSet, PlanLimits } from "@/lib/saas-types";
 import { FEATURE_LABELS } from "@/lib/saas-types";
 import { BottomSheet, Field, Segmented, Toggle } from "@/components/ui";
@@ -24,11 +29,13 @@ export function OnboardWizard({
   open: boolean;
   onClose: () => void;
 }) {
-  const { platform, onboardClient } = usePlatform();
+  const { platform, onboardClient, reloadPlatform } = usePlatform();
+  const { reloadFromBackend } = useWorkforce();
+  const [saving, setSaving] = useState(false);
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [err, setErr] = useState("");
-  const [created, setCreated] = useState<{ id: string; code: string } | null>(null);
+  const [created, setCreated] = useState<{ id: string; code: string; slug: string } | null>(null);
 
   /* step 1 */
   const [name, setName] = useState("");
@@ -60,7 +67,7 @@ export function OnboardWizard({
   /* step 4 */
   const [appName, setAppName] = useState("Workfence");
   const [accent, setAccent] = useState("#000000");
-  const [customDomain, setCustomDomain] = useState("");
+  const [slug, setSlug] = useState("");
   const [features, setFeatures] = useState<Partial<FeatureSet>>({});
 
   const plan = platform.plans.find((p) => p.id === planId);
@@ -72,7 +79,7 @@ export function OnboardWizard({
     setName(""); setCode(""); setWebsite(""); setContactName("");
     setContactEmail(""); setContactPhone(""); setAddressLine(""); setCity("");
     setAdminName(""); setAdminEmail(""); setAdminPhone("");
-    setLimits({}); setFeatures({}); setCustomDomain("");
+    setLimits({}); setFeatures({}); setSlug("");
   };
 
   const close = () => {
@@ -93,9 +100,14 @@ export function OnboardWizard({
     setStep((s) => Math.min(4, s + 1));
   };
 
-  const create = () => {
+  const create = async () => {
     if (!plan) return;
-    const org = onboardClient({
+    const wantedSlug = slug.trim() ? slugify(slug) : "";
+    if (wantedSlug && !isValidSlug(wantedSlug)) {
+      setErr("The subdomain can only use lowercase letters, digits and hyphens, 3 to 30 characters.");
+      return;
+    }
+    const input = {
       org: {
         name: name.trim(),
         code: code.trim() || `CL-${1000 + platform.organizations.length + 1}`,
@@ -126,7 +138,6 @@ export function OnboardWizard({
           appName: appName.trim() || "Workfence",
           accent,
           logoText: name.trim().split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase(),
-          customDomain: customDomain.trim() || undefined,
         },
       },
       admin: { name: adminName.trim(), email: adminEmail.trim(), phone: adminPhone.trim(), role: adminRole },
@@ -135,8 +146,39 @@ export function OnboardWizard({
       trialDays,
       limitOverrides: limits,
       featureOverrides: features,
-    });
-    setCreated({ id: org.id, code: org.code });
+    };
+
+    /*
+     * Against a backend the server creates the client, whole: organisation,
+     * subscription and an unlinked record for the administrator, who claims
+     * it at their first sign-in. The local store then reads it back rather
+     * than inventing a twin. Local mode keeps the local twin.
+     */
+    if (isLiveBackend) {
+      setSaving(true);
+      setErr("");
+      try {
+        const made = await provisionClientRemote({
+          ...input.org,
+          slug: wantedSlug || undefined,
+          admin: input.admin,
+          planId: input.planId,
+          cycle: input.cycle,
+          trialDays: input.trialDays,
+          limitOverrides: input.limitOverrides,
+          featureOverrides: input.featureOverrides,
+        });
+        await Promise.all([reloadPlatform(), reloadFromBackend()]);
+        setCreated({ id: made.orgId, code: made.code, slug: made.slug });
+      } catch (e) {
+        setErr(describeError(e));
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+    const org = onboardClient(input);
+    setCreated({ id: org.id, code: org.code, slug: wantedSlug || slugify(input.org.name) });
   };
 
   /* ---------------------------------------------------------- rendering */
@@ -156,6 +198,7 @@ export function OnboardWizard({
           <dl className="wf-card2 divide-y divide-[var(--wf-line)] text-left text-[0.8rem]">
             {[
               ["Client ID", created.code],
+              ["Subdomain", tenantUrl(created.slug)],
               ["Admin account", `${adminName} · ${adminEmail}`],
               ["Subscription", `${plan?.name} (${cycle})`],
               ["Billing status", trialDays > 0 ? "Trial — no invoice yet" : "Invoice on first cycle"],
@@ -377,9 +420,20 @@ export function OnboardWizard({
                 <input type="color" className="wf-input h-12 p-1" value={accent} onChange={(e) => setAccent(e.target.value)} />
               </Field>
             </div>
-            <Field label="Custom domain" hint="Requires a plan with the custom-domain feature.">
-              <input className="wf-input" value={customDomain} onChange={(e) => setCustomDomain(e.target.value)} placeholder="sites.example.in" />
-            </Field>
+            <Field
+                label="Subdomain"
+                hint={`Opens at ${tenantUrl(slug.trim() ? slugify(slug) : slugify(name))}. Left blank, it is made from the company name.`}
+              >
+                <input
+                  className="wf-input"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  onBlur={() => setSlug((v) => (v.trim() ? slugify(v) : ""))}
+                  placeholder={slugify(name) || "company-name"}
+                  autoCapitalize="none"
+                  spellCheck={false}
+                />
+              </Field>
             <div className="wf-card2 p-3.5">
               <p className="mb-2 text-[0.72rem] font-bold uppercase tracking-wider text-[var(--wf-muted)]">
                 Feature availability — overrides the plan for this client only
@@ -429,7 +483,8 @@ export function OnboardWizard({
               ["Trial", trialDays > 0 ? `${trialDays} days` : "No trial — bills immediately"],
               ["Limit overrides", Object.keys(limits).length ? Object.entries(limits).map(([k, v]) => `${k}: ${v}`).join(", ") : "None — plan defaults"],
               ["Feature overrides", Object.keys(features).length ? Object.keys(features).map((k) => FEATURE_LABELS[k as keyof FeatureSet]).join(", ") : "None — plan defaults"],
-              ["Branding", `${appName} · ${accent}${customDomain ? ` · ${customDomain}` : ""}`],
+              ["Branding", `${appName} · ${accent}`],
+              ["Subdomain", tenantUrl(slug.trim() ? slugify(slug) : slugify(name))],
             ].map(([k, v]) => (
               <div key={k} className="wf-card2 flex items-baseline justify-between gap-3 px-3.5 py-2.5">
                 <span className="shrink-0 text-[0.74rem] text-[var(--wf-muted)]">{k}</span>
@@ -450,7 +505,7 @@ export function OnboardWizard({
               Next — {STEPS[step + 1]}
             </button>
           ) : (
-            <button className="wf-btn wf-btn-primary flex-1" onClick={create}>
+            <button className="wf-btn wf-btn-primary flex-1" onClick={() => void create()} disabled={saving}>
               Create client account
             </button>
           )}

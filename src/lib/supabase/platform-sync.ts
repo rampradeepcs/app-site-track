@@ -35,9 +35,18 @@ export async function syncPlatformChanges(
   prev: PlatformState,
   next: PlatformState,
 ): Promise<void> {
+  // Organisations and plans first, and to completion: a subscription or an
+  // invoice points at both, and writing them side by side let a subscription
+  // arrive before the organisation it belonged to.
+  const firsts: Array<Promise<void>> = [];
+  for (const o of changed(prev.organizations, next.organizations)) firsts.push(upsertOrganization(o));
+  for (const p of changed(prev.plans, next.plans)) firsts.push(upsertPlan(p));
+  if (firsts.length) {
+    const settled = await Promise.allSettled(firsts);
+    const failed = settled.find((r): r is PromiseRejectedResult => r.status === "rejected");
+    if (failed) throw failed.reason;
+  }
   const jobs: Array<Promise<void>> = [];
-  for (const o of changed(prev.organizations, next.organizations)) jobs.push(upsertOrganization(o));
-  for (const p of changed(prev.plans, next.plans)) jobs.push(upsertPlan(p));
   for (const x of changed(prev.subscriptions, next.subscriptions)) jobs.push(upsertSubscription(x));
   for (const i of changed(prev.invoices, next.invoices)) jobs.push(upsertInvoice(i));
   for (const t of changed(prev.tickets, next.tickets)) jobs.push(upsertTicket(t));

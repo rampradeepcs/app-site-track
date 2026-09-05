@@ -129,6 +129,8 @@ interface PlatformApi {
 
   /* platform */
   updatePlatformSettings: (patch: Partial<PlatformSettings>) => void;
+  /** Read the commercial state again from the server, after a change made there. */
+  reloadPlatform: () => Promise<void>;
   /** Record something done from a platform screen that the store did not do itself. */
   noteAudit: (
     e: Omit<PlatformAuditEntry, "id" | "at" | "actorId" | "actorName">,
@@ -873,6 +875,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
             raiseTicket,
             setTicketStatus,
             updatePlatformSettings,
+            reloadPlatform: hydrateFromBackend,
             noteAudit,
             startImpersonation,
             stopImpersonation,
@@ -883,7 +886,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
       platform, onboardClient, updateOrg, updateBilling, setOrgStatus, savePlan,
       archivePlan, changePlan, updateSubscription, overrideLimit, overrideFeature,
       extendTrial, convertTrial, setInvoiceStatus, raiseTicket, setTicketStatus,
-      updatePlatformSettings, noteAudit, startImpersonation, stopImpersonation, resetPlatform,
+      updatePlatformSettings, hydrateFromBackend, noteAudit, startImpersonation, stopImpersonation, resetPlatform,
     ],
   );
 

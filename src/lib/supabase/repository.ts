@@ -10,6 +10,7 @@
  * policy is the boundary, and these queries simply ask for what they need.
  */
 
+import { slugify } from "../tenant";
 import { requireSupabase } from "./client";
 import type {
   AllowanceDecisionRow,
@@ -202,6 +203,7 @@ export function toOrg(r: OrgRow): Organization {
     id: r.id,
     name: r.name,
     code: r.code,
+    slug: r.slug ?? undefined,
     industry: r.industry,
     website: r.website,
     contactName: r.contact_name,
@@ -506,6 +508,38 @@ export async function markNotificationsReadRemote(audience: AppNotification["aud
   if (error) throw error;
 }
 
+/* ------------------------------------------------------- tenant + clients --- */
+
+/** Name and branding of the company at a subdomain, or null. Anonymous. */
+export async function fetchTenantBranding(slug: string): Promise<{
+  slug: string; name: string; appName: string; accent?: string; logoText?: string; status: string;
+} | null> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("tenant_branding", { p_slug: slug });
+  if (error) throw error;
+  if (!data || typeof data !== "object") return null;
+  const d = data as Record<string, unknown>;
+  return {
+    slug: String(d.slug ?? slug),
+    name: String(d.name ?? ""),
+    appName: String(d.appName ?? "Workfence"),
+    accent: typeof d.accent === "string" ? d.accent : undefined,
+    logoText: typeof d.logoText === "string" ? d.logoText : undefined,
+    status: String(d.status ?? "active"),
+  };
+}
+
+/** Platform owner: create a client on the server, whole. */
+export async function provisionClientRemote(payload: Record<string, unknown>): Promise<{
+  orgId: string; userId: string; subscriptionId: string; code: string; slug: string;
+}> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("provision_client", { payload: payload as never });
+  if (error) throw error;
+  const d = (data ?? {}) as Record<string, string>;
+  return { orgId: d.orgId, userId: d.userId, subscriptionId: d.subscriptionId, code: d.code, slug: d.slug };
+}
+
 /* ------------------------------------------------------- platform writes --- */
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -517,6 +551,7 @@ export async function upsertOrganization(o: Organization) {
     id: o.id,
     name: o.name,
     code: o.code,
+    slug: o.slug ?? slugify(o.name),
     industry: o.industry,
     website: o.website,
     contact_name: o.contactName,
