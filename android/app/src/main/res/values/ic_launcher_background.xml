@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- White ground behind the black W once the launcher applies its mask —
-         the light-mode logo treatment, matching public/logo.svg. -->
-    <color name="ic_launcher_background">#FFFFFF</color>
+    <!-- The icon is the app: a white mark on black, like the splash and the
+         product. Was white, which made the mark black and the icon a light
+         square in a dark product. -->
+    <color name="ic_launcher_background">#000000</color>
 </resources>

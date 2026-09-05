@@ -117,3 +117,23 @@ export function WorkfenceSplash({ onDone }: { onDone?: () => void }) {
     </div>
   );
 }
+
+
+/**
+ * The mark on the product's ground, centred, and nothing else.
+ *
+ * Shown for the moment between the native splash and the first screen —
+ * while the stores read this device's storage — and drawn exactly like the
+ * splash so the hand-over is invisible. A spinner or a "Loading…" here was
+ * a third screen flashing between two identical ones.
+ */
+export function BootMark() {
+  return (
+    <div
+      className="grid min-h-[calc(100dvh-var(--wf-safe-top))] place-items-center bg-[var(--wf-bg)] text-[var(--wf-fg)]"
+      aria-label="Loading"
+    >
+      <WorkfenceMark size={72} />
+    </div>
+  );
+}

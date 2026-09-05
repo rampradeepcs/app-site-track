@@ -22,6 +22,7 @@ import {
 } from "react";
 import { currentActor } from "./actor";
 import { seedPlatform } from "./saas-seed";
+import { BootMark } from "@/components/Brand";
 import { demoActive, platformKey } from "./demo/mode";
 import { buildDemoData } from "./demo/seed";
 import { isLiveBackend } from "./supabase/client";
@@ -887,11 +888,10 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
   );
 
   if (!api) {
-    return (
-      <div className="grid min-h-[calc(100dvh-var(--wf-safe-top))] place-items-center text-sm text-[var(--wf-muted)]">
-        Loading platform…
-      </div>
-    );
+    // The native splash is the mark on black; so is this, in the same
+    // place, so the hand-over from one to the other is nothing happening
+    // rather than a line of text flashing up and going away.
+    return <BootMark />;
   }
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

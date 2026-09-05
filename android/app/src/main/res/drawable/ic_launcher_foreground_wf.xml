@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Launcher icon foreground: the mark, white, set inside the 66dp circle the
+  system may mask an adaptive icon to. The mark is 2.4:1, so 58dp wide is
+  what fits that circle with its corners; the insets centre it on the 108dp
+  canvas. Transparent everywhere else, which is what lets the background
+  layer, the mask and the themed-icon tint do their jobs — the opaque white
+  square it replaced showed up as a black mark on white every time the
+  system drew the icon, and as a blurred slab behind the splash.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:drawable="@drawable/wf_mark"
+        android:left="25dp"
+        android:right="25dp"
+        android:top="42dp"
+        android:bottom="42dp" />
+</layer-list>

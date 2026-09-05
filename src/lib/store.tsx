@@ -64,6 +64,7 @@ import {
 import { buildDemoData } from "./demo/seed";
 import { isLiveBackend } from "./supabase/client";
 import { onAuthChange, signOut as authSignOut } from "./supabase/auth";
+import { BootMark } from "@/components/Brand";
 import {
   fetchOperations,
   fetchWorkforce,
@@ -4229,14 +4230,7 @@ function subscribeToConnectivity(cb: () => void) {
 }
 
 function WorkforceBoot() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--wf-bg)]">
-      <div className="flex flex-col items-center gap-4">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-amber-400" />
-        <p className="text-sm font-medium tracking-wide text-white/60">
-          Loading Workfence…
-        </p>
-      </div>
-    </div>
-  );
+  // Same mark, same place as the native splash and the platform's own
+  // boot: the launch reads as one screen, not three.
+  return <BootMark />;
 }
