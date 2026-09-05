@@ -40,7 +40,7 @@ import {
   utilisationFor,
 } from "@/lib/saas-metrics";
 import { useWorkforce } from "@/lib/store";
-import { IAlert, IArrowR, ICheckCircle, IShield, IUsers } from "@/components/WfIcons";
+import { IAlert, IArrowR, ICheckCircle, IShield, ITrash, IUsers } from "@/components/WfIcons";
 
 type Tab =
   | "overview"
@@ -65,6 +65,43 @@ const TABS: Array<{ value: Tab; label: string }> = [
   { value: "configuration", label: "Configuration" },
 ];
 
+/**
+ * An input that commits when you leave it.
+ *
+ * Every field on this page used to write on each keystroke. That was fine
+ * while the write went no further than memory; now each write is an upsert
+ * to Postgres and a line in the audit trail, so typing "Born Creative" was
+ * thirteen server round-trips and thirteen audit entries — and, on a phone
+ * with no signal, thirteen error toasts. The draft stays local until blur
+ * (or Enter), and only a real change is committed.
+ */
+function Committed({
+  value,
+  onCommit,
+  type = "text",
+}: {
+  value: string;
+  onCommit: (next: string) => void;
+  type?: "text" | "number";
+}) {
+  const [draft, setDraft] = useState(value);
+  const commit = () => {
+    if (draft !== value) onCommit(draft);
+  };
+  return (
+    <input
+      type={type}
+      className="wf-input"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+      }}
+    />
+  );
+}
+
 export default function ClientPage() {
   return (
     <Suspense fallback={<div className="px-5 pt-8 text-sm text-[var(--wf-muted)]">Loading…</div>}>
@@ -81,8 +118,11 @@ function ClientInner() {
     updateBilling,
     setInvoiceStatus,
     startImpersonation,
+    noteAudit,
   } = usePlatform();
-  const { state } = useWorkforce();
+  const { state, saveEmployee, removeUser } = useWorkforce();
+  /* The person a "Remove" was tapped for, while the sheet asks which kind. */
+  const [removing, setRemoving] = useState<(typeof state.users)[number] | null>(null);
   const params = useSearchParams();
   const router = useRouter();
   const now = useNowTick(60);
@@ -231,32 +271,32 @@ function ClientInner() {
 
         {/* -------------------------------------------------- organisation */}
         {tab === "organization" && (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div key={org.id} className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="wf-card p-4">
               <SectionTitle>Company</SectionTitle>
               <div className="flex flex-col gap-3">
                 <Field label="Company name">
-                  <input className="wf-input" value={org.name} onChange={(e) => updateOrg(org.id, { name: e.target.value })} />
+                  <Committed value={org.name} onCommit={(v) => updateOrg(org.id, { name: v })} />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Client ID"><input className="wf-input" value={org.code} readOnly /></Field>
                   <Field label="Industry">
-                    <input className="wf-input" value={org.industry} onChange={(e) => updateOrg(org.id, { industry: e.target.value })} />
+                    <Committed value={org.industry} onCommit={(v) => updateOrg(org.id, { industry: v })} />
                   </Field>
                 </div>
                 <Field label="Website">
-                  <input className="wf-input" value={org.website} onChange={(e) => updateOrg(org.id, { website: e.target.value })} />
+                  <Committed value={org.website} onCommit={(v) => updateOrg(org.id, { website: v })} />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Contact name">
-                    <input className="wf-input" value={org.contactName} onChange={(e) => updateOrg(org.id, { contactName: e.target.value })} />
+                    <Committed value={org.contactName} onCommit={(v) => updateOrg(org.id, { contactName: v })} />
                   </Field>
                   <Field label="Contact phone">
-                    <input className="wf-input" value={org.contactPhone} onChange={(e) => updateOrg(org.id, { contactPhone: e.target.value })} />
+                    <Committed value={org.contactPhone} onCommit={(v) => updateOrg(org.id, { contactPhone: v })} />
                   </Field>
                 </div>
                 <Field label="Contact email">
-                  <input className="wf-input" value={org.contactEmail} onChange={(e) => updateOrg(org.id, { contactEmail: e.target.value })} />
+                  <Committed value={org.contactEmail} onCommit={(v) => updateOrg(org.id, { contactEmail: v })} />
                 </Field>
               </div>
             </div>
@@ -264,31 +304,35 @@ function ClientInner() {
               <SectionTitle>Billing profile</SectionTitle>
               <div className="flex flex-col gap-3">
                 <Field label="Legal name">
-                  <input className="wf-input" value={org.billing.legalName} onChange={(e) => updateBilling(org.id, { legalName: e.target.value })} />
+                  <Committed value={org.billing.legalName} onCommit={(v) => updateBilling(org.id, { legalName: v })} />
                 </Field>
                 <Field label="Billing email">
-                  <input className="wf-input" value={org.billing.email} onChange={(e) => updateBilling(org.id, { email: e.target.value })} />
+                  <Committed value={org.billing.email} onCommit={(v) => updateBilling(org.id, { email: v })} />
                 </Field>
                 <Field label="Billing address">
-                  <input className="wf-input" value={org.billing.addressLine} onChange={(e) => updateBilling(org.id, { addressLine: e.target.value })} />
+                  <Committed value={org.billing.addressLine} onCommit={(v) => updateBilling(org.id, { addressLine: v })} />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="City"><input className="wf-input" value={org.billing.city} onChange={(e) => updateBilling(org.id, { city: e.target.value })} /></Field>
-                  <Field label="Country"><input className="wf-input" value={org.billing.country} onChange={(e) => updateBilling(org.id, { country: e.target.value })} /></Field>
+                  <Field label="City"><Committed value={org.billing.city} onCommit={(v) => updateBilling(org.id, { city: v })} /></Field>
+                  <Field label="Country"><Committed value={org.billing.country} onCommit={(v) => updateBilling(org.id, { country: v })} /></Field>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <Field label="Tax ID label" hint="GSTIN, VAT, EIN…">
-                    <input className="wf-input" value={org.billing.taxIdLabel} onChange={(e) => updateBilling(org.id, { taxIdLabel: e.target.value })} />
+                    <Committed value={org.billing.taxIdLabel} onCommit={(v) => updateBilling(org.id, { taxIdLabel: v })} />
                   </Field>
                   <Field label={org.billing.taxIdLabel || "Tax ID"}>
-                    <input className="wf-input" value={org.billing.taxId} onChange={(e) => updateBilling(org.id, { taxId: e.target.value })} />
+                    <Committed value={org.billing.taxId} onCommit={(v) => updateBilling(org.id, { taxId: v })} />
                   </Field>
                   <Field label="Tax %">
-                    <input type="number" className="wf-input" value={org.billing.taxPercent} onChange={(e) => updateBilling(org.id, { taxPercent: Number(e.target.value) })} />
+                    <Committed
+                      type="number"
+                      value={String(org.billing.taxPercent)}
+                      onCommit={(v) => updateBilling(org.id, { taxPercent: Number(v) || 0 })}
+                    />
                   </Field>
                 </div>
                 <Field label="Payment method">
-                  <input className="wf-input" value={org.billing.paymentMethod} onChange={(e) => updateBilling(org.id, { paymentMethod: e.target.value })} />
+                  <Committed value={org.billing.paymentMethod} onCommit={(v) => updateBilling(org.id, { paymentMethod: v })} />
                 </Field>
               </div>
             </div>
@@ -312,7 +356,7 @@ function ClientInner() {
               <div className="wf-scroll-x">
                 <table className="wf-table">
                   <thead>
-                    <tr><th>Name</th><th>Role</th><th>Designation</th><th>Department</th><th>Status</th><th>Signed in</th></tr>
+                    <tr><th>Name</th><th>Role</th><th>Email</th><th>Phone</th><th>Designation</th><th>Department</th><th>Status</th><th>Signed in</th><th aria-label="Remove" /></tr>
                   </thead>
                   <tbody>
                     {orgUsers.map((u) => (
@@ -324,6 +368,23 @@ function ClientInner() {
                           </span>
                         </td>
                         <td><Chip tone={u.role === "manager" ? "amber" : "blue"}>{u.role}</Chip></td>
+                        {/* How to reach them, as links: on a phone a tap
+                            opens mail or the dialler, which is the whole
+                            reason an owner looks a person up. */}
+                        <td className="whitespace-nowrap">
+                          {u.email ? (
+                            <a href={`mailto:${u.email}`} className="text-[var(--wf-fg)] underline-offset-2 hover:underline">{u.email}</a>
+                          ) : (
+                            <span className="text-[var(--wf-faint)]">—</span>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap">
+                          {u.phone ? (
+                            <a href={`tel:${u.phone.replace(/\s+/g, "")}`} className="text-[var(--wf-fg)] underline-offset-2 hover:underline">{u.phone}</a>
+                          ) : (
+                            <span className="text-[var(--wf-faint)]">—</span>
+                          )}
+                        </td>
                         <td className="text-[var(--wf-muted)]">{u.designation}</td>
                         <td className="text-[var(--wf-muted)]">{u.department}</td>
                         <td className="capitalize text-[var(--wf-muted)]">{u.status}</td>
@@ -334,6 +395,16 @@ function ClientInner() {
                           {u.lastSignInAt
                             ? `${u.authProvider === "google" ? "Google" : u.authProvider === "azure" ? "Outlook" : "Email code"} · ${fmtRelative(u.lastSignInAt, now)}`
                             : "Not yet"}
+                        </td>
+                        <td className="text-right">
+                          <button
+                            className="wf-btn wf-btn-quiet wf-btn-sm"
+                            title={`Remove ${u.name}`}
+                            aria-label={`Remove ${u.name}`}
+                            onClick={() => setRemoving(u)}
+                          >
+                            <ITrash size={14} />
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -595,6 +666,56 @@ function ClientInner() {
             </button>
           </div>
         </div>
+      </BottomSheet>
+
+      {/* remove a person: two different things, said plainly */}
+      <BottomSheet open={removing !== null} onClose={() => setRemoving(null)} title={removing ? `Remove ${removing.name}?` : "Remove"}>
+        {removing && (
+          <div className="flex flex-col gap-4">
+            <p className="text-[0.84rem] leading-relaxed text-[var(--wf-muted)]">
+              <strong className="text-[var(--wf-fg)]">Deactivating</strong> keeps
+              every record — attendance, tracking, pay — and stops them signing
+              in. <strong className="text-[var(--wf-fg)]">Deleting</strong> erases
+              the person and everything logged against them, and cannot be
+              undone.
+            </p>
+            <div className="flex flex-col gap-2.5">
+              <button
+                className="wf-btn wf-btn-primary"
+                disabled={removing.status === "inactive"}
+                onClick={() => {
+                  saveEmployee({ name: removing.name, status: "inactive" }, removing.id);
+                  noteAudit({
+                    orgId: org.id,
+                    action: "client.user_deactivate",
+                    target: `${removing.name} (${removing.employeeCode})`,
+                    previousValue: removing.status,
+                    newValue: "inactive",
+                  });
+                  setRemoving(null);
+                }}
+              >
+                {removing.status === "inactive" ? "Already deactivated" : "Deactivate, keep the records"}
+              </button>
+              <button
+                className="wf-btn wf-btn-danger"
+                onClick={() => {
+                  removeUser(removing.id);
+                  noteAudit({
+                    orgId: org.id,
+                    action: "client.user_delete",
+                    target: `${removing.name} (${removing.employeeCode})`,
+                    detail: `${removing.email}${removing.phone ? ` · ${removing.phone}` : ""}`,
+                  });
+                  setRemoving(null);
+                }}
+              >
+                Delete permanently
+              </button>
+              <button className="wf-btn wf-btn-ghost" onClick={() => setRemoving(null)}>Cancel</button>
+            </div>
+          </div>
+        )}
       </BottomSheet>
 
       {/* impersonation confirmation */}

@@ -85,6 +85,7 @@ import {
   upsertShift,
   upsertTravelSession,
   upsertUser,
+  deleteUser,
   upsertLabourTeam,
   upsertTeamMembers,
   insertGroupAttendance,
@@ -423,6 +424,12 @@ interface StoreApi {
   /* mutations */
   submitWorkUpdate: (u: Partial<WorkUpdate> & { description: string }) => void;
   saveEmployee: (u: Partial<User> & { name: string }, id?: string) => User;
+  /**
+   * Delete a person and everything logged against them. The platform
+   * owner's action, taken from a client's page; the client's own admin
+   * deactivates instead, which keeps the history.
+   */
+  removeUser: (userId: string) => void;
   /** Super-admin: promote/demote a user between employee and manager. */
   setUserRole: (userId: string, role: Role) => void;
   removeEmployeeFromProject: (userId: string, projectId: string) => void;
@@ -3484,6 +3491,26 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     [mutate],
   );
 
+  const removeUser = useCallback(
+    (userId: string) => {
+      mutate((s) => ({
+        ...s,
+        users: s.users.filter((u) => u.id !== userId),
+        projects: s.projects.map((p) =>
+          p.employeeIds.includes(userId)
+            ? { ...p, employeeIds: p.employeeIds.filter((id) => id !== userId) }
+            : p,
+        ),
+        attendance: s.attendance.filter((a) => a.employeeId !== userId),
+        points: s.points.filter((pt) => pt.employeeId !== userId),
+        updates: s.updates.filter((u) => u.employeeId !== userId),
+        session: s.session?.userId === userId ? null : s.session,
+      }));
+      persist("remove the person", () => deleteUser(userId));
+    },
+    [mutate],
+  );
+
   const saveEmployee = useCallback(
     (patch: Partial<User> & { name: string }, id?: string): User => {
       let saved: User | null = null;
@@ -4056,6 +4083,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     setProjectTravelTracking,
     submitWorkUpdate,
     saveEmployee,
+    removeUser,
     setUserRole,
     removeEmployeeFromProject,
     assignEmployee,

@@ -529,7 +529,10 @@ export async function upsertTicket(t: SupportTicket) {
  */
 export async function insertPlatformAudit(e: PlatformAuditEntry) {
   const sb = requireSupabase();
-  const { error } = await sb.from("platform_audit").insert({
+  // Ids are minted on the device, so a retry after a dropped connection
+  // presents the same row again; that is not a duplicate entry, it is the
+  // same one, and is ignored.
+  const { error } = await sb.from("platform_audit").upsert({
     id: e.id,
     at: iso(e.at),
     actor_id: uuidOrNull(e.actorId),
@@ -541,7 +544,7 @@ export async function insertPlatformAudit(e: PlatformAuditEntry) {
     new_value: e.newValue ?? null,
     detail: e.detail ?? null,
     ip: e.ip ?? null,
-  } as never);
+  } as never, { onConflict: "id", ignoreDuplicates: true });
   if (error && error.code !== "42501") throw error;
 }
 
@@ -748,6 +751,27 @@ export async function upsertUser(u: User, orgId: string) {
     joined_at: iso(u.joinedAt),
   } as never);
   if (error) throw error;
+}
+
+/**
+ * Delete a person's record.
+ *
+ * The database cascades: attendance, tracking, pay, updates and travel go
+ * with them, which is what "delete" has to mean for it to mean anything.
+ * It refuses when they authored site notes or captures — those keep their
+ * author — and the refusal is turned into a sentence the owner can act on.
+ */
+export async function deleteUser(userId: string) {
+  const sb = requireSupabase();
+  const { error } = await sb.from("users").delete().eq("id", userId);
+  if (error) {
+    if (error.code === "23503") {
+      throw new Error(
+        "They authored site notes or attendance captures, which keep their author. Deactivate them instead.",
+      );
+    }
+    throw error;
+  }
 }
 
 export async function upsertProject(p: Project) {

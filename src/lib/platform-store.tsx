@@ -128,6 +128,10 @@ interface PlatformApi {
 
   /* platform */
   updatePlatformSettings: (patch: Partial<PlatformSettings>) => void;
+  /** Record something done from a platform screen that the store did not do itself. */
+  noteAudit: (
+    e: Omit<PlatformAuditEntry, "id" | "at" | "actorId" | "actorName">,
+  ) => void;
   startImpersonation: (orgId: string, asUserId: string, reason: string) => void;
   stopImpersonation: () => void;
   resetPlatform: () => void;
@@ -250,18 +254,54 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
    * identity (see platform-sync). Three states are not ours to write: the
    * first one loaded, the one the server just gave us, and anything while
    * the demonstration is on.
+   *
+   * A write that fails is not forgotten. The last-seen mark goes back to
+   * where it was, so the change is still "unsent" and rides along with the
+   * next attempt — the next mutation, or the connection coming back. On a
+   * phone with no signal that is the difference between an edit that lands
+   * a minute later and one that is silently gone.
    */
+  const noticeAtRef = useRef(0);
+  const flush = useCallback((prev: PlatformState, next: PlatformState) => {
+    syncPlatformChanges(prev, next).catch((err) => {
+      console.error("[Workfence] A platform change did not reach the server.", describeError(err));
+      if (lastSeenRef.current === next) lastSeenRef.current = prev;
+      // One notice per burst: a form's worth of fields failing in the same
+      // outage is one piece of news, not one toast per field.
+      const now = Date.now();
+      if (now - noticeAtRef.current < 8000) return;
+      noticeAtRef.current = now;
+      const msg = describeError(err);
+      showToast(
+        /failed to fetch|networkerror|load failed|network request failed/i.test(msg)
+          ? "No connection — the change is kept here and will be saved when you're back online."
+          : `Not saved to the server: ${msg}`,
+        "danger",
+      );
+    });
+  }, []);
+
   useEffect(() => {
     if (!platform) return;
     const prev = lastSeenRef.current;
     lastSeenRef.current = platform;
     if (!prev || platform === baselineRef.current) return;
     if (!isLiveBackend || demoActive()) return;
-    syncPlatformChanges(prev, platform).catch((err) => {
-      console.error("[Workfence] A platform change did not reach the server.", err);
-      showToast(`Not saved to the server: ${describeError(err)}`, "danger");
-    });
-  }, [platform]);
+    flush(prev, platform);
+  }, [platform, flush]);
+
+  /* Back online: send whatever is still unsent. */
+  useEffect(() => {
+    if (!isLiveBackend) return;
+    const retry = () => {
+      const prev = lastSeenRef.current;
+      const next = ref.current;
+      if (!prev || !next || prev === next || demoActive()) return;
+      flush(prev, next);
+    };
+    window.addEventListener("online", retry);
+    return () => window.removeEventListener("online", retry);
+  }, [flush]);
 
   /* persist */
   useEffect(() => {
@@ -758,6 +798,11 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
     [mutate, record],
   );
 
+  const noteAudit = useCallback<PlatformApi["noteAudit"]>(
+    (e) => mutate((s) => record(s, e)),
+    [mutate, record],
+  );
+
   const startImpersonation = useCallback<PlatformApi["startImpersonation"]>(
     (orgId, asUserId, reason) =>
       mutate((s) =>
@@ -827,6 +872,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
             raiseTicket,
             setTicketStatus,
             updatePlatformSettings,
+            noteAudit,
             startImpersonation,
             stopImpersonation,
             resetPlatform,
@@ -836,7 +882,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
       platform, onboardClient, updateOrg, updateBilling, setOrgStatus, savePlan,
       archivePlan, changePlan, updateSubscription, overrideLimit, overrideFeature,
       extendTrial, convertTrial, setInvoiceStatus, raiseTicket, setTicketStatus,
-      updatePlatformSettings, startImpersonation, stopImpersonation, resetPlatform,
+      updatePlatformSettings, noteAudit, startImpersonation, stopImpersonation, resetPlatform,
     ],
   );
 
