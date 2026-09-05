@@ -124,7 +124,7 @@ export function Donut({
           y={centerSub ? "47%" : "52%"}
           textAnchor="middle"
           fill="var(--wf-fg)"
-          fontSize={size * 0.19}
+          fontSize={size * 0.17}
           fontWeight={700}
           fontFamily="var(--font-display)"
         >

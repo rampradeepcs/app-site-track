@@ -165,7 +165,7 @@ export default function PlatformDashboard() {
             <SectionTitle>Revenue by plan</SectionTitle>
             <div className="flex items-center gap-4">
               <Donut
-                size={116}
+                size={148}
                 centerLabel={money(stats.mrr)}
                 centerSub="MRR"
                 segments={byPlan.map((r, i) => ({
