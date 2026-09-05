@@ -19,6 +19,7 @@ import { Avatar, Chip } from "./ui";
 import { SyncBanner } from "./SyncBanner";
 import {
   IBell,
+  IBellFill,
   ICalendar,
   ICalendarFill,
   IClipboard,
@@ -37,6 +38,7 @@ import {
   IUsers,
   IUsersFill,
   IWallet,
+  IWalletFill,
 } from "./WfIcons";
 
 /**
@@ -196,8 +198,8 @@ const PLATFORM_TABS = [
     icon: IHardHat,
     iconActive: IHardHatFill,
   },
-  { href: "/platform/billing", label: "Billing", icon: IWallet },
-  { href: "/platform/support", label: "Support", icon: IBell },
+  { href: "/platform/billing", label: "Billing", icon: IWallet, iconActive: IWalletFill },
+  { href: "/platform/support", label: "Support", icon: IBell, iconActive: IBellFill },
   {
     href: "/platform/more",
     label: "More",

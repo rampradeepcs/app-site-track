@@ -196,6 +196,13 @@ export const ILayersFill = (p: IconProps) => (
   <Icon {...p}><path fill="currentColor" stroke="none" d="m12 2.4 10 5.26a.4.4 0 0 1 0 .7L12 13.6 2 8.36a.4.4 0 0 1 0-.7L12 2.4Z" /><path d="m4 12-1.5 1L12 18l9.5-5L20 12" /></Icon>
 );
 
+export const IWalletFill = (p: IconProps) => (
+  <Icon {...p}><path fill="currentColor" stroke="none" fillRule="evenodd" d="M5.5 6h13A2.5 2.5 0 0 1 21 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5v-9A2.5 2.5 0 0 1 5.5 6Zm11 5.6a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8Z" /><path d="M16.5 3.5H6a3 3 0 0 0-3 3" /></Icon>
+);
+export const IBellFill = (p: IconProps) => (
+  <Icon {...p}><path fill="currentColor" stroke="none" d="M6 9.5a6 6 0 0 1 12 0c0 4 1.5 5.6 2.3 6.5H3.7C4.5 15.1 6 13.5 6 9.5Z" /><path d="M10 19.5a2.2 2.2 0 0 0 4 0" /></Icon>
+);
+
 export const ILayers = (p: IconProps) => (
   <Icon {...p}><path d="m12 3 9.5 5L12 13 2.5 8 12 3Z" /><path d="m4 12-1.5 1L12 18l9.5-5L20 12" /></Icon>
 );
