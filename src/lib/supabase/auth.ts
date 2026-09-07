@@ -115,14 +115,43 @@ export async function currentAppUser(): Promise<User | null> {
   return read();
 }
 
-/** Fires on sign-in, sign-out and token refresh. */
-export function onAuthChange(cb: (signedIn: boolean) => void): () => void {
+/**
+ * What just happened to the session.
+ *
+ * This used to collapse every event to a boolean, and both listeners then
+ * ignored the false case — so a refresh token that expired, was revoked, or
+ * belonged to a deleted account ended the real session and left the app
+ * looking signed in, on stale cached data, with every write failing quietly.
+ * Naming the two outcomes is what makes the second one impossible to drop.
+ */
+export type AuthChange = "signed-in" | "signed-out";
+
+export function onAuthChange(cb: (event: AuthChange) => void): () => void {
   const sb = supabase();
   if (!sb) return () => {};
   const { data } = sb.auth.onAuthStateChange((event) => {
-    cb(event === "SIGNED_IN" || event === "TOKEN_REFRESHED");
+    if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") cb("signed-in");
+    else if (event === "SIGNED_OUT") cb("signed-out");
+    // INITIAL_SESSION, USER_UPDATED and PASSWORD_RECOVERY say nothing about
+    // whether there is still a session, so they say nothing here either.
   });
   return () => data.subscription.unsubscribe();
+}
+
+/**
+ * Is there still a session stored on this device?
+ *
+ * Deliberately a local read. A worker at a site gate with no signal must not
+ * be signed out for it, and supabase-js agrees: a refresh that fails on the
+ * network keeps the stored session, and only a refusal the server actually
+ * gave — an expired or revoked refresh token — clears it. So "nothing
+ * stored" means the session really ended, not that the phone is offline.
+ */
+export async function hasStoredSession(): Promise<boolean> {
+  const sb = supabase();
+  if (!sb) return false;
+  const { data } = await sb.auth.getSession();
+  return !!data.session;
 }
 
 /**

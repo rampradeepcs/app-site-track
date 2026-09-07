@@ -240,8 +240,8 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
       // The first render has to have happened before there is a state to
       // lay the server's rows over; a macrotask is enough.
       const t = window.setTimeout(() => void hydrateFromBackend(), 0);
-      const off = onAuthChange((signedIn) => {
-        if (signedIn) void hydrateFromBackend();
+      const off = onAuthChange((event) => {
+        if (event === "signed-in") void hydrateFromBackend();
       });
       return () => {
         window.clearTimeout(t);

@@ -26,11 +26,11 @@ import { useWorkforce } from "@/lib/store";
 import { Field } from "@/components/ui";
 import { SsoButtons } from "@/components/SsoButtons";
 import {
-  clearSsoFailure,
-  readSsoFailure,
-  serverSsoFailure,
-  subscribeSsoFailure,
-} from "@/lib/sso-status";
+  clearGateNotice,
+  readGateNotice,
+  serverGateNotice,
+  subscribeGateNotice,
+} from "@/lib/gate-notice";
 import { LoginBackdrop } from "@/components/LoginBackdrop";
 import { IAlert, IArrowR, IChevronL, ILock, IShield } from "@/components/WfIcons";
 import { consumeSignInDirect, landingFor } from "@/lib/routes";
@@ -73,12 +73,12 @@ function LocalGate() {
      where the person is actually looking, rather than lost to a toast that
      fired while the browser was still closing. Read as an external store so
      the prerendered HTML and the device agree on the first paint. */
-  const ssoFailure = useSyncExternalStore(
-    subscribeSsoFailure,
-    readSsoFailure,
-    serverSsoFailure,
+  const gateNotice = useSyncExternalStore(
+    subscribeGateNotice,
+    readGateNotice,
+    serverGateNotice,
   );
-  const shownError = error ?? ssoFailure;
+  const shownError = error ?? gateNotice;
   const codeRef = useRef<HTMLInputElement>(null);
 
   /*
@@ -255,7 +255,7 @@ function LocalGate() {
             onError={setError}
             onStart={() => {
               // A new attempt supersedes whatever the last one reported.
-              clearSsoFailure();
+              clearGateNotice();
               setError(null);
             }}
           />

@@ -27,7 +27,7 @@ import { useRouter } from "next/navigation";
 import { isLiveBackend } from "@/lib/supabase/client";
 import { completeOAuthRedirect, currentAppUser } from "@/lib/supabase/auth";
 import { showToast } from "@/lib/toast";
-import { recordSsoFailure } from "@/lib/sso-status";
+import { recordGateNotice } from "@/lib/gate-notice";
 import { useWorkforce } from "@/lib/store";
 import { landingFor } from "@/lib/routes";
 import { describeError } from "@/lib/errors";
@@ -75,7 +75,7 @@ export function SsoReturn() {
           console.warn("[sso] exchange failed:", reason);
           // Written down as well as shown: the toast fires while the user is
           // still watching the browser close, and is missed more often than not.
-          recordSsoFailure(reason);
+          recordGateNotice(reason);
           showToast(reason, "danger");
           return;
         }
@@ -104,7 +104,7 @@ export function SsoReturn() {
         } catch (e) {
           const reason = describeError(e);
           console.warn("[sso] resolving the account failed:", reason);
-          recordSsoFailure(reason);
+          recordGateNotice(reason);
           showToast(reason, "danger");
         }
       });

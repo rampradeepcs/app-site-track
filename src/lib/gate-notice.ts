@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * What happened on the way back from a single sign-on.
+ * What the gate has to tell somebody when they arrive.
  *
  * A device sign-on leaves the app entirely, so its outcome arrives while
  * nothing is watching for it: the deep link fires into a root listener, the
@@ -18,7 +18,7 @@
  * and when a fresh attempt starts, so nothing stale survives.
  */
 
-const KEY = "workfence.sso.failure";
+const KEY = "workfence.gate.notice";
 
 const listeners = new Set<() => void>();
 
@@ -31,14 +31,14 @@ function announce() {
   for (const fn of listeners) fn();
 }
 
-export function subscribeSsoFailure(fn: () => void): () => void {
+export function subscribeGateNotice(fn: () => void): () => void {
   listeners.add(fn);
   return () => {
     listeners.delete(fn);
   };
 }
 
-export function readSsoFailure(): string | null {
+export function readGateNotice(): string | null {
   if (cache === undefined) {
     try {
       cache = localStorage.getItem(KEY);
@@ -50,12 +50,12 @@ export function readSsoFailure(): string | null {
 }
 
 /** Nothing to report before the app has run — there has been no sign-on. */
-export function serverSsoFailure(): string | null {
+export function serverGateNotice(): string | null {
   return null;
 }
 
-/** The deep link came back carrying a reason it could not be used. */
-export function recordSsoFailure(reason: string) {
+/** Something outside React has a reason the gate must show. */
+export function recordGateNotice(reason: string) {
   cache = reason;
   try {
     localStorage.setItem(KEY, reason);
@@ -66,7 +66,7 @@ export function recordSsoFailure(reason: string) {
 }
 
 /** Called when the message has been seen, or a fresh attempt begins. */
-export function clearSsoFailure() {
+export function clearGateNotice() {
   if (cache === null) return;
   cache = null;
   try {

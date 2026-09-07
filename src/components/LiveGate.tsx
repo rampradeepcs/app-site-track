@@ -32,11 +32,11 @@ import { SsoButtons } from "./SsoButtons";
 import { describeError } from "@/lib/errors";
 import { emailProblem, isUsableEmail } from "@/lib/email";
 import {
-  clearSsoFailure,
-  readSsoFailure,
-  serverSsoFailure,
-  subscribeSsoFailure,
-} from "@/lib/sso-status";
+  clearGateNotice,
+  readGateNotice,
+  serverGateNotice,
+  subscribeGateNotice,
+} from "@/lib/gate-notice";
 import { DEMO_EMAIL, leaveDemoFor } from "@/lib/demo/mode";
 import { PersonaChooser } from "@/components/demo/PersonaPicker";
 import { LoginBackdrop } from "@/components/LoginBackdrop";
@@ -77,12 +77,12 @@ export default function LiveGate() {
   /* A device sign-on that came back and failed left its reason behind.
      Shown here, where the person is looking, rather than lost to a toast
      that fired while the browser was still closing. */
-  const ssoFailure = useSyncExternalStore(
-    subscribeSsoFailure,
-    readSsoFailure,
-    serverSsoFailure,
+  const gateNotice = useSyncExternalStore(
+    subscribeGateNotice,
+    readGateNotice,
+    serverGateNotice,
   );
-  const shownError = error ?? ssoFailure;
+  const shownError = error ?? gateNotice;
   const [notice, setNotice] = useState<string | null>(null);
   /* Nothing is wrong with an address they have not finished typing. */
   const [touchedEmail, setTouchedEmail] = useState(false);
@@ -143,7 +143,14 @@ export default function LiveGate() {
        asked for the sign-in form must get it, not be sent back to the flow
        they just left. Without that this and /start bounce off each other. */
     const askedToSignIn = consumeSignInDirect();
-    const arrive = () => setStep(askedToSignIn ? "identity" : "highlights");
+    /*
+     * Somebody whose session just ended is not a new arrival, and the four
+     * screens of product tour stand between them and the sentence that
+     * explains why they are here. A pending notice sends them straight to
+     * the form, where it is shown.
+     */
+    const arrive = () =>
+      setStep(askedToSignIn || readGateNotice() ? "identity" : "highlights");
     /* Three states, not two. No session means sign in. A session that
        resolves to a worker means go in — including one that only resolves
        because enter() just claimed the record carrying this address. A
@@ -188,8 +195,8 @@ export default function LiveGate() {
    */
   useEffect(() => {
     let cancelled = false;
-    const off = onAuthChange((signedIn) => {
-      if (!signedIn) return;
+    const off = onAuthChange((event) => {
+      if (event !== "signed-in") return;
       void (async () => {
         if (cancelled || state.session) return;
         console.info("[sso] gate: session arrived");
@@ -375,7 +382,7 @@ export default function LiveGate() {
             onError={setError}
             onStart={() => {
               // A fresh attempt supersedes whatever the last one reported.
-              clearSsoFailure();
+              clearGateNotice();
               setError(null);
             }}
           />

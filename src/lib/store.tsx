@@ -63,7 +63,12 @@ import {
 } from "./demo/mode";
 import { buildDemoData } from "./demo/seed";
 import { isLiveBackend } from "./supabase/client";
-import { onAuthChange, signOut as authSignOut } from "./supabase/auth";
+import {
+  hasStoredSession,
+  onAuthChange,
+  signOut as authSignOut,
+} from "./supabase/auth";
+import { recordGateNotice } from "./gate-notice";
 import { BootMark } from "@/components/Brand";
 import {
   fetchOperations,
@@ -707,6 +712,29 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     ]);
   }, []);
 
+  /**
+   * The real session ended without anyone pressing sign out.
+   *
+   * A refresh token expires, is revoked, or its account is deleted; the
+   * database then answers every read with nothing. Left alone the app went
+   * on looking signed in — this device's cached rows on screen, writes
+   * failing quietly, and no way for the person to tell. So the local session
+   * goes too, and the gate is told what to say.
+   *
+   * Local only, on purpose: whatever ended the session has already ended it,
+   * and calling signOut again would raise a second event for the same thing.
+   */
+  const endSessionLocally = useCallback(
+    (reason = "Your session ended. Sign in again.") => {
+      // setState rather than mutate(): this has to be usable by the very
+      // first effect that runs, and mutate is declared further down.
+      setState((s) => (s?.session ? { ...s, session: null } : s));
+      setFix(null);
+      recordGateNotice(reason);
+    },
+    [],
+  );
+
   /* hydrate on the client only — the seed depends on Date.now() */
   useEffect(() => {
     let next: WorkforceState | null = null;
@@ -773,9 +801,22 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     // Demo mode is local by construction: it never reads or writes a real
     // tenant's rows, whatever backend this build is pointed at.
     if (isLiveBackend && !demoActive()) {
+      /*
+       * A session restored from this device's storage is a claim, not proof:
+       * the token behind it may have expired while the app was closed. Ask
+       * before honouring it, because nothing else will — the guard on every
+       * screen reads this session, and a deep link opens one of those
+       * directly, without the gate ever mounting to check.
+       */
+      if (next.session) {
+        void hasStoredSession().then((live) => {
+          if (!live) endSessionLocally();
+        });
+      }
       void reloadFromBackend();
-      const off = onAuthChange((signedIn) => {
-        if (signedIn) void reloadFromBackend();
+      const off = onAuthChange((event) => {
+        if (event === "signed-in") void reloadFromBackend();
+        else endSessionLocally();
       });
       return () => off();
     }
