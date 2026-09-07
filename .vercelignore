@@ -17,3 +17,7 @@ out/
 *.apk
 *.keystore
 coverage/
+
+# The API is its own service with its own dependencies; the web build
+# neither type-checks nor ships it.
+server/
