@@ -25,6 +25,10 @@ import { loadSchema, tableNames } from "./schema.js";
 import { toHttpError } from "./errors.js";
 import { resourceRoutes } from "./routes/resources.js";
 import { domainRoutes } from "./routes/domain.js";
+import { workforceRoutes } from "./routes/workforce.js";
+import { operationsRoutes } from "./routes/operations.js";
+import { teamRoutes } from "./routes/teams.js";
+import { platformRoutes } from "./routes/platform.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -94,7 +98,14 @@ export async function build() {
     return { ok: true, dbLatencyMs: Date.now() - started, resources: tableNames().length };
   });
 
+  // Module routes first: each is a purposeful endpoint, and the generic
+  // table routes below are the fallback for everything nobody has needed a
+  // shape for yet.
   await app.register(domainRoutes);
+  await app.register(workforceRoutes);
+  await app.register(operationsRoutes);
+  await app.register(teamRoutes);
+  await app.register(platformRoutes);
   await app.register(resourceRoutes);
 
   return app;

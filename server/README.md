@@ -95,6 +95,76 @@ GET /v1/users?role=in.admin,manager&select=id,name,email
 
 Operators: `eq neq gt gte lt lte like ilike in is.null`.
 
+### Modules
+
+One request per screen, answered in a single transaction — so a client that
+needs shifts, assignments, pay policy and payroll runs sees them as they were
+at the same instant, rather than as four reads that drifted apart. Row-level
+security may legitimately answer part of any of these with nothing (a manager
+who may not read pay), which is an empty list, not a refusal.
+
+```
+GET  /v1/workforce                       people, premises, roster, register, updates
+GET  /v1/operations                      shifts, assignments, compensation, policies, payroll
+GET  /v1/travel                          trips, petrol and food rules, decisions
+GET  /v1/teams                           gangs, members, captures, site notes
+GET  /v1/platform                        clients, plans, subscriptions, invoices, usage, tickets, audit
+```
+
+#### Workforce
+
+```
+GET    /v1/projects/:id/members          who is on this premise
+PUT    /v1/projects/:id/members          replace the roster in one go
+POST   /v1/projects/:id/members          add one person
+DELETE /v1/projects/:id/members/:userId  take one person off
+GET    /v1/work-updates                  what the site reported
+```
+
+#### Shifts, pay and travel
+
+```
+GET  /v1/payroll/:month                  one month, with its adjustments
+POST /v1/payroll/:month/adjustments      correct a month — appended, never overwritten
+POST /v1/payroll/:month/status           draft → calculated → review → approved → locked
+POST /v1/travel/:id/decision             approve or refuse a trip
+```
+
+A locked month is corrected by an adjustment, not by editing a number, so the
+adjustment is appended in the database: two managers correcting the same month
+both get recorded, where a read-modify-write from a phone would lose one.
+
+#### Teams and the site's record
+
+```
+GET    /v1/teams/:id/members                 who is in this gang
+POST   /v1/teams/:id/members                 add employees
+DELETE /v1/teams/:id/members/:employeeId     mark them as left
+GET    /v1/notes                             the written record, pinned first
+```
+
+Leaving a gang is recorded, not deleted: a capture from last week names the
+people who were in the team then, and removing the row would make that
+record unreadable.
+
+#### Platform
+
+```
+GET   /v1/platform/clients/:id               one client and everything hanging off them
+POST  /v1/platform/clients/:id/status        suspend, restore, cancel
+PATCH /v1/platform/subscriptions/:orgId      plan, cycle, price, overrides, dates
+POST  /v1/platform/invoices/:id/status       paid, failed, refunded
+POST  /v1/platform/tickets                   a client asks for something
+POST  /v1/platform/tickets/:id/status        the owner answers
+GET   /v1/platform/settings                  defaults for new companies
+PATCH /v1/platform/settings                  merged, not replaced
+```
+
+There is no "am I the platform owner" check anywhere in these handlers, on
+purpose. The owner sees every tenant and a client's administrator sees their
+own, from the identical query, because that question is already answered once
+in the database.
+
 ### The things that are not a table
 
 Each is several rows that must land together, so each calls the database
