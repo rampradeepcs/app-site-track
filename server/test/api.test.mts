@@ -12,8 +12,9 @@
 import { createServer } from "node:http";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 
-const ISSUER_PORT = 4555;
-const API = "http://127.0.0.1:4610";
+const ISSUER_PORT = Number(process.env.TEST_ISSUER_PORT ?? 4555);
+const API_PORT = Number(process.env.TEST_API_PORT ?? 4610);
+const API = `http://127.0.0.1:${API_PORT}`;
 
 const { publicKey, privateKey } = await generateKeyPair("ES256", { extractable: true });
 const jwk = { ...(await exportJWK(publicKey)), alg: "ES256", use: "sig", kid: "test-key" };
@@ -25,6 +26,30 @@ const jwks = createServer((req, res) => {
   } else { res.writeHead(404); res.end("{}"); }
 });
 await new Promise<void>((r) => jwks.listen(ISSUER_PORT, "127.0.0.1", r));
+
+/*
+ * The API is started here rather than beside the test.
+ *
+ * It has to be imported after the issuer is up and after the environment
+ * names it, because the configuration is read once when the module loads —
+ * so the import is dynamic and comes last. One command runs everything.
+ */
+process.env.SUPABASE_URL = `http://127.0.0.1:${ISSUER_PORT}`;
+process.env.PORT = String(API_PORT);
+process.env.HOST = "127.0.0.1";
+process.env.JWT_AUDIENCE = "authenticated";
+process.env.RATE_LIMIT_PER_MINUTE = "5000";
+process.env.LOG_LEVEL = process.env.LOG_LEVEL ?? "warn";
+if (!process.env.DATABASE_URL) {
+  console.error("DATABASE_URL is not set. Copy .env.test.example to .env and fill it in.");
+  process.exit(1);
+}
+const { build } = await import("../src/index.js");
+const { loadSchema } = await import("../src/schema.js");
+const { closePool } = await import("../src/db.js");
+const app = await build();
+await loadSchema();
+await app.listen({ port: API_PORT, host: "127.0.0.1" });
 
 const token = (sub: string, email: string) =>
   new SignJWT({ email, role: "authenticated" })
@@ -291,5 +316,7 @@ if (orgId) {
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (failures.length) console.log("failed:", failures.join(" | "));
+await app.close();
+await closePool();
 jwks.close();
 process.exit(fail === 0 ? 0 : 1);

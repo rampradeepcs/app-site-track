@@ -67,12 +67,9 @@ only their own, an employee cannot promote themselves or write into another
 company, a note cannot be filed under somebody else's name, and nobody may
 post another person's location.
 
-It needs `DATABASE_URL` and the API running on port 4610:
-
-```bash
-npx tsx --env-file=.env.test src/index.ts &   # PORT=4610, SUPABASE_URL=http://127.0.0.1:4555
-npm test
-```
+It starts the API itself, on a port of its own, and stops it at the end — so
+`npm test` is the whole command. All it needs from you is `DATABASE_URL` in
+`.env`.
 
 ## Running it
 
