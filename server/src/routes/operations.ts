@@ -113,9 +113,12 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
           [caller.sub],
         );
         const orgId = req.body.orgId ?? one(me, "You belong to no company.").org_id;
+        // $1 is compared as text and stored as payroll_status, and Postgres
+        // will not deduce one parameter into two types — it refuses with
+        // "inconsistent types deduced". Casting at each use settles it.
         const { rows } = await run(
           `update payroll_runs
-              set status = $1,
+              set status = $1::payroll_status,
                   approved_by = case when $1 in ('approved','locked') then $2 else approved_by end,
                   approved_at = case when $1 in ('approved','locked') then now() else approved_at end,
                   locked_at   = case when $1 = 'locked' then now() else locked_at end

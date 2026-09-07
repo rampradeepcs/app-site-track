@@ -34,15 +34,15 @@ export async function platformRoutes(app: FastifyInstance): Promise<void> {
         req.params.id,
       ]);
       const org = one(orgs, "No such client.");
-      const [sub, invoices, usage, people, tickets] = await Promise.all([
-        run("select * from subscriptions where org_id = $1 limit 1", [req.params.id]),
-        run("select * from invoices where org_id = $1 order by issued_at desc", [req.params.id]),
-        run("select * from usage_live where org_id = $1 order by month desc", [req.params.id]),
-        run("select * from users where org_id = $1 order by employee_code", [req.params.id]),
-        run("select * from support_tickets where org_id = $1 order by opened_at desc", [
-          req.params.id,
-        ]),
-      ]);
+      // Sequential, not Promise.all: these share one connection, and a
+      // client cannot run two statements at once — pg deprecates it and the
+      // results can interleave. They are inside one transaction either way,
+      // so this is still a single consistent view.
+      const sub = await run("select * from subscriptions where org_id = $1 limit 1", [req.params.id]);
+      const invoices = await run("select * from invoices where org_id = $1 order by issued_at desc", [req.params.id]);
+      const usage = await run("select * from usage_live where org_id = $1 order by month desc", [req.params.id]);
+      const people = await run("select * from users where org_id = $1 order by employee_code", [req.params.id]);
+      const tickets = await run("select * from support_tickets where org_id = $1 order by opened_at desc", [req.params.id]);
       return {
         data: {
           organization: org,

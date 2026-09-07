@@ -210,13 +210,26 @@ export async function domainRoutes(app: FastifyInstance): Promise<void> {
         throw new HttpError(400, "Send at least one point.");
       }
       if (points.length > 2000) throw new HttpError(413, "Too many points in one batch.");
+      for (const [i, p] of points.entries()) {
+        if (typeof p?.lat !== "number" || typeof p?.lng !== "number") {
+          throw new HttpError(400, `Point ${i} needs a numeric lat and lng.`);
+        }
+        if (!p.at) throw new HttpError(400, `Point ${i} needs a time.`);
+        if (!p.orgId || !p.employeeId || !p.projectId) {
+          throw new HttpError(400, `Point ${i} needs orgId, employeeId and projectId.`);
+        }
+      }
       const written = await asCaller(req.caller, async (run) => {
         const values: unknown[] = [];
         const tuples = points.map((p, i) => {
           const base = i * 12;
+          // Zero, not null: these three columns are NOT NULL with a default
+          // of 0, and an explicit null defeats the default rather than
+          // falling back to it. A fix with no speed reading is a fix at
+          // rest, which is what the column already meant.
           values.push(
             req.params.id, p.orgId, p.employeeId, p.projectId, p.lat, p.lng,
-            p.accuracy ?? null, p.speed ?? null, p.heading ?? null, p.at,
+            p.accuracy ?? 0, p.speed ?? 0, p.heading ?? 0, p.at,
             p.offline ?? false, p.segmentStart ?? false,
           );
           return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, ` +

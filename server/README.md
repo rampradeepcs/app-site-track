@@ -44,6 +44,36 @@ Verified against the live database:
 …and an employee inserting a user into another company is refused by the
 database, not by this code.
 
+## Testing it
+
+```bash
+npm test
+```
+
+91 checks over every endpoint, against a real database. It signs its own
+ES256 tokens and serves its own JWKS, because the tokens the app uses are
+signed by a key only Supabase holds; everything else is the real thing — the
+real routes, the real policies, the real Postgres.
+
+Writes go into a client the test creates and deletes at the end, so the live
+tenants are read and never touched. To exercise the tenant-scoped routes it
+links that client's administrator to a spare auth account and signs as them,
+because the platform owner belongs to no company and is correctly refused
+those writes.
+
+It asserts what each role may see and do, not just that routes answer: the
+owner sees every client and the audit trail, a client's administrator sees
+only their own, an employee cannot promote themselves or write into another
+company, a note cannot be filed under somebody else's name, and nobody may
+post another person's location.
+
+It needs `DATABASE_URL` and the API running on port 4610:
+
+```bash
+npx tsx --env-file=.env.test src/index.ts &   # PORT=4610, SUPABASE_URL=http://127.0.0.1:4555
+npm test
+```
+
 ## Running it
 
 ```bash

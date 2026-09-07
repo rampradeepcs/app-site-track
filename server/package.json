@@ -11,7 +11,8 @@
     "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node --env-file-if-exists=.env dist/index.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx test/api.test.mts"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",
