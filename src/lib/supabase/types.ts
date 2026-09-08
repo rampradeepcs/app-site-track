@@ -82,7 +82,7 @@ export type UserRow = {
   email: string | null;
   avatar_hue: number;
   photo: string | null;
-  status: "active" | "inactive" | "on-leave";
+  status: "active" | "inactive" | "on-leave" | "revoked";
   shift_start: number;
   shift_end: number;
   supervisor_rating: number | null;

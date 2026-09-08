@@ -49,7 +49,13 @@ import {
   sessionEmail,
   sessionIdentity,
 } from "@/lib/supabase/auth";
-import { inviteCrewRemote, provisionCompanyRemote } from "@/lib/supabase/repository";
+import {
+  createCompanyRemote,
+  inviteCrewRemote,
+  provisionCompanyRemote,
+} from "@/lib/supabase/repository";
+import { setActiveCompany } from "@/lib/company";
+import { refreshMyCompanies } from "@/lib/companies";
 import type { TrackingMode } from "@/lib/types";
 
 /** Steps that collect something, in order. The rail counts these. */
@@ -84,6 +90,19 @@ function StartWizard() {
 
   const [step, setStep] = useState<Step>("highlights");
 
+  /*
+   * Founding another company.
+   *
+   * This screen bounced anyone already signed in, which was right when a
+   * person could belong to exactly one company and wrong the moment they
+   * could belong to several: the three "Create company" controls all led
+   * here and all landed back where they came from. With ?another=1 the
+   * identity and verification steps are skipped — they are already signed
+   * in, and that is what those steps were for — and the company details are
+   * asked straight away.
+   */
+  const another = searchParams.get("another") === "1";
+
   /* A client's subdomain is theirs: nobody founds a new company under it. */
   const tenant = useTenant();
   useEffect(() => {
@@ -95,7 +114,11 @@ function StartWizard() {
      in an effect rather than the initializer so the server markup and the
      first client render agree. */
   useEffect(() => {
-    if (seenHighlights()) {
+    // Founding another company skips both: they are signed in already, and
+    // the identity and verification steps exist to establish that.
+    if (new URLSearchParams(window.location.search).get("another") === "1") {
+      setStep((s) => (s === "highlights" || s === "identity" ? "company" : s));
+    } else if (seenHighlights()) {
       setStep((s) => (s === "highlights" ? "identity" : s));
     }
     // On-mount check only — this must not re-fire as the wizard advances.
@@ -173,10 +196,12 @@ function StartWizard() {
   const ownSession = useRef(false);
   const bounced = useRef(false);
   useEffect(() => {
-    if (ownSession.current || bounced.current || !state.session) return;
+    if (another || ownSession.current || bounced.current || !state.session) return;
     bounced.current = true;
     router.replace("/");
-  }, [state.session, router]);
+  }, [another, state.session, router]);
+
+
 
   const back = () => {
     setError(null);
@@ -313,7 +338,10 @@ function StartWizard() {
 
     setBusy(true);
     try {
-      const made = await provisionCompanyRemote({
+      // createCompanyRemote for somebody who already has one: the same
+      // transaction, under the name the product uses for it.
+      const provision = another ? createCompanyRemote : provisionCompanyRemote;
+      const made = await provision({
         ...d,
         timezone:
           Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata",
@@ -321,9 +349,13 @@ function StartWizard() {
       // The RPC created the admin row and linked it to this identity; read it
       // back rather than reconstructing it, so the session holds the record
       // the database actually stored.
+      // Enter the company that was just made: it is the one every request
+      // must now be for, and their role in it is the session.
+      if (made?.orgId) setActiveCompany(made.orgId);
       const me = await currentAppUser();
       if (!me) throw new Error("Company created, but signing you in failed.");
       loginAs(me);
+      void refreshMyCompanies().catch(() => {});
       // And read back the rest of it. Reading only the founder left the crew
       // they had just invited on the server and nowhere on screen: Team and
       // roles showed one person, and stayed that way until something else

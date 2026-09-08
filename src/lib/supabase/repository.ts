@@ -371,7 +371,16 @@ export function toNotification(r: NotificationRow): AppNotification {
 export async function fetchWorkforce() {
   const sb = requireSupabase();
   const [users, projects, members, attendance, updates, audit, notifications] = await Promise.all([
-    sb.from("users").select("*"),
+    /*
+     * The company's people, which does not include the ones it removed.
+     *
+     * Their rows stay — the attendance and payroll pointing at them are
+     * this company's records, and the platform owner and the audit trail
+     * can still reach them — but a revoked membership is not a colleague,
+     * and leaving them in the workforce read would put them back on the
+     * roster, the payroll run and the live board.
+     */
+    sb.from("users").select("*").neq("status", "revoked"),
     sb.from("projects").select("*"),
     sb.from("project_members").select("project_id,user_id"),
     sb.from("attendance").select("*").order("date", { ascending: false }).limit(2000),

@@ -5,6 +5,7 @@
  * shared status strip (offline banner, outbox count, tracking indicator).
  */
 
+import { CompanySwitcher } from "./CompanySwitcher";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -501,6 +502,11 @@ export function ScreenHeader({
         <h1 className="wf-display truncate text-[1.35rem] leading-tight">
           {title}
         </h1>
+        {/* Which company this is. Shown on every screen because the cost of
+            not knowing is a shift booked against the wrong employer, and
+            nobody notices that until payroll. Renders nothing for somebody
+            with one company and no way to switch. */}
+        <CompanySwitcher compact />
         {sub ? (
           /* Both stay on one line. A two-line subtitle pushed the content
              down by a different amount on every screen, so the header sat
