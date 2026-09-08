@@ -122,7 +122,7 @@ export default function AddPeoplePage() {
       <ScreenHeader
         back="/admin/team"
         title="Add people"
-        sub={live ? `They are invited to join ${companyName}` : `Added to ${companyName}`}
+        sub={live ? "They are invited to join this company" : "Added to this company"}
       />
       <div className="flex flex-col gap-4 px-4 pb-8">
         <div className="grid grid-cols-2 gap-3">

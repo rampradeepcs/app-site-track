@@ -144,9 +144,7 @@ export default function AdminTeam() {
       <ScreenHeader
         back="/admin"
         title="Team & Roles"
-        sub={`${state.users.filter((u) => u.status !== "revoked").length} people in ${
-          active?.name ?? "this company"
-        }`}
+        sub={`${state.users.filter((u) => u.status !== "revoked").length} people`}
         action={
           <span className="flex items-center gap-2">
             {/* Two different acts. Add writes a record for a crew that may
