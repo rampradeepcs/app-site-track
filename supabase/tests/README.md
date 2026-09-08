@@ -8,6 +8,11 @@ invent people and companies freely and leave nothing behind.
 PGPW='<database password>' python3 supabase/tests/multi_company_test.py
 ```
 
+`company_admin_test.py` covers a company editing itself, which of its
+membership rows have a person behind them yet, and the invitations still
+waiting — including the ones for people who have no row at all and so appear
+on no other list.
+
 `multi_company_test.py` covers the multi-company model end to end: inviting,
 accepting, isolation by active company, removal and what survives it,
 re-joining, and founding a second company. It asserts refusals as often as it

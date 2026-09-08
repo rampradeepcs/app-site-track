@@ -32,6 +32,7 @@ import { entitlementsFor } from "@/lib/entitlements";
 import { fmtDateLong, fmtRelative } from "@/lib/format";
 import { usePlatform } from "@/lib/platform-store";
 import { isValidSlug, slugify, tenantUrl } from "@/lib/tenant";
+import { refreshMyCompanies } from "@/lib/companies";
 import { showToast } from "@/lib/toast";
 import {
   clientHealth,
@@ -278,7 +279,15 @@ function ClientInner() {
               <SectionTitle>Company</SectionTitle>
               <div className="flex flex-col gap-3">
                 <Field label="Company name">
-                  <Committed value={org.name} onCommit={(v) => updateOrg(org.id, { name: v })} />
+                  <Committed
+                    value={org.name}
+                    onCommit={(v) => {
+                      updateOrg(org.id, { name: v });
+                      // The name is cached by everyone's company switcher.
+                      // Refresh it so the owner's own lists agree at once.
+                      void refreshMyCompanies().catch(() => {});
+                    }}
+                  />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Client ID"><input className="wf-input" value={org.code} readOnly /></Field>

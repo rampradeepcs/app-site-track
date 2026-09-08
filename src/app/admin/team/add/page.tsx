@@ -1,0 +1,207 @@
+"use client";
+
+/**
+ * Adding people to the company, after the first day.
+ *
+ * The same screen the founder used at signup, reached from Team & Roles —
+ * type a name and address, or take them from the phone's contacts. There was
+ * no reason for the two to be different screens, and every reason for them
+ * not to be: the crew step is where the contact picker and the inline
+ * address field already live, and a second implementation would be a second
+ * place for them to drift.
+ *
+ * What happens on save is the part that differs. At signup the crew are
+ * written into the company being created; here they are invited, because the
+ * company already exists and the people may already have a Workfence
+ * account — in which case they join it as themselves rather than as a
+ * second identity.
+ */
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import Link from "next/link";
+import { InviteCrew } from "@/components/onboarding/InviteCrew";
+import { ScreenHeader } from "@/components/shell";
+import { Field } from "@/components/ui";
+import { useMyCompanies } from "@/lib/companies";
+import { useWorkforce, type CrewInvite } from "@/lib/store";
+import { isLiveBackend } from "@/lib/supabase/client";
+import { demoActive } from "@/lib/demo/mode";
+import { inviteMemberRemote } from "@/lib/supabase/repository";
+import { describeError } from "@/lib/errors";
+import { showToast } from "@/lib/toast";
+import type { Role } from "@/lib/types";
+import { IArrowR, ICheck, IUsers } from "@/components/WfIcons";
+
+export default function AddPeoplePage() {
+  const { state, currentUser, saveEmployee, reloadFromBackend } = useWorkforce();
+  const { active } = useMyCompanies();
+  const router = useRouter();
+
+  const [crew, setCrew] = useState<CrewInvite[]>([]);
+  const [role, setRole] = useState<Role>("employee");
+  const [projectId, setProjectId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  const live = isLiveBackend && !demoActive();
+  const isOwner = currentUser?.role === "admin";
+  const companyName = active?.name ?? "this company";
+
+  const send = async () => {
+    if (crew.length === 0) return;
+    setBusy(true);
+    setResult(null);
+    try {
+      if (!live) {
+        /*
+         * No backend to invite through: write the records straight in, which
+         * is what the local build has always done. They can sign in later
+         * against a real one and claim the row that carries their address.
+         */
+        for (const c of crew) {
+          saveEmployee({
+            name: c.name,
+            email: c.email ?? "",
+            phone: c.phone ?? "",
+            designation: c.designation || "Worker",
+            role,
+          });
+        }
+        showToast(`Added ${crew.length} to ${companyName}`, "success");
+        router.replace("/admin/team");
+        return;
+      }
+
+      // One at a time, and each failure named: a mistyped address in the
+      // fourth row must not throw away the three that were fine.
+      const failed: string[] = [];
+      let sent = 0;
+      let existing = 0;
+      for (const c of crew) {
+        try {
+          const out = await inviteMemberRemote({
+            email: (c.email ?? "").trim(),
+            name: c.name,
+            phone: c.phone,
+            role,
+            designation: c.designation,
+            projectId: projectId || null,
+          });
+          sent += 1;
+          if (out.existingUser) existing += 1;
+        } catch (e) {
+          failed.push(`${c.email || c.name}: ${describeError(e)}`);
+        }
+      }
+      await reloadFromBackend();
+
+      if (sent > 0 && failed.length === 0) {
+        showToast(
+          `Invited ${sent} to ${companyName}${
+            existing > 0 ? ` — ${existing} already had a Workfence account` : ""
+          }`,
+          "success",
+        );
+        router.replace("/admin/team");
+        return;
+      }
+      setCrew((list) => list.filter((c) => failed.some((f) => f.startsWith(`${c.email || c.name}:`))));
+      setResult(
+        sent > 0
+          ? `Invited ${sent}. These did not go: ${failed.join(" · ")}`
+          : `Nothing was invited. ${failed.join(" · ")}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      <ScreenHeader
+        back="/admin/team"
+        title="Add people"
+        sub={live ? `They are invited to join ${companyName}` : `Added to ${companyName}`}
+      />
+      <div className="flex flex-col gap-4 px-4 pb-8">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Join as">
+            <select
+              className="wf-input"
+              value={role}
+              onChange={(e) => setRole(e.target.value as Role)}
+            >
+              <option value="employee">Employee</option>
+              {isOwner ? <option value="manager">Manager</option> : null}
+              {isOwner ? <option value="admin">Owner / Admin</option> : null}
+            </select>
+          </Field>
+          <Field label="Project" hint="Optional.">
+            <select
+              className="wf-input"
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+            >
+              <option value="">None yet</option>
+              {state.projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+
+        {/* The crew step from onboarding, unchanged: type them in, or take
+            them from the phone's contacts. */}
+        <InviteCrew invites={crew} onChange={setCrew} />
+
+        {result ? (
+          <p className="text-[0.8rem] leading-relaxed font-semibold text-[var(--wf-amber)]">
+            {result}
+          </p>
+        ) : null}
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <Link href="/admin/team" className="wf-btn wf-btn-ghost">
+            Cancel
+          </Link>
+          <button
+            type="button"
+            className="wf-btn wf-btn-primary"
+            disabled={busy || crew.length === 0}
+            onClick={() => void send()}
+          >
+            {busy ? (
+              "Sending…"
+            ) : crew.length === 0 ? (
+              <>
+                <IUsers size={16} /> Add someone first
+              </>
+            ) : (
+              <>
+                <ICheck size={16} /> {live ? "Send" : "Add"} {crew.length}
+              </>
+            )}
+          </button>
+        </div>
+
+        {live ? (
+          <p className="text-[0.74rem] leading-relaxed text-[var(--wf-faint)]">
+            Somebody who already has a Workfence account joins {companyName} as
+            themselves — one account, another company — rather than getting a
+            second one. Nobody is added until they accept.
+          </p>
+        ) : null}
+
+        <Link
+          href="/admin/team"
+          className="flex items-center justify-center gap-1.5 text-[0.8rem] font-semibold text-[var(--wf-muted)]"
+        >
+          Back to Team &amp; Roles <IArrowR size={14} />
+        </Link>
+      </div>
+    </div>
+  );
+}

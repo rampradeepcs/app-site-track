@@ -8,11 +8,21 @@
  */
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { EmployeeEditor } from "@/components/EmployeeEditor";
 import { InviteMemberSheet } from "@/components/InviteMemberSheet";
 import { RemoveMemberDialog } from "@/components/RemoveMemberDialog";
 import { useMyCompanies } from "@/lib/companies";
+import { MemberStatusChip } from "@/components/MemberStatus";
+import {
+  cancelInvitationRemote,
+  fetchCompanyMembers,
+  fetchPendingInvitations,
+  type MemberState,
+  type PendingInvitation,
+} from "@/lib/supabase/repository";
+import { describeError } from "@/lib/errors";
+import { showToast } from "@/lib/toast";
 import { ScreenHeader } from "@/components/shell";
 import {
   Avatar,
@@ -86,7 +96,30 @@ export default function AdminTeam() {
   const [removing, setRemoving] = useState<User | null>(null);
   const { active } = useMyCompanies();
 
+  /*
+   * Who has actually arrived, and who is still being waited on.
+   *
+   * A membership row exists from the moment somebody types a name; these two
+   * reads are what separate a colleague from an address. Refused for anyone
+   * who is not an administrator here, which is an empty map — the list still
+   * renders, without the labels.
+   */
+  const [memberState, setMemberState] = useState<Map<string, MemberState>>(new Map());
+  const [pending, setPending] = useState<PendingInvitation[]>([]);
+  const loadMembership = useCallback(() => {
+    if (!isLiveBackend || demoActive()) return;
+    void fetchCompanyMembers().then(setMemberState).catch(() => {});
+    void fetchPendingInvitations().then(setPending).catch(() => {});
+  }, []);
+  useEffect(loadMembership, [loadMembership, state.users.length]);
+
   const board = useMemo(() => liveBoard(state, undefined, now), [state, now]);
+
+  /** Invitations for people who have no membership row yet, so appear nowhere else. */
+  const pendingOutside = useMemo(
+    () => pending.filter((i) => !i.hasMembership),
+    [pending],
+  );
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -128,12 +161,47 @@ export default function AdminTeam() {
                 <IUsers size={15} /> Invite
               </button>
             ) : null}
-            <button className="wf-btn wf-btn-primary wf-btn-sm" onClick={() => setEditing("new")}>
+            {/* Its own screen, and the same one onboarding uses: type them
+                in or take them from the phone's contacts. */}
+            <Link href="/admin/team/add" className="wf-btn wf-btn-primary wf-btn-sm">
               <IPlus size={15} /> Add
-            </button>
+            </Link>
           </span>
         }
       />
+      {pendingOutside.length > 0 ? (
+        <div className="mx-4 mb-1 flex flex-col gap-2 rounded-2xl border border-[var(--wf-line)] bg-[var(--wf-fill-2)] p-3.5">
+          <p className="text-[0.72rem] font-bold uppercase tracking-wider text-[var(--wf-muted)]">
+            Waiting to accept
+          </p>
+          {pendingOutside.map((inv) => (
+            <div key={inv.id} className="flex items-center gap-2.5">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[0.84rem] font-semibold">
+                  {inv.name || inv.email}
+                </span>
+                <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
+                  {inv.email} · invited as {ROLE_LABEL[inv.role] ?? inv.role}
+                </span>
+              </span>
+              <Chip tone="blue">Invited</Chip>
+              <button
+                className="wf-btn wf-btn-ghost wf-btn-sm"
+                onClick={() =>
+                  void cancelInvitationRemote(inv.id)
+                    .then(() => {
+                      showToast(`Invitation to ${inv.email} cancelled`);
+                      loadMembership();
+                    })
+                    .catch((e) => showToast(describeError(e), "danger"))
+                }
+              >
+                Cancel
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
       <InviteMemberSheet
         open={inviting}
         onClose={() => setInviting(false)}
@@ -233,6 +301,7 @@ export default function AdminTeam() {
                       ROLE_LABEL[u.role] ?? u.role
                     )}
                   </Chip>
+                  <MemberStatusChip user={u} live={memberState.get(u.id)} />
                 </span>
                 <div className="col-span-3 flex flex-wrap items-center gap-2">
                   {/* Edit comes first, and applies to everyone.

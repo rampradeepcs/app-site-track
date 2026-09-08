@@ -517,6 +517,90 @@ export async function markNotificationsReadRemote(audience: AppNotification["aud
   if (error) throw error;
 }
 
+/* ------------------------------------------------- the company's own list --- */
+
+/** Whether each membership has a person behind it yet, by membership id. */
+export interface MemberState {
+  activated: boolean;
+  invited: boolean;
+  invitationId: string | null;
+  invitedAt: string | null;
+  lastSignInAt: string | null;
+}
+
+export async function fetchCompanyMembers(): Promise<Map<string, MemberState>> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("company_members");
+  if (error) throw error;
+  const out = new Map<string, MemberState>();
+  for (const r of data ?? []) {
+    out.set(r.membership_id, {
+      activated: r.activated,
+      invited: r.invited,
+      invitationId: r.invitation_id,
+      invitedAt: r.invited_at,
+      lastSignInAt: r.last_sign_in_at,
+    });
+  }
+  return out;
+}
+
+export interface PendingInvitation {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRow["role"];
+  designation: string;
+  department: string;
+  project: string | null;
+  invitedBy: string | null;
+  createdAt: string;
+  expiresAt: string;
+  hasMembership: boolean;
+}
+
+/** Invitations this company has sent that nobody has answered yet. */
+export async function fetchPendingInvitations(): Promise<PendingInvitation[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("company_invitations_pending");
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    email: r.email,
+    name: r.name,
+    role: r.role,
+    designation: r.designation,
+    department: r.department,
+    project: r.project,
+    invitedBy: r.invited_by,
+    createdAt: r.created_at,
+    expiresAt: r.expires_at,
+    hasMembership: r.has_membership,
+  }));
+}
+
+export async function cancelInvitationRemote(id: string): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("cancel_invitation", { p_id: id });
+  if (error) throw error;
+}
+
+/**
+ * Change what the company calls itself.
+ *
+ * The name, and how to reach it. Not its status, slug or plan — those are
+ * the commercial relationship, and belong to the platform rather than to
+ * the company's own description of itself.
+ */
+export async function updateMyCompanyRemote(
+  payload: Record<string, unknown>,
+): Promise<Organization> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("update_my_company", { payload: payload as never });
+  if (error) throw error;
+  return toOrg(data as unknown as OrgRow);
+}
+
 /* ------------------------------------------------------------ companies --- */
 
 export interface CompanyMembership {

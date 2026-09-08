@@ -457,6 +457,16 @@ export type Database = {
         Args: Record<string, never>;
         Returns: UserRow[];
       };
+      /** Company admin: change what the company calls itself and how to reach it. */
+      update_my_company: { Args: { payload: Json }; Returns: OrgRow };
+      /** Company admin: which memberships have a person behind them yet. */
+      company_members: { Args: Record<string, never>; Returns: CompanyMemberRow[] };
+      /** Company admin: invitations still outstanding. */
+      company_invitations_pending: {
+        Args: Record<string, never>;
+        Returns: PendingInvitationRow[];
+      };
+      cancel_invitation: { Args: { p_id: string }; Returns: undefined };
       /** Every company the caller belongs to, the active one first. */
       my_companies: { Args: Record<string, never>; Returns: MyCompanyRow[] };
       /** Pending invitations addressed to the caller. */
@@ -511,6 +521,31 @@ export interface SignupPayload {
   } | null;
   crew: Array<{ name: string; email?: string; phone?: string; designation?: string }>;
   timezone?: string;
+}
+
+/** Whether a membership row has a person behind it yet. */
+export interface CompanyMemberRow {
+  membership_id: string;
+  activated: boolean;
+  invited: boolean;
+  invitation_id: string | null;
+  invited_at: string | null;
+  invitation_expires_at: string | null;
+  last_sign_in_at: string | null;
+}
+
+export interface PendingInvitationRow {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRow["role"];
+  designation: string;
+  department: string;
+  project: string | null;
+  invited_by: string | null;
+  created_at: string;
+  expires_at: string;
+  has_membership: boolean;
 }
 
 /** One row of my_companies(): a membership and the company it is in. */
