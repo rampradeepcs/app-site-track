@@ -64,11 +64,14 @@ import {
 import { buildDemoData } from "./demo/seed";
 import { isLiveBackend } from "./supabase/client";
 import {
+  currentAppUser,
   hasStoredSession,
   onAuthChange,
   signOut as authSignOut,
 } from "./supabase/auth";
 import { recordGateNotice } from "./gate-notice";
+import { setActiveCompany } from "./company";
+import { refreshMyCompanies } from "./companies";
 import { BootMark } from "@/components/Brand";
 import {
   fetchOperations,
@@ -376,6 +379,14 @@ interface StoreApi {
   provisionCompany: (draft: CompanyDraft) => ProvisionedCompany;
   /** Re-read this tenant from the backend — after creating it, for instance. */
   reloadFromBackend: () => Promise<void>;
+  /**
+   * Open a company the signed-in person belongs to: it becomes the one every
+   * request is for, this device's copy of the previous company is dropped,
+   * and their membership there becomes the session.
+   */
+  enterCompany: (orgId: string) => Promise<User>;
+  /** enterCompany, announced. Never silent: the toast names where they now are. */
+  switchCompany: (orgId: string, name?: string) => Promise<User>;
   logout: () => void;
   currentUser: User | null;
   setActiveProject: (projectId: string) => void;
@@ -1400,9 +1411,83 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     [mutate],
   );
 
+  /**
+   * Everything that belongs to a company, gone.
+   *
+   * Switching must not leave the last company's roster, register or
+   * notifications on screen for the second it takes the new one to load —
+   * or for good, if that load fails. Emptied first, then refilled.
+   */
+  const clearCompanyData = useCallback(() => {
+    setState((s) =>
+      s
+        ? {
+            ...s,
+            users: [],
+            projects: [],
+            attendance: [],
+            points: [],
+            updates: [],
+            notifications: [],
+            audit: [],
+            shifts: [],
+            shiftAssignments: [],
+            comp: [],
+            payrollRuns: [],
+            travelSessions: [],
+            petrolRules: [],
+            foodRules: [],
+            allowanceDecisions: [],
+            labourTeams: [],
+            teamMembers: [],
+            groupAttendance: [],
+            groupAttendanceMembers: [],
+            projectNotes: [],
+            noteAttachments: [],
+            activeProjectId: null,
+          }
+        : s,
+    );
+    knownAuditRef.current = null;
+    knownNotifRef.current = null;
+  }, []);
+
+  const enterCompany = useCallback(
+    async (orgId: string): Promise<User> => {
+      setActiveCompany(orgId);
+      clearCompanyData();
+      // The header now names the company, so the record that comes back is
+      // the membership there — the one every screen must run as.
+      const me = await currentAppUser();
+      if (!me || (me.orgId && me.orgId !== orgId)) {
+        setActiveCompany(null);
+        throw new Error("You are not a member of that company any more.");
+      }
+      setState((s) =>
+        s ? { ...s, session: { userId: me.id, role: me.role, at: Date.now() } } : s,
+      );
+      await reloadFromBackend();
+      void refreshMyCompanies().catch(() => {});
+      return me;
+    },
+    [clearCompanyData, reloadFromBackend],
+  );
+
+  const switchCompany = useCallback(
+    async (orgId: string, name?: string): Promise<User> => {
+      const me = await enterCompany(orgId);
+      showToast(`Switched to ${name ?? "the company"}`, "success");
+      return me;
+    },
+    [enterCompany],
+  );
+
   const logout = useCallback(() => {
     mutate((s) => ({ ...s, session: null }));
     setFix(null);
+    // The company preference goes with the session: the next person to sign
+    // in on this device must not inherit a company they may not belong to.
+    setActiveCompany(null);
     // Clearing the local session while the Supabase token lived on would
     // silently sign the next person in as the last one.
     if (isLiveBackend) void authSignOut();
@@ -4189,6 +4274,8 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     loginAs,
     provisionCompany,
     reloadFromBackend,
+    enterCompany,
+    switchCompany,
     logout,
     currentUser,
     setActiveProject,

@@ -44,6 +44,12 @@ export interface Caller {
   email?: string;
   /** Everything else the token carried, passed through untouched. */
   claims: Record<string, unknown>;
+  /**
+   * The company the request says it is for (x-workfence-company). Forwarded
+   * as a request header for the policies to read; never trusted here. The
+   * database honours it only when the caller holds a live membership in it.
+   */
+  companyId?: string;
 }
 
 type Runner = <R extends pg.QueryResultRow = pg.QueryResultRow>(
@@ -68,6 +74,11 @@ export async function asCaller<T>(
       await client.query("set local role authenticated");
       await client.query("select set_config('request.jwt.claims', $1, true)", [
         JSON.stringify({ ...caller.claims, sub: caller.sub, role: "authenticated" }),
+      ]);
+      // The same shape PostgREST gives the policies, so one function reads
+      // both: current_setting('request.headers')::json->>'x-workfence-company'.
+      await client.query("select set_config('request.headers', $1, true)", [
+        JSON.stringify(caller.companyId ? { "x-workfence-company": caller.companyId } : {}),
       ]);
     } else {
       await client.query("set local role anon");

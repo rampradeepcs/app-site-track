@@ -78,6 +78,10 @@ export async function build() {
   app.decorateRequest("caller", null);
   app.addHook("onRequest", async (req) => {
     req.caller = await callerFrom(req.headers.authorization);
+    const company = req.headers["x-workfence-company"];
+    if (req.caller && typeof company === "string" && /^[0-9a-f-]{36}$/i.test(company)) {
+      req.caller.companyId = company;
+    }
   });
 
   app.setErrorHandler((error, req, reply) => {

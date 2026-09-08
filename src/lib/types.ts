@@ -21,7 +21,12 @@ export type LatLng = { lat: number; lng: number };
 
 /* ------------------------------------------------------------------ users */
 
-export type EmployeeStatus = "active" | "inactive" | "on-leave";
+/**
+ * A membership's state. `revoked` is the company ending it: the row stays,
+ * because the attendance and payroll that point at it are the company's
+ * records, but nothing resolves for the person there any more.
+ */
+export type EmployeeStatus = "active" | "inactive" | "on-leave" | "revoked";
 
 export interface User {
   id: string;

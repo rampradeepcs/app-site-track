@@ -30,6 +30,7 @@ import { showToast } from "@/lib/toast";
 import { recordGateNotice } from "@/lib/gate-notice";
 import { useWorkforce } from "@/lib/store";
 import { landingFor } from "@/lib/routes";
+import { ROUTE_FOR, resolveSignInDestination } from "@/lib/companies";
 import { describeError } from "@/lib/errors";
 import { leaveDemoFor } from "@/lib/demo/mode";
 
@@ -95,7 +96,15 @@ export function SsoReturn() {
           if (user) {
             console.info("[sso] resolved to", user.employeeCode || user.id, user.role);
             loginAsRef.current(user);
-            router.replace(landingFor(user.role));
+            // One company opens; several ask which; none says so. The
+            // platform owner belongs to no company and is not asked.
+            const to =
+              user.role === "superadmin"
+                ? { kind: "enter" as const, orgId: "" }
+                : await resolveSignInDestination();
+            router.replace(
+              to.kind === "enter" ? landingFor(user.role) : ROUTE_FOR[to.kind],
+            );
           } else {
             console.info("[sso] no worker record for this address; onboarding");
             if (!leaveDemoFor("/start")) router.replace("/start");

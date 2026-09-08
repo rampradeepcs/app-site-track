@@ -10,6 +10,9 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { EmployeeEditor } from "@/components/EmployeeEditor";
+import { InviteMemberSheet } from "@/components/InviteMemberSheet";
+import { RemoveMemberDialog } from "@/components/RemoveMemberDialog";
+import { useMyCompanies } from "@/lib/companies";
 import { ScreenHeader } from "@/components/shell";
 import {
   Avatar,
@@ -23,8 +26,16 @@ import { fmtClock, fmtDateShort, pct } from "@/lib/format";
 import { liveBoard, performanceFor } from "@/lib/metrics";
 import { useWorkforce } from "@/lib/store";
 import { isLiveBackend } from "@/lib/supabase/client";
+import { demoActive } from "@/lib/demo/mode";
 import type { Role, User } from "@/lib/types";
-import { IArrowR, IEdit, IPlus, ISearch, IShield, IUsers } from "@/components/WfIcons";
+import {
+  IArrowR,
+  IEdit,
+  IPlus,
+  ISearch,
+  IShield,
+  IUsers,
+} from "@/components/WfIcons";
 
 /**
  * Whether this person has ever signed in, and how.
@@ -66,17 +77,21 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 export default function AdminTeam() {
-  const { state, saveEmployee, setUserRole } = useWorkforce();
+  const { state, saveEmployee, setUserRole, reloadFromBackend } = useWorkforce();
   const now = useNowTick(15);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<Role | "all">("all");
   const [editing, setEditing] = useState<User | null | "new">(null);
+  const [inviting, setInviting] = useState(false);
+  const [removing, setRemoving] = useState<User | null>(null);
+  const { active } = useMyCompanies();
 
   const board = useMemo(() => liveBoard(state, undefined, now), [state, now]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return state.users
+      .filter((u) => u.status !== "revoked")
       .filter((u) => roleFilter === "all" || u.role === roleFilter)
       .filter(
         (u) =>
@@ -96,12 +111,39 @@ export default function AdminTeam() {
       <ScreenHeader
         back="/admin"
         title="Team & Roles"
-        sub={`${state.users.length} people across the organisation`}
+        sub={`${state.users.filter((u) => u.status !== "revoked").length} people in ${
+          active?.name ?? "this company"
+        }`}
         action={
-          <button className="wf-btn wf-btn-primary wf-btn-sm" onClick={() => setEditing("new")}>
-            <IPlus size={15} /> Add
-          </button>
+          <span className="flex items-center gap-2">
+            {/* Two different acts. Add writes a record for a crew that may
+                never sign in; Invite asks a person to join, and if they
+                already have a Workfence account it becomes a second
+                membership on the identity they already have. */}
+            {isLiveBackend && !demoActive() ? (
+              <button
+                className="wf-btn wf-btn-ghost wf-btn-sm"
+                onClick={() => setInviting(true)}
+              >
+                <IUsers size={15} /> Invite
+              </button>
+            ) : null}
+            <button className="wf-btn wf-btn-primary wf-btn-sm" onClick={() => setEditing("new")}>
+              <IPlus size={15} /> Add
+            </button>
+          </span>
         }
+      />
+      <InviteMemberSheet
+        open={inviting}
+        onClose={() => setInviting(false)}
+        onInvited={() => void reloadFromBackend()}
+      />
+      <RemoveMemberDialog
+        member={removing}
+        companyName={active?.name ?? "this company"}
+        onClose={() => setRemoving(null)}
+        onRemoved={() => void reloadFromBackend()}
       />
       <div className="flex flex-col gap-3.5 px-4">
         <div className="relative">
@@ -231,6 +273,16 @@ export default function AdminTeam() {
                       {u.status === "active" ? "Deactivate" : "Activate"}
                     </button>
                   )}
+                  {/* Removal is the company's door, not a status: it ends the
+                      membership and nothing else they belong to. */}
+                  {!isOwner && isLiveBackend && !demoActive() ? (
+                    <button
+                      className="wf-btn wf-btn-ghost wf-btn-sm wf-btn-danger-text"
+                      onClick={() => setRemoving(u)}
+                    >
+                      Remove from company
+                    </button>
+                  ) : null}
                 </div>
               </div>
             );

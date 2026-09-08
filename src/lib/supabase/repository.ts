@@ -508,6 +508,139 @@ export async function markNotificationsReadRemote(audience: AppNotification["aud
   if (error) throw error;
 }
 
+/* ------------------------------------------------------------ companies --- */
+
+export interface CompanyMembership {
+  orgId: string;
+  name: string;
+  slug: string;
+  code: string;
+  orgStatus: string;
+  appName: string;
+  logoText: string;
+  accent: string;
+  membershipId: string;
+  role: UserRow["role"];
+  status: string;
+  employeeCode: string;
+  designation: string;
+  joinedAt: string;
+  activeProjects: number;
+  isActive: boolean;
+}
+
+/** Every company the signed-in person belongs to, the active one first. */
+export async function fetchMyCompanies(): Promise<CompanyMembership[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("my_companies");
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    orgId: r.org_id,
+    name: r.name,
+    slug: r.slug,
+    code: r.code,
+    orgStatus: r.org_status,
+    appName: r.app_name ?? "Workfence",
+    logoText: r.logo_text ?? "",
+    accent: r.accent ?? "#000000",
+    membershipId: r.membership_id,
+    role: r.role,
+    status: r.status,
+    employeeCode: r.employee_code,
+    designation: r.designation,
+    joinedAt: r.joined_at,
+    activeProjects: r.active_projects,
+    isActive: r.is_active,
+  }));
+}
+
+export interface CompanyInvitation {
+  id: string;
+  orgId: string;
+  company: string;
+  role: UserRow["role"];
+  designation: string;
+  department: string;
+  project: string | null;
+  invitedBy: string | null;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export async function fetchMyInvitations(): Promise<CompanyInvitation[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("my_invitations");
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    orgId: r.org_id,
+    company: r.company,
+    role: r.role,
+    designation: r.designation,
+    department: r.department,
+    project: r.project,
+    invitedBy: r.invited_by,
+    createdAt: r.created_at,
+    expiresAt: r.expires_at,
+  }));
+}
+
+export async function acceptInvitationRemote(id: string): Promise<{ orgId: string; membershipId: string; alreadyMember: boolean }> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("accept_invitation", { p_id: id });
+  if (error) throw error;
+  const d = (data ?? {}) as Record<string, unknown>;
+  return { orgId: String(d.orgId), membershipId: String(d.membershipId), alreadyMember: !!d.alreadyMember };
+}
+
+export async function declineInvitationRemote(id: string): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("decline_invitation", { p_id: id });
+  if (error) throw error;
+}
+
+export interface InviteMemberInput {
+  email: string;
+  name?: string;
+  phone?: string;
+  role?: UserRow["role"];
+  department?: string;
+  designation?: string;
+  projectId?: string | null;
+  shiftId?: string | null;
+  employmentType?: string;
+}
+
+/** Admin or manager of the active company: ask somebody to join it. */
+export async function inviteMemberRemote(input: InviteMemberInput): Promise<{ id: string; existingUser: boolean; email: string }> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("invite_member", { payload: input as never });
+  if (error) throw error;
+  const d = (data ?? {}) as Record<string, unknown>;
+  return { id: String(d.id), existingUser: !!d.existingUser, email: String(d.email) };
+}
+
+/** End somebody's membership in the active company. Their records stay. */
+export async function removeMemberRemote(membershipId: string, reason?: string): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("remove_member", { p_user: membershipId, ...(reason ? { p_reason: reason } : {}) });
+  if (error) throw error;
+}
+
+export async function restoreMemberRemote(membershipId: string): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("restore_member", { p_user: membershipId });
+  if (error) throw error;
+}
+
+/** Found another company as an identity that already belongs to one. */
+export async function createCompanyRemote(payload: Record<string, unknown>): Promise<ProvisionResult> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("create_company", { payload: payload as never });
+  if (error) throw error;
+  return data as unknown as ProvisionResult;
+}
+
 /* -------------------------------------------------------------- invites --- */
 
 export interface InviteResult {

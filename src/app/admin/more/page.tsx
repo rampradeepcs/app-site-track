@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useEntitlements } from "@/components/FeatureGate";
 import { AccountPanel, ScreenHeader } from "@/components/shell";
 import { PersonaMenuEntry } from "@/components/demo/PersonaMenuEntry";
+import { MyCompaniesPanel } from "@/components/MyCompaniesPanel";
 import { Chip } from "@/components/ui";
 import { useWorkforce } from "@/lib/store";
 import type { FeatureSet } from "@/lib/saas-types";
@@ -158,6 +159,7 @@ export default function AdminMore() {
           </p>
         ) : null}
 
+        <MyCompaniesPanel />
         <PersonaMenuEntry />
         <AccountPanel />
       </div>

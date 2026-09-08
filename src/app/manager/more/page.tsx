@@ -12,6 +12,7 @@ import { BarTrend, ScoreBars } from "@/components/charts";
 import { FeatureGate, UpgradeNotice, useFeature } from "@/components/FeatureGate";
 import { AccountPanel, ScreenHeader } from "@/components/shell";
 import { PersonaMenuEntry } from "@/components/demo/PersonaMenuEntry";
+import { MyCompaniesPanel } from "@/components/MyCompaniesPanel";
 import { ThemeControl } from "@/components/ThemeControl";
 import {
   Avatar,
@@ -312,6 +313,7 @@ function MoreInner() {
           </Link>
         </div>
 
+        <MyCompaniesPanel />
       </div>
     </div>
   );

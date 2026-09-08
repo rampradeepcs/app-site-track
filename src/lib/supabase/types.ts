@@ -86,6 +86,9 @@ export type UserRow = {
   shift_start: number;
   shift_end: number;
   supervisor_rating: number | null;
+  /** When this membership was revoked; the row stays for the records that point at it. */
+  removed_at: string | null;
+  invited_by: string | null;
   joined_at: string;
   vehicle: Json | null;
   /* Written by the database at every sign-in from the identity provider —
@@ -454,6 +457,19 @@ export type Database = {
         Args: Record<string, never>;
         Returns: UserRow[];
       };
+      /** Every company the caller belongs to, the active one first. */
+      my_companies: { Args: Record<string, never>; Returns: MyCompanyRow[] };
+      /** Pending invitations addressed to the caller. */
+      my_invitations: { Args: Record<string, never>; Returns: MyInvitationRow[] };
+      /** Company admin or manager: ask somebody to join the active company. */
+      invite_member: { Args: { payload: Json }; Returns: Json };
+      accept_invitation: { Args: { p_id: string }; Returns: Json };
+      decline_invitation: { Args: { p_id: string }; Returns: undefined };
+      /** End a membership in the active company. The row and its records stay. */
+      remove_member: { Args: { p_user: string; p_reason?: string }; Returns: Json };
+      restore_member: { Args: { p_user: string }; Returns: Json };
+      /** Found another company as an identity that already has one. */
+      create_company: { Args: { payload: Json }; Returns: Json };
       /** Public: name and branding of the company at a subdomain, or null. */
       tenant_branding: {
         Args: { p_slug: string };
@@ -495,6 +511,40 @@ export interface SignupPayload {
   } | null;
   crew: Array<{ name: string; email?: string; phone?: string; designation?: string }>;
   timezone?: string;
+}
+
+/** One row of my_companies(): a membership and the company it is in. */
+export interface MyCompanyRow {
+  org_id: string;
+  name: string;
+  slug: string;
+  code: string;
+  org_status: string;
+  app_name: string | null;
+  logo_text: string | null;
+  accent: string | null;
+  membership_id: string;
+  role: UserRow["role"];
+  status: string;
+  employee_code: string;
+  designation: string;
+  joined_at: string;
+  active_projects: number;
+  is_active: boolean;
+}
+
+export interface MyInvitationRow {
+  id: string;
+  org_id: string;
+  company: string;
+  role: UserRow["role"];
+  designation: string;
+  department: string;
+  project: string | null;
+  invited_by: string | null;
+  created_at: string;
+  expires_at: string;
+  status: string;
 }
 
 export interface ProvisionResult {

@@ -15,6 +15,7 @@
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { companyHeaders } from "../company";
 import type { Database } from "./types";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -33,6 +34,21 @@ export function supabase(): SupabaseClient<Database> | null {
   if (!isLiveBackend) return null;
   if (!cached) {
     cached = createClient<Database>(URL!, ANON!, {
+      /*
+       * Every request names the company it is for.
+       *
+       * Read at call time rather than fixed when the client is made, so
+       * switching company does not mean rebuilding the client and losing the
+       * session it holds. The database validates the name against the
+       * caller's memberships; this only carries it.
+       */
+      global: {
+        fetch: (input, init) => {
+          const headers = new Headers(init?.headers ?? {});
+          for (const [k, v] of Object.entries(companyHeaders())) headers.set(k, v);
+          return fetch(input, { ...init, headers });
+        },
+      },
       auth: {
         persistSession: true,
         autoRefreshToken: true,

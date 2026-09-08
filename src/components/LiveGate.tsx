@@ -42,6 +42,7 @@ import { PersonaChooser } from "@/components/demo/PersonaPicker";
 import { LoginBackdrop } from "@/components/LoginBackdrop";
 import { consumeSignInDirect, landingFor } from "@/lib/routes";
 import { useTenant } from "@/lib/tenant";
+import { ROUTE_FOR, resolveSignInDestination } from "@/lib/companies";
 import { Field } from "@/components/ui";
 import { WorkfenceMark } from "@/components/Brand";
 import {
@@ -131,7 +132,20 @@ export default function LiveGate() {
   useEffect(() => {
     if (!state.session || landedRef.current) return;
     landedRef.current = true;
-    router.replace(landingFor(state.session.role));
+    const role = state.session.role;
+    // This gate only exists in live mode, so the question is the role: the
+    // platform owner belongs to no company and is never asked to choose one.
+    if (role === "superadmin") {
+      router.replace(landingFor(role));
+      return;
+    }
+    // Somebody may belong to one company, several, or none, and the answer
+    // decides where they land. Asked once, here, so no screen has to guess.
+    void resolveSignInDestination()
+      .then((to) => {
+        router.replace(to.kind === "enter" ? landingFor(role) : ROUTE_FOR[to.kind]);
+      })
+      .catch(() => router.replace(landingFor(role)));
   }, [state.session, router]);
 
   /* An unexpired token means this device is already signed in. Anyone else

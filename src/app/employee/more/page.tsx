@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { AccountPanel, ScreenHeader } from "@/components/shell";
 import { PersonaMenuEntry } from "@/components/demo/PersonaMenuEntry";
+import { MyCompaniesPanel } from "@/components/MyCompaniesPanel";
 import { Avatar, Chip } from "@/components/ui";
 import { fmtShiftTime, todayISO } from "@/lib/format";
 import { shiftFor } from "@/lib/payroll";
@@ -166,6 +167,7 @@ export default function EmployeeMore() {
           ))}
         </div>
 
+        <MyCompaniesPanel />
         <PersonaMenuEntry />
         <AccountPanel identity={false} />
       </div>
