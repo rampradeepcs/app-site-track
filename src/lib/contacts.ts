@@ -36,12 +36,15 @@ export interface PickOutcome {
 interface PickedContact {
   name?: string[];
   tel?: string[];
+  email?: string[];
 }
 interface ContactsManager {
   select(
     props: string[],
     options?: { multiple?: boolean },
   ): Promise<PickedContact[]>;
+  /** Which properties this browser will hand over. Not everywhere. */
+  getProperties?: () => Promise<string[]>;
 }
 
 function webPicker(): ContactsManager | null {
@@ -56,11 +59,12 @@ interface NativePick {
   cancelled: boolean;
   name?: string;
   phone?: string;
+  email?: string;
 }
 
 interface NativeList {
   denied: boolean;
-  contacts?: Array<{ name?: string; phone?: string }>;
+  contacts?: Array<{ name?: string; phone?: string; email?: string }>;
 }
 
 interface NativeContactPicker {
@@ -125,7 +129,14 @@ export interface ListOutcome {
   error?: string;
 }
 
-/** Every contact with a phone number, for the multi-select sheet. */
+/**
+ * Everybody on the device, read afresh.
+ *
+ * Asked of the phone on every open rather than remembered: somebody who
+ * leaves this screen to add a colleague's address in Contacts and comes
+ * straight back must see the address they just typed, and a list held from
+ * a minute ago would tell them their own edit never happened.
+ */
 export async function listDeviceContacts(): Promise<ListOutcome> {
   const plugin = nativePicker();
   if (typeof plugin?.list !== "function") {
@@ -136,9 +147,19 @@ export async function listDeviceContacts(): Promise<ListOutcome> {
     if (out.denied) return { denied: true, contacts: [] };
     return {
       denied: false,
+      /*
+       * The address is carried through.
+       *
+       * It was dropped here — the mapping took a name and a number and
+       * nothing else — so every contact reached the sheet without one,
+       * whatever the device actually held, and the screen concluded the
+       * phone had no addresses on it at all. The plugin had been reading
+       * them the whole time.
+       */
       contacts: (out.contacts ?? []).map((c) => ({
         name: (c.name ?? "").trim(),
         phone: (c.phone ?? "").trim(),
+        email: (c.email ?? "").trim(),
       })),
     };
   } catch (e) {
@@ -160,7 +181,11 @@ export async function pickContacts(): Promise<PickOutcome> {
       if (picked.cancelled || !picked.name?.trim()) return { contacts: [] };
       return {
         contacts: [
-          { name: picked.name.trim(), phone: (picked.phone ?? "").trim() },
+          {
+            name: picked.name.trim(),
+            phone: (picked.phone ?? "").trim(),
+            email: (picked.email ?? "").trim(),
+          },
         ],
       };
     } catch (e) {
@@ -175,13 +200,20 @@ export async function pickContacts(): Promise<PickOutcome> {
 
   if (source === "web") {
     try {
-      const picked = await webPicker()!.select(["name", "tel"], {
+      const picker = webPicker()!;
+      /* Ask for the address as well, but only where the browser admits to
+         having it: select() rejects outright on a property it does not
+         support, which would turn a working picker into an error. */
+      const available = (await picker.getProperties?.()) ?? ["name", "tel"];
+      const props = ["name", "tel", "email"].filter((p) => available.includes(p));
+      const picked = await picker.select(props.length ? props : ["name"], {
         multiple: true,
       });
       return {
         contacts: picked.map((c) => ({
           name: (c.name?.[0] ?? "").trim(),
           phone: (c.tel?.[0] ?? "").trim(),
+          email: (c.email?.[0] ?? "").trim(),
         })),
       };
     } catch {

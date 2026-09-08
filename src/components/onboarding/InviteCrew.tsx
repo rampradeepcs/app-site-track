@@ -18,7 +18,15 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { Avatar } from "../ui";
-import { ICheckCircle, IPhone, IPlus, ISearch, ITrash, IUsers } from "../WfIcons";
+import {
+  ICheckCircle,
+  IPhone,
+  IPlus,
+  IRefresh,
+  ISearch,
+  ITrash,
+  IUsers,
+} from "../WfIcons";
 import {
   canListContacts,
   contactSource,
@@ -74,13 +82,17 @@ function ContactSheet({
   alreadyIn,
   onAdd,
   onCancel,
+  onRefresh,
 }: {
   contacts: CrewInvite[];
   /** contactKeys already on the invite list — shown ticked and untappable. */
   alreadyIn: Set<string>;
   onAdd: (chosen: CrewInvite[]) => void;
   onCancel: () => void;
+  /** Read the device again, for somebody who just edited a contact. */
+  onRefresh: () => Promise<void>;
 }) {
+  const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState("");
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   /*
@@ -134,12 +146,27 @@ function ContactSheet({
       <div className="flex max-h-[calc(80dvh-var(--wf-safe-top))] flex-col gap-3 rounded-t-3xl border-t border-[var(--wf-line)] bg-[var(--wf-surface)] px-4 pt-4 pb-[max(1.25rem,var(--wf-safe-bottom))]">
         <div className="flex items-center justify-between">
           <h2 className="wf-display text-lg">Pick from contacts</h2>
-          <button
-            className="cursor-pointer text-sm font-semibold text-[var(--wf-muted)] hover:text-[var(--wf-fg)]"
-            onClick={onCancel}
-          >
-            Cancel
-          </button>
+          <span className="flex items-center gap-3">
+            {/* The list is read fresh on every open; this is for the person
+                who leaves mid-pick to add an address and comes back. */}
+            <button
+              className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-[var(--wf-muted)] hover:text-[var(--wf-fg)] disabled:opacity-50"
+              disabled={refreshing}
+              onClick={() => {
+                setRefreshing(true);
+                void onRefresh().finally(() => setRefreshing(false));
+              }}
+            >
+              <IRefresh size={14} />
+              {refreshing ? "Syncing…" : "Sync"}
+            </button>
+            <button
+              className="cursor-pointer text-sm font-semibold text-[var(--wf-muted)] hover:text-[var(--wf-fg)]"
+              onClick={onCancel}
+            >
+              Cancel
+            </button>
+          </span>
         </div>
 
         <div className="relative">
@@ -331,6 +358,24 @@ export function InviteCrew({
     addPicked(contacts);
   };
 
+  /**
+   * Read the device's contacts again while the sheet is open.
+   *
+   * Nothing is cached — every open already asks the phone — but somebody who
+   * steps out to add a colleague's address and comes back should not have to
+   * close and reopen to see it.
+   */
+  const refreshSheet = async () => {
+    const { denied, contacts, error } = await listDeviceContacts();
+    if (denied || error) {
+      setNote(error ?? "Contacts permission declined.");
+      return;
+    }
+    const named = contacts.filter((c) => c.name.trim());
+    setSheet(dedupeByContact(named));
+    setNote(`Synced — ${named.length} ${named.length === 1 ? "contact" : "contacts"}.`);
+  };
+
   const pickFromContacts = async () => {
     setNote(null);
 
@@ -485,6 +530,7 @@ export function InviteCrew({
 
       {sheet ? (
         <ContactSheet
+          onRefresh={refreshSheet}
           contacts={sheet}
           alreadyIn={new Set(invites.map((i) => contactKey(i)))}
           onCancel={() => setSheet(null)}
