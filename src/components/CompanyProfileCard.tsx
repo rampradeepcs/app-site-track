@@ -1,36 +1,33 @@
 "use client";
 
 /**
- * The company, on the administrator's own screen.
+ * The company, on the More screen: enough to recognise, and the way in.
  *
- * Its name is the one thing about a company that shows up everywhere — the
- * header, the switcher, the sign-in page a worker sees — and until now the
- * only person who could change it was the platform owner. This is where its
- * administrator does.
+ * The full record and the form both live on their own pages, so there is one
+ * implementation of each rather than a card that quietly grows into a
+ * second, shorter version of the same screen.
  */
 
-import { useState } from "react";
+import Link from "next/link";
 import { Chip, SectionTitle } from "./ui";
-import { CompanyProfileSheet } from "./CompanyProfileSheet";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
-import { IEdit } from "./WfIcons";
+import { IArrowR } from "./WfIcons";
 
 export function CompanyProfileCard() {
   const { platform } = usePlatform();
   const { currentUser } = useWorkforce();
-  const [editing, setEditing] = useState(false);
 
-  // Only the company's own owner. A manager runs the sites; the company's
-  // name and contact details are not theirs to change.
-  if (currentUser?.role !== "admin") return null;
+  // Managers and employees see the company's details too; only an owner may
+  // change them, which the page itself enforces.
+  if (!currentUser) return null;
   const org = platform.organizations.find((o) => o.id === currentUser.orgId);
   if (!org) return null;
 
   return (
     <div className="wf-card flex flex-col gap-3 p-4">
       <SectionTitle>Company</SectionTitle>
-      <div className="flex items-center gap-3">
+      <Link href="/admin/company" className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="truncate text-[0.95rem] font-bold">{org.name}</p>
           <p className="truncate text-[0.74rem] text-[var(--wf-muted)]">
@@ -41,16 +38,8 @@ export function CompanyProfileCard() {
         <Chip tone={org.status === "active" ? "green" : "amber"}>
           {org.status[0].toUpperCase() + org.status.slice(1)}
         </Chip>
-        <button
-          type="button"
-          className="wf-btn wf-btn-ghost wf-btn-sm h-9 w-9 shrink-0 p-0"
-          aria-label="Edit company profile"
-          onClick={() => setEditing(true)}
-        >
-          <IEdit size={15} />
-        </button>
-      </div>
-      <CompanyProfileSheet org={org} open={editing} onClose={() => setEditing(false)} />
+        <IArrowR size={16} className="shrink-0 text-[var(--wf-muted)]" />
+      </Link>
     </div>
   );
 }
