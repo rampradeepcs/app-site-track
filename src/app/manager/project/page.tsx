@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { GeofenceEditor } from "@/components/GeofenceEditor";
+import { EditProjectSheet } from "@/components/EditProjectSheet";
 import { ScreenHeader } from "@/components/shell";
 import { SiteMap, type MapMarker } from "@/components/SiteMap";
 import { BarTrend } from "@/components/charts";
@@ -42,6 +43,7 @@ import { useWorkforce } from "@/lib/store";
 import {
   IArrowR,
   ICheck,
+  IEdit,
   ISearch,
   IMapPin,
   IPhone,
@@ -69,6 +71,7 @@ function ProjectInner() {
   const project = state.projects.find((p) => p.id === id) ?? null;
   const [tab, setTab] = useState<Tab>("overview");
   const [assigning, setAssigning] = useState(false);
+  const [editing, setEditing] = useState(false);
   const now = useNowTick(15);
 
   const board = useMemo(
@@ -209,12 +212,27 @@ function ProjectInner() {
         title={project.name}
         sub={`${project.code} · ${project.client}`}
         action={
-          <StatusChip
-            status={project.status === "active" ? "working" : "not-in"}
-            label={project.status[0].toUpperCase() + project.status.slice(1)}
-          />
+          <span className="flex items-center gap-2">
+            <StatusChip
+              status={project.status === "active" ? "working" : "not-in"}
+              label={project.status[0].toUpperCase() + project.status.slice(1)}
+            />
+            {/* The details themselves had no way in: the boundary had an
+                editor, the policy a toggle, the roster a tab, and a client
+                name typed wrong on day one stayed wrong. */}
+            <button
+              type="button"
+              className="wf-btn wf-btn-ghost wf-btn-sm h-9 w-9 shrink-0 p-0"
+              aria-label="Edit project"
+              title="Edit project"
+              onClick={() => setEditing(true)}
+            >
+              <IEdit size={16} />
+            </button>
+          </span>
         }
       />
+      <EditProjectSheet project={project} open={editing} onClose={() => setEditing(false)} />
       <div className="flex flex-col gap-4 px-4">
         <Segmented<Tab>
           ariaLabel="Project sections"
