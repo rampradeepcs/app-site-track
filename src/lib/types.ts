@@ -778,7 +778,16 @@ export type NotificationKind =
   | "work-update"
   | "tracking-started"
   | "reminder"
-  | "sync";
+  | "sync"
+  /* Membership and company events, raised by the database in the same
+     transaction as the change — so one cannot exist without the other. */
+  | "member-invited"
+  | "member-joined"
+  | "member-removed"
+  | "member-restored"
+  | "invitation-declined"
+  | "company-renamed"
+  | "company-updated";
 
 export interface AppNotification {
   id: string;

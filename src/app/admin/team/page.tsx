@@ -90,7 +90,7 @@ export default function AdminTeam() {
   const { state, saveEmployee, setUserRole, reloadFromBackend } = useWorkforce();
   const now = useNowTick(15);
   const [query, setQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState<Role | "all">("all");
+  const [roleFilter, setRoleFilter] = useState<Role | "all" | "invited">("all");
   const [editing, setEditing] = useState<User | null | "new">(null);
   const [inviting, setInviting] = useState(false);
   const [removing, setRemoving] = useState<User | null>(null);
@@ -115,6 +115,12 @@ export default function AdminTeam() {
 
   const board = useMemo(() => liveBoard(state, undefined, now), [state, now]);
 
+  /** Everyone still a member: the count the All tab is counting. */
+  const rowsAll = useMemo(
+    () => state.users.filter((u) => u.status !== "revoked"),
+    [state.users],
+  );
+
   /** Invitations for people who have no membership row yet, so appear nowhere else. */
   const pendingOutside = useMemo(
     () => pending.filter((i) => !i.hasMembership),
@@ -123,6 +129,7 @@ export default function AdminTeam() {
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
+    if (roleFilter === "invited") return [];
     return state.users
       .filter((u) => u.status !== "revoked")
       .filter((u) => roleFilter === "all" || u.role === roleFilter)
@@ -144,7 +151,7 @@ export default function AdminTeam() {
       <ScreenHeader
         back="/admin"
         title="Team & Roles"
-        sub={`${state.users.filter((u) => u.status !== "revoked").length} people`}
+        sub={`${rowsAll.length} people`}
         action={
           <span className="flex items-center gap-2">
             {/* Two different acts. Add writes a record for a crew that may
@@ -167,39 +174,6 @@ export default function AdminTeam() {
           </span>
         }
       />
-      {pendingOutside.length > 0 ? (
-        <div className="mx-4 mb-1 flex flex-col gap-2 rounded-2xl border border-[var(--wf-line)] bg-[var(--wf-fill-2)] p-3.5">
-          <p className="text-[0.72rem] font-bold uppercase tracking-wider text-[var(--wf-muted)]">
-            Waiting to accept
-          </p>
-          {pendingOutside.map((inv) => (
-            <div key={inv.id} className="flex items-center gap-2.5">
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[0.84rem] font-semibold">
-                  {inv.name || inv.email}
-                </span>
-                <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
-                  {inv.email} · invited as {ROLE_LABEL[inv.role] ?? inv.role}
-                </span>
-              </span>
-              <Chip tone="blue">Invited</Chip>
-              <button
-                className="wf-btn wf-btn-ghost wf-btn-sm"
-                onClick={() =>
-                  void cancelInvitationRemote(inv.id)
-                    .then(() => {
-                      showToast(`Invitation to ${inv.email} cancelled`);
-                      loadMembership();
-                    })
-                    .catch((e) => showToast(describeError(e), "danger"))
-                }
-              >
-                Cancel
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : null}
       <InviteMemberSheet
         open={inviting}
         onClose={() => setInviting(false)}
@@ -222,19 +196,70 @@ export default function AdminTeam() {
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
-        <Segmented<Role | "all">
+        <Segmented<Role | "all" | "invited">
           ariaLabel="Role filter"
           value={roleFilter}
           onChange={setRoleFilter}
           size="sm"
           options={[
-            { value: "all", label: `All (${state.users.length})` },
+            { value: "all", label: `All (${rowsAll.length})` },
             { value: "employee", label: "Employees" },
             { value: "manager", label: "Managers" },
             { value: "admin", label: "Admins" },
+            /* People who have been asked and have not answered. A tab
+               rather than a banner above the list: they are part of the
+               team's picture, and a banner pushed the actual team down the
+               screen on every visit whether or not anyone was waiting. */
+            ...(pendingOutside.length > 0
+              ? [
+                  {
+                    value: "invited" as const,
+                    label: `Invited (${pendingOutside.length})`,
+                  },
+                ]
+              : []),
           ]}
         />
 
+        {roleFilter === "invited" ? (
+          <div className="flex flex-col gap-2">
+            {pendingOutside.map((inv) => (
+              <div key={inv.id} className="wf-card flex flex-col gap-3 p-4">
+                <div className="flex items-center gap-3">
+                  <Avatar name={inv.name || inv.email} hue={(inv.email.length * 47) % 360} size={38} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[0.9rem] font-bold">
+                      {inv.name || inv.email}
+                    </span>
+                    <span className="block truncate text-[0.74rem] text-[var(--wf-muted)]">
+                      {inv.email}
+                    </span>
+                    <span className="block truncate text-[0.72rem] text-[var(--wf-faint)]">
+                      Invited as {ROLE_LABEL[inv.role] ?? inv.role}
+                      {inv.invitedBy ? ` by ${inv.invitedBy}` : ""}
+                    </span>
+                  </span>
+                  <Chip tone="blue">Invited</Chip>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="wf-btn wf-btn-ghost wf-btn-sm wf-btn-danger-text"
+                    onClick={() =>
+                      void cancelInvitationRemote(inv.id)
+                        .then(() => {
+                          showToast(`Invitation to ${inv.email} cancelled`);
+                          loadMembership();
+                        })
+                        .catch((e) => showToast(describeError(e), "danger"))
+                    }
+                  >
+                    Cancel invitation
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
         <div className="flex flex-col gap-2">
           {/* A filter that matches nothing left a blank screen — which reads
               as a broken page rather than as "no matches". */}
@@ -355,6 +380,7 @@ export default function AdminTeam() {
             );
           })}
         </div>
+        )}
 
         <p className="flex items-center justify-center gap-1.5 pb-2 text-center text-[0.68rem] text-[var(--wf-faint)]">
           Role changes are audit-logged — see{" "}

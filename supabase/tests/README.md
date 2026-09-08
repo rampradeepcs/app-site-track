@@ -8,6 +8,9 @@ invent people and companies freely and leave nothing behind.
 PGPW='<database password>' python3 supabase/tests/multi_company_test.py
 ```
 
+`notify_test.py` covers the notification raised by each membership and
+company event, and who may read it.
+
 `company_admin_test.py` covers a company editing itself, which of its
 membership rows have a person behind them yet, and the invitations still
 waiting — including the ones for people who have no row at all and so appear
