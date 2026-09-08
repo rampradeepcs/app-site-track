@@ -476,11 +476,15 @@ export function ScreenHeader({
   }, []);
 
   return (
+    <>
+    {action ? <FloatingActions back={back}>{action}</FloatingActions> : null}
     <header
       className="wf-navbar flex items-center gap-3 px-4 pb-3 pt-4"
       data-scrolled={scrolled}
     >
-      {back ? (
+      {/* Back lives in the floating bar when there is one, so it is not
+          offered twice on the same screen. */}
+      {back && !action ? (
         <button
           aria-label="Go back"
           onClick={() => {
@@ -517,8 +521,93 @@ export function ScreenHeader({
           </p>
         ) : null}
       </div>
-      {action}
     </header>
+    </>
+  );
+}
+
+/**
+ * The screen's actions, at the bottom, within reach.
+ *
+ * A control in the header is the one place a thumb cannot reach without
+ * regripping the phone, and these are the controls a screen exists for —
+ * add a project, invite somebody, save. So they sit above the tab bar
+ * instead, in a floating bar: a circle to go back, then whatever the screen
+ * offers, each its own segment.
+ *
+ * Back moves here with them rather than being shown twice. A screen with no
+ * actions keeps its header button, because a bar holding nothing but a back
+ * arrow would be a floating control that does what the header already did.
+ */
+function FloatingActions({
+  back,
+  children,
+}: {
+  back?: string | true;
+  children: React.ReactNode;
+}) {
+  const router = useRouter();
+  const { state } = useWorkforce();
+
+  /*
+   * The bar is fixed, so the page beneath needs room it does not know it
+   * needs. Written as an inline style rather than a stylesheet rule: this
+   * file's CSS is imported into a cascade layer, and an unlayered rule from
+   * Tailwind's base beats anything in one however specific it is — which is
+   * why the first attempt at `body.wf-has-fabbar { padding-bottom }`
+   * computed to 0 and left the bar sitting on the last row. The class stays
+   * for rules that only compete inside the layer, like lifting the demo chip.
+   */
+  useEffect(() => {
+    /*
+     * On the .wf wrapper, not on the body: every token in this design lives
+     * on that element, so --wf-above-tabbar is not defined on an ancestor of
+     * it. Setting the padding on the body made the calc reference a variable
+     * that resolved to nothing, which computes to 0 and left the bar sitting
+     * on the last row.
+     */
+    const host = document.querySelector<HTMLElement>(".wf") ?? document.body;
+    const previous = host.style.paddingBottom;
+    document.body.classList.add("wf-has-fabbar");
+    host.style.paddingBottom = "calc(var(--wf-above-tabbar) + 3.5rem)";
+    return () => {
+      document.body.classList.remove("wf-has-fabbar");
+      host.style.paddingBottom = previous;
+    };
+  }, []);
+
+  return (
+    <div className="wf-fabbar" role="group" aria-label="Actions on this screen">
+      {back ? (
+        <button
+          type="button"
+          aria-label="Go back"
+          className="wf-btn wf-btn-ghost wf-fab-icon"
+          onClick={() => {
+            if (back !== true) return router.push(back);
+            // A cold deep link has nothing behind it, and router.back() on
+            // an empty history does nothing at all.
+            if (window.history.length > 1) router.back();
+            else router.push(homeFor(state.session?.role ?? "employee"));
+          }}
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m15 5-7 7 7 7" />
+          </svg>
+        </button>
+      ) : null}
+      {children}
+    </div>
   );
 }
 

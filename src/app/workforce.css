@@ -1393,3 +1393,107 @@ a.wf-row:active, button.wf-row:active {
   overflow-wrap: normal;
   word-break: keep-all;
 }
+/* ---------------------------------------------------------------------- */
+/* Floating action bar                                                     */
+/*                                                                         */
+/* The screen's actions, moved off the header and down to the thumb.       */
+/* A header control on a phone is the one place a hand cannot reach        */
+/* without regripping, and these are the controls a screen exists for.     */
+/*                                                                         */
+/* Segmented like the reference: a circle for going back, a filled pill    */
+/* for the action a screen is about, quieter pills beside it, and a circle */
+/* for anything that is only an icon. The gaps between the segments are    */
+/* the design — one long bar would read as a toolbar rather than as a set  */
+/* of separate choices.                                                    */
+/*                                                                         */
+/* It sits above the tab bar rather than over it: --wf-above-tabbar        */
+/* already resolves to the safe-area inset alone on screens that have no   */
+/* tab bar, because TabBar sets the height to zero there.                  */
+
+.wf-fabbar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: var(--wf-above-tabbar);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: min(100vw - 1.5rem, 34rem);
+  padding: 0.3rem;
+  border-radius: 999px;
+  background: var(--wf-material-bar);
+  backdrop-filter: var(--wf-material-blur);
+  box-shadow:
+    var(--wf-shadow),
+    inset 0 0.5px 0 var(--wf-material-edge);
+  /* Wider than the screen is possible with three or four actions; it
+     scrolls rather than pushing itself off-centre. */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.wf-fabbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Every control inside becomes a pill of the same height, whatever the
+   page happened to style it as. Pages keep writing ordinary buttons. */
+.wf-fabbar .wf-btn {
+  min-height: 2.75rem;
+  padding-inline: 1.05rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+/* Anything with no text is a circle: the back control, an overflow menu. */
+.wf-fabbar .wf-fab-icon {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  padding: 0;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+/* A quiet pill still needs a ground of its own — over a blurred bar a
+   ghost button has no edge at all. */
+.wf-fabbar .wf-btn-ghost {
+  background: var(--wf-surface);
+  border-color: var(--wf-line);
+  color: var(--wf-fg);
+}
+
+/* Chips and plain text that pages put beside their buttons: centred, and
+   given the same breathing room, rather than jammed against a pill. */
+.wf-fabbar > span,
+.wf-fabbar > div {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+}
+
+/* The room under the last row is set inline by ScreenHeader, not here:
+   this file is imported into a cascade layer, and an unlayered base rule
+   beats a layered one however specific it is. The class remains for rules
+   that only compete inside the layer, such as the demo chip below. */
+
+/* A control that sized itself square with utilities is an icon button:
+   round it, so it reads as a circle beside the pills rather than as a
+   cramped rectangle. */
+.wf-fabbar .wf-btn.w-9,
+.wf-fabbar .wf-btn.w-10 {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  padding: 0;
+}
+
+/* The demo chip is fixed to the same corner the action bar now occupies.
+   Lift it clear so a presenter can still reach the button the screen is
+   about. Demo only — no production build has this chip. */
+body.wf-has-fabbar .wf-demo-chip {
+  bottom: calc(var(--wf-above-tabbar) + 3.6rem);
+}

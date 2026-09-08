@@ -210,26 +210,21 @@ function ProjectInner() {
       <ScreenHeader
         back
         title={project.name}
-        sub={`${project.code} · ${project.client}`}
+        sub={`${project.code} · ${project.client} · ${
+          project.status[0].toUpperCase() + project.status.slice(1)
+        }`}
         action={
-          <span className="flex items-center gap-2">
-            <StatusChip
-              status={project.status === "active" ? "working" : "not-in"}
-              label={project.status[0].toUpperCase() + project.status.slice(1)}
-            />
-            {/* The details themselves had no way in: the boundary had an
-                editor, the policy a toggle, the roster a tab, and a client
-                name typed wrong on day one stayed wrong. */}
-            <button
-              type="button"
-              className="wf-btn wf-btn-ghost wf-btn-sm h-9 w-9 shrink-0 p-0"
-              aria-label="Edit project"
-              title="Edit project"
-              onClick={() => setEditing(true)}
-            >
-              <IEdit size={16} />
-            </button>
-          </span>
+          /* The details themselves had no way in: the boundary had an
+             editor, the policy a toggle, the roster a tab, and a client name
+             typed wrong on day one stayed wrong. The status is not here: it
+             is something to read, and this is a bar of things to press. */
+          <button
+            type="button"
+            className="wf-btn wf-btn-primary"
+            onClick={() => setEditing(true)}
+          >
+            <IEdit size={16} /> Edit project
+          </button>
         }
       />
       <EditProjectSheet project={project} open={editing} onClose={() => setEditing(false)} />
