@@ -6,22 +6,22 @@
 # fails as "Upload aborted" with no clue which file it was on.
 
 # The Capacitor wrapper and everything Gradle leaves behind.
-android/
+/android/
 
 # The static export, produced locally with STATIC_EXPORT=true for the APK.
 # The website is built on Vercel from source.
-out/
+/out/
 
 # Local build and tooling output.
 .next/
 *.apk
 *.keystore
-coverage/
+/coverage/
 
 # The API is its own service with its own dependencies; the web build
 # neither type-checks nor ships it.
-server/
+/server/
 
 # Database migrations and edge functions: deployed to Supabase, not to Vercel,
 # and written for Deno rather than for this build.
-supabase/
+/supabase/
