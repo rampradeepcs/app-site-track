@@ -460,6 +460,21 @@ export function ScreenHeader({
 }) {
   const router = useRouter();
   const { state } = useWorkforce();
+  const pathname = usePathname();
+
+  /*
+   * A first-level screen offers no way back, because there is nowhere to go
+   * back to: it is one of the tabs, and the tab bar already reaches every
+   * other one. The arrow there pointed at whichever screen the page happened
+   * to name as its parent — Team & Roles sending you to the dashboard — which
+   * is a lateral move dressed up as an exit.
+   *
+   * Tested against every role's roots, not just this one's, for the same
+   * reason the tab bar is: /manager is a tab for a manager and not for an
+   * admin, and a top-level surface is top-level whoever is looking at it.
+   */
+  const atTabRoot = ALL_TAB_ROOTS.has(pathname.replace(/\/$/, "") || "/");
+  const backHere = atTabRoot ? undefined : back;
 
   /*
    * The iOS scroll edge effect: the header is transparent over the top of
@@ -481,18 +496,18 @@ export function ScreenHeader({
 
   return (
     <>
-    {action ? <FloatingActions back={back}>{action}</FloatingActions> : null}
+    {action ? <FloatingActions back={backHere}>{action}</FloatingActions> : null}
     <header
       className="wf-navbar flex items-center gap-3 px-4 pb-3 pt-4"
       data-scrolled={scrolled}
     >
       {/* Back lives in the floating bar when there is one, so it is not
           offered twice on the same screen. */}
-      {back && !action ? (
+      {backHere && !action ? (
         <button
           aria-label="Go back"
           onClick={() => {
-            if (back !== true) return router.push(back);
+            if (backHere !== true) return router.push(backHere);
             // A cold deep link has nothing behind it, and router.back()
             // on an empty history does nothing at all — which is the
             // dead end this button exists to prevent.
