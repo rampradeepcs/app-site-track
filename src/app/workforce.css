@@ -1347,7 +1347,11 @@ a.wf-row:active, button.wf-row:active {
  * nothing for it.
  */
 [data-demo-chip="true"] .wf {
-  padding-bottom: 4.25rem;
+  /* Contributes its height rather than replacing the padding. As a
+     padding-bottom of its own it out-specified the rule that reserves room
+     for the tab bar and the action bar, so in demo mode the action bar sat
+     on the last card — a bug only a presenter would ever see. */
+  --wf-chip-h: 2.75rem;
 }
 
 .wf-demo-chip[data-tabs="false"] {
@@ -1476,10 +1480,20 @@ a.wf-row:active, button.wf-row:active {
   flex: 0 0 auto;
 }
 
-/* The room under the last row is set inline by ScreenHeader, not here:
-   this file is imported into a cascade layer, and an unlayered base rule
-   beats a layered one however specific it is. The class remains for rules
-   that only compete inside the layer, such as the demo chip below. */
+/* Room at the bottom of every screen, in one place.
+ *
+ * Both bars are fixed, so neither takes up space the content can see, and
+ * the demo chip floats over it. Each publishes a height instead — the tab
+ * bar through --wf-tabbar-h, which --wf-above-tabbar folds in, the action
+ * bar through --wf-fab-h, the chip through --wf-chip-h — and this adds them
+ * up. Everything that needs room sets a variable; nothing sets this
+ * property. That is the whole point: the last thing that did set it won on
+ * specificity and silently removed the room the others had asked for. */
+.wf {
+  padding-bottom: calc(
+    var(--wf-above-tabbar) + var(--wf-fab-h, 0px) + var(--wf-chip-h, 0px)
+  );
+}
 
 /* A control that sized itself square with utilities is an icon button:
    round it, so it reads as a circle beside the pills rather than as a

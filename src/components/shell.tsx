@@ -351,7 +351,12 @@ export function TabBar({ role }: { role: Role }) {
     <nav
       aria-label="Primary"
       data-compact={compact}
-      className="wf-tabbar wf-safe-bottom sticky bottom-0 z-40"
+      /* Fixed, not sticky. Sticky kept the bar in the page's flow, so it
+         only stayed at the bottom while there was nothing under it — and
+         the room reserved for the floating action bar was exactly that,
+         which lifted the tabs into the middle of the screen and left the
+         actions stranded underneath them. */
+      className="wf-tabbar wf-safe-bottom fixed inset-x-0 bottom-0 z-40"
     >
       {tabs.map((t) => {
         const owned = (t as { alsoActive?: string[] }).alsoActive ?? [];
@@ -554,19 +559,16 @@ function FloatingActions({
    */
   useEffect(() => {
     /*
-     * On the .wf wrapper, not on the body: every token in this design lives
-     * on that element, so --wf-above-tabbar is not defined on an ancestor of
-     * it. Setting the padding on the body made the calc reference a variable
-     * that resolved to nothing, which computes to 0 and left the bar sitting
-     * on the last row.
+     * Published on the .wf wrapper, where every token in this design lives:
+     * a calc on the body referenced a variable defined nowhere above it and
+     * resolved to nothing, which computes to 0.
      */
     const host = document.querySelector<HTMLElement>(".wf") ?? document.body;
-    const previous = host.style.paddingBottom;
     document.body.classList.add("wf-has-fabbar");
-    host.style.paddingBottom = "calc(var(--wf-above-tabbar) + 3.5rem)";
+    host.style.setProperty("--wf-fab-h", "3.75rem");
     return () => {
       document.body.classList.remove("wf-has-fabbar");
-      host.style.paddingBottom = previous;
+      host.style.removeProperty("--wf-fab-h");
     };
   }, []);
 
