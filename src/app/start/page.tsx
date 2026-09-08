@@ -49,7 +49,7 @@ import {
   sessionEmail,
   sessionIdentity,
 } from "@/lib/supabase/auth";
-import { provisionCompanyRemote } from "@/lib/supabase/repository";
+import { inviteCrewRemote, provisionCompanyRemote } from "@/lib/supabase/repository";
 import type { TrackingMode } from "@/lib/types";
 
 /** Steps that collect something, in order. The rail counts these. */
@@ -103,6 +103,8 @@ function StartWizard() {
   }, []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** What happened to the invitations, told on the last screen. */
+  const [inviteNote, setInviteNote] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -311,7 +313,7 @@ function StartWizard() {
 
     setBusy(true);
     try {
-      await provisionCompanyRemote({
+      const made = await provisionCompanyRemote({
         ...d,
         timezone:
           Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata",
@@ -327,6 +329,33 @@ function StartWizard() {
       // roles showed one person, and stayed that way until something else
       // happened to trigger a re-read.
       await reloadFromBackend();
+
+      /*
+       * And tell the crew.
+       *
+       * Their records exist and their addresses are right, but until this
+       * runs not one of them knows the app is waiting for them — which made
+       * "invite your crew" a screen that invited nobody. Deliberately after
+       * the company is safely made and read back: a mail server having a bad
+       * afternoon must not cost somebody the company they just set up, so a
+       * failure here is reported and nothing more.
+       */
+      if (d.crew.length > 0 && made?.orgId) {
+        try {
+          const sent = await inviteCrewRemote(made.orgId);
+          setInviteNote(
+            sent.failed > 0
+              ? `${sent.invited} invited — ${sent.failed} could not be emailed. Invite them again from Team & roles.`
+              : sent.invited > 0
+                ? `Invited ${sent.invited} ${sent.invited === 1 ? "person" : "people"}.`
+                : null,
+          );
+        } catch (e) {
+          setInviteNote(
+            `Your company is ready, but the invitations did not send: ${describeError(e)}`,
+          );
+        }
+      }
       setStep("done");
     } catch (e) {
       ownSession.current = false;
@@ -709,6 +738,13 @@ function StartWizard() {
               {crew.length === 1 ? "person is" : "people are"} on it, and you
               can check in from today.
             </p>
+            {/* What became of the invitations. Said here because this is the
+                last moment anybody is looking at the crew they just added. */}
+            {inviteNote ? (
+              <p className="mt-3 text-[0.82rem] leading-relaxed text-[var(--wf-muted)]">
+                {inviteNote}
+              </p>
+            ) : null}
           </div>
           <button
             className="wf-btn wf-btn-primary wf-btn-lg w-full"

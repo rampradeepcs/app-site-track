@@ -508,6 +508,36 @@ export async function markNotificationsReadRemote(audience: AppNotification["aud
   if (error) throw error;
 }
 
+/* -------------------------------------------------------------- invites --- */
+
+export interface InviteResult {
+  invited: number;
+  existing: number;
+  failed: number;
+  results: Array<{ email: string; status: string; detail?: string }>;
+}
+
+/**
+ * Tell a company's crew they have been added.
+ *
+ * The mail is sent by an edge function, not from here: inviting somebody
+ * creates an account, which is a service-role act, and this bundle is handed
+ * to every user — a key in it is a key given away. The function checks the
+ * caller administers the company and takes the addresses from that company's
+ * own records, so the worst it can be asked to do is invite one's own crew.
+ */
+export async function inviteCrewRemote(
+  orgId: string,
+  emails?: string[],
+): Promise<InviteResult> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.functions.invoke<InviteResult>("invite-crew", {
+    body: { orgId, ...(emails?.length ? { emails } : {}) },
+  });
+  if (error) throw error;
+  return data ?? { invited: 0, existing: 0, failed: 0, results: [] };
+}
+
 /* ------------------------------------------------------- tenant + clients --- */
 
 /** Name and branding of the company at a subdomain, or null. Anonymous. */

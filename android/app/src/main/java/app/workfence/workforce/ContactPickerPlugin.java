@@ -169,31 +169,84 @@ public class ContactPickerPlugin extends Plugin {
         return emails;
     }
 
-    private void resolveContactList(PluginCall call) {
+    /**
+     * Every number, by contact.
+     *
+     * The mirror of emailsByContactId, and needed for the same reason: the
+     * list is now enumerated from the people themselves rather than from
+     * their phone numbers, so a number has to be looked up rather than
+     * arriving as a column.
+     */
+    private Map<String, String> phonesByContactId() {
+        Map<String, String> phones = new HashMap<>();
         String[] projection = {
             ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
-            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
             ContactsContract.CommonDataKinds.Phone.NUMBER
+        };
+        try (Cursor cursor = getContext().getContentResolver().query(
+                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                projection, null, null, null)) {
+            if (cursor == null) return phones;
+            int idIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.CONTACT_ID);
+            int numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
+            while (cursor.moveToNext()) {
+                if (idIndex < 0 || numberIndex < 0) continue;
+                String id = cursor.getString(idIndex);
+                String number = cursor.getString(numberIndex);
+                // First number wins, as with addresses: picking between a
+                // mobile and a landline is not a question worth asking
+                // somebody adding a crew.
+                if (id != null && number != null && !phones.containsKey(id)) {
+                    phones.put(id, number);
+                }
+            }
+        } catch (Exception ignored) {
+            // A contact list with no numbers is still a usable contact list.
+        }
+        return phones;
+    }
+
+    /**
+     * The device's contacts, as people rather than as phone numbers.
+     *
+     * This used to enumerate the phone-number table, which quietly meant a
+     * contact had to have a number to exist at all — so somebody saved with
+     * an address and nothing else, exactly the person this screen wants, was
+     * invisible. Enumerating the contacts themselves and looking up both
+     * details makes the list what it says it is.
+     *
+     * A contact with neither a number nor an address is left out: there is
+     * nothing to invite them by.
+     */
+    private void resolveContactList(PluginCall call) {
+        String[] projection = {
+            ContactsContract.Contacts._ID,
+            ContactsContract.Contacts.DISPLAY_NAME
         };
 
         Map<String, String> emails = emailsByContactId();
+        Map<String, String> phones = phonesByContactId();
         JSArray contacts = new JSArray();
         try (Cursor cursor = getContext().getContentResolver().query(
-                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                ContactsContract.Contacts.CONTENT_URI,
                 projection,
                 null,
                 null,
-                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " COLLATE NOCASE ASC")) {
+                ContactsContract.Contacts.DISPLAY_NAME + " COLLATE NOCASE ASC")) {
             if (cursor != null) {
-                int idIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.CONTACT_ID);
-                int nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME);
-                int numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
+                int idIndex = cursor.getColumnIndex(ContactsContract.Contacts._ID);
+                int nameIndex = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME);
                 while (cursor.moveToNext()) {
-                    JSObject row = new JSObject();
                     String id = idIndex >= 0 ? cursor.getString(idIndex) : null;
-                    row.put("name", nameIndex >= 0 ? cursor.getString(nameIndex) : "");
-                    row.put("phone", numberIndex >= 0 ? cursor.getString(numberIndex) : "");
-                    row.put("email", id != null && emails.containsKey(id) ? emails.get(id) : "");
+                    String name = nameIndex >= 0 ? cursor.getString(nameIndex) : null;
+                    if (name == null || name.trim().isEmpty()) continue;
+                    String email = id != null && emails.containsKey(id) ? emails.get(id) : "";
+                    String phone = id != null && phones.containsKey(id) ? phones.get(id) : "";
+                    if (email.isEmpty() && phone.isEmpty()) continue;
+                    JSObject row = new JSObject();
+                    row.put("name", name);
+                    row.put("phone", phone);
+                    row.put("email", email);
                     contacts.put(row);
                 }
             }

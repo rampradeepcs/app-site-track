@@ -21,3 +21,7 @@ coverage/
 # The API is its own service with its own dependencies; the web build
 # neither type-checks nor ships it.
 server/
+
+# Database migrations and edge functions: deployed to Supabase, not to Vercel,
+# and written for Deno rather than for this build.
+supabase/

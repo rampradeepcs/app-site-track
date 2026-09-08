@@ -83,6 +83,21 @@ function ContactSheet({
 }) {
   const [filter, setFilter] = useState("");
   const [chosen, setChosen] = useState<Set<string>>(new Set());
+  /*
+   * Addresses typed for contacts saved without one.
+   *
+   * Most numbers in a site manager's phone are numbers and nothing else, so
+   * a picker that only offered contacts already carrying an address showed
+   * an empty list and said the device had no contacts — on a phone holding
+   * eighteen hundred of them. Everybody is offered; the address is asked for
+   * where it is missing, which is one field rather than a whole row retyped.
+   */
+  const [typed, setTyped] = useState<Record<string, string>>({});
+
+  const addressFor = (c: CrewInvite) => {
+    const k = contactKey(c);
+    return isUsableEmail(c.email) ? (c.email as string) : (typed[k] ?? "");
+  };
 
   const shown = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -103,6 +118,10 @@ function ContactSheet({
       else next.add(k);
       return next;
     });
+
+  const picked = contacts.filter((c) => chosen.has(contactKey(c)));
+  const ready = picked.filter((c) => isUsableEmail(addressFor(c)));
+  const missing = picked.length - ready.length;
 
   return (
     <div
@@ -157,7 +176,10 @@ function ContactSheet({
                       {c.name}
                     </span>
                     <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
-                      {added ? "Already on the list" : c.email || c.phone}
+                      {added
+                        ? "Already on the list"
+                        : c.email ||
+                          (c.phone ? `${c.phone} · no email saved` : "No email saved")}
                     </span>
                   </span>
                   <span
@@ -170,6 +192,25 @@ function ContactSheet({
                     {on ? <ICheckCircle size={22} /> : null}
                   </span>
                 </button>
+                {/* Asked for only once somebody has been chosen, so the list
+                    stays a list until a decision is made. */}
+                {!added && chosen.has(k) && !isUsableEmail(c.email) ? (
+                  <div className="mb-1.5 pl-[3.1rem]">
+                    <input
+                      className="wf-input"
+                      type="email"
+                      inputMode="email"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      placeholder={`Work email for ${c.name.split(" ")[0]}`}
+                      aria-label={`Work email for ${c.name}`}
+                      value={typed[k] ?? ""}
+                      onChange={(e) =>
+                        setTyped((prev) => ({ ...prev, [k]: e.target.value }))
+                      }
+                    />
+                  </div>
+                ) : null}
               </li>
             );
           })}
@@ -182,15 +223,19 @@ function ContactSheet({
 
         <button
           className="wf-btn wf-btn-primary wf-btn-lg"
-          disabled={chosen.size === 0}
+          disabled={ready.length === 0}
           onClick={() =>
-            onAdd(contacts.filter((c) => chosen.has(contactKey(c))))
+            onAdd(
+              ready.map((c) => ({ ...c, email: addressFor(c).trim().toLowerCase() })),
+            )
           }
         >
           <IUsers size={16} />
-          {chosen.size === 0
+          {picked.length === 0
             ? "Select people to add"
-            : `Add ${chosen.size} ${chosen.size === 1 ? "person" : "people"}`}
+            : missing > 0
+              ? `${missing} still need${missing === 1 ? "s" : ""} an email`
+              : `Add ${ready.length} ${ready.length === 1 ? "person" : "people"}`}
         </button>
       </div>
     </div>
@@ -252,7 +297,7 @@ export function InviteCrew({
     setNote(
       added === 0
         ? "Already on the list, or no email address on the contact."
-        : `Added ${added}${skipped > 0 ? ` — skipped ${skipped} without an email address` : ""}.`,
+        : `Added ${added}${skipped > 0 ? ` — skipped ${skipped} already on the list` : ""}.`,
     );
   };
 
@@ -305,12 +350,18 @@ export function InviteCrew({
         setNote(error);
         return;
       }
-      const usable = contacts.filter((c) => c.name && isUsableEmail(c.email));
-      if (usable.length === 0) {
-        setNote("No contacts with an email address on this device.");
+      /*
+       * Everybody with a name, not only those already carrying an address.
+       * The sheet asks for the address where it is missing, which is what
+       * makes the picker useful on a phone whose contacts are mostly
+       * numbers — and what stops it claiming a full address book is empty.
+       */
+      const named = contacts.filter((c) => c.name.trim());
+      if (named.length === 0) {
+        setNote("No contacts on this device.");
         return;
       }
-      setSheet(dedupeByContact(usable));
+      setSheet(dedupeByContact(named));
       return;
     }
 
