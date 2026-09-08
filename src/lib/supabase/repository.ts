@@ -734,6 +734,30 @@ export async function createCompanyRemote(payload: Record<string, unknown>): Pro
   return data as unknown as ProvisionResult;
 }
 
+/* -------------------------------------------------------------- welcome --- */
+
+export interface WelcomeResult {
+  sent: boolean;
+  to?: string;
+  reason?: string;
+}
+
+/**
+ * Welcome the founder of a company that has just been created.
+ *
+ * Sent once. The function reads what the letter says from the database
+ * rather than from here, and records the send in the company's audit trail,
+ * so calling it twice puts one letter in an inbox.
+ */
+export async function sendWelcomeEmail(orgId: string): Promise<WelcomeResult> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.functions.invoke<WelcomeResult>("welcome-email", {
+    body: { orgId },
+  });
+  if (error) throw error;
+  return data ?? { sent: false, reason: "no answer from the mail function" };
+}
+
 /* -------------------------------------------------------------- invites --- */
 
 export interface InviteResult {

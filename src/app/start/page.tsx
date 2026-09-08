@@ -53,6 +53,7 @@ import {
   createCompanyRemote,
   inviteCrewRemote,
   provisionCompanyRemote,
+  sendWelcomeEmail,
 } from "@/lib/supabase/repository";
 import { setActiveCompany } from "@/lib/company";
 import { refreshMyCompanies } from "@/lib/companies";
@@ -372,6 +373,25 @@ function StartWizard() {
        * afternoon must not cost somebody the company they just set up, so a
        * failure here is reported and nothing more.
        */
+      /*
+       * Welcome them.
+       *
+       * After the company is safely made and read back, and never allowed to
+       * fail the signup: somebody who has just created a company must not be
+       * told it did not work because a mail server was busy. What became of
+       * it is reported on the last screen with the invitations.
+       */
+      if (made?.orgId) {
+        try {
+          const welcome = await sendWelcomeEmail(made.orgId);
+          if (!welcome.sent && welcome.reason) {
+            console.info("[workfence] welcome email not sent:", welcome.reason);
+          }
+        } catch (e) {
+          console.warn("[workfence] welcome email failed:", describeError(e));
+        }
+      }
+
       if (d.crew.length > 0 && made?.orgId) {
         try {
           const sent = await inviteCrewRemote(made.orgId);
