@@ -272,6 +272,27 @@ export default function ManagerPayroll() {
         title="Payroll"
         sub={`${monthLabel} · ${STATUS_LABEL[status]}`}
         back
+        /* Moving a month along is what this screen is for, and it used to be
+           a small button inside a card explaining the pipeline — reachable
+           only after scrolling past the whole run. */
+        action={
+          nextStatus && !locked ? (
+            <button
+              className={`wf-btn ${nextStatus === "locked" ? "wf-btn-danger" : "wf-btn-primary"}`}
+              onClick={() => wf.setPayrollStatus(month, nextStatus)}
+            >
+              {nextStatus === "locked" ? (
+                <>
+                  <ILock size={15} /> Lock payroll
+                </>
+              ) : (
+                <>
+                  <ICheckCircle size={15} /> Mark {STATUS_LABEL[nextStatus].toLowerCase()}
+                </>
+              )}
+            </button>
+          ) : null
+        }
       />
 
       <div className="flex flex-col gap-4 px-4">
@@ -560,22 +581,7 @@ export default function ManagerPayroll() {
                   : "Draft → Calculated → Manager review → Approved → Locked. Locking freezes the month."}
               </p>
             </div>
-            {nextStatus && !locked ? (
-              <button
-                className={`wf-btn wf-btn-sm ${nextStatus === "locked" ? "wf-btn-danger" : "wf-btn-primary"}`}
-                onClick={() => wf.setPayrollStatus(month, nextStatus)}
-              >
-                {nextStatus === "locked" ? (
-                  <>
-                    <ILock size={14} /> Lock payroll
-                  </>
-                ) : (
-                  <>
-                    <ICheckCircle size={14} /> Mark {STATUS_LABEL[nextStatus].toLowerCase()}
-                  </>
-                )}
-              </button>
-            ) : null}
+
           </div>
           ) : null}
 

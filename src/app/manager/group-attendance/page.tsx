@@ -267,6 +267,43 @@ export default function GroupAttendancePage() {
               ? `${team?.name ?? "Team"} · ${roster.length} expected`
               : `${presentCount} of ${roster.length} present`
         }
+        /* Each step's own action. A capture is three forms in a row, and the
+           button that advanced each sat at the bottom of a long roster, a
+           grid of photographs, and a list of decisions. */
+        action={
+          step === "setup" ? (
+            <button
+              className="wf-btn wf-btn-primary"
+              disabled={!team || roster.length === 0}
+              onClick={() => setStep("capture")}
+            >
+              Continue
+            </button>
+          ) : step === "capture" ? (
+            <button
+              className="wf-btn wf-btn-primary"
+              disabled={photos.length === 0 || busy}
+              onClick={() => void analyse()}
+            >
+              {busy ? "Detecting…" : "Detect faces"}
+            </button>
+          ) : (
+            <>
+              <button
+                className="wf-btn wf-btn-ghost"
+                onClick={() => {
+                  setStep("capture");
+                  setFaces([]);
+                }}
+              >
+                <IRefresh size={15} /> Retake
+              </button>
+              <button className="wf-btn wf-btn-primary" onClick={confirm}>
+                <ICheck size={16} /> Confirm
+              </button>
+            </>
+          )
+        }
       />
 
       <div className="flex flex-col gap-3 px-4">
@@ -339,13 +376,6 @@ export default function GroupAttendancePage() {
               </div>
             ) : null}
 
-            <button
-              className="wf-btn wf-btn-primary wf-btn-lg"
-              disabled={!team || roster.length === 0}
-              onClick={() => setStep("capture")}
-            >
-              Continue
-            </button>
           </>
         ) : null}
 
@@ -409,13 +439,6 @@ export default function GroupAttendancePage() {
               </p>
             ) : null}
 
-            <button
-              className="wf-btn wf-btn-primary wf-btn-lg"
-              disabled={photos.length === 0 || busy}
-              onClick={() => void analyse()}
-            >
-              {busy ? "Detecting faces…" : `Detect faces in ${photos.length || ""} photo${photos.length === 1 ? "" : "s"}`}
-            </button>
           </>
         ) : null}
 
@@ -527,20 +550,6 @@ export default function GroupAttendancePage() {
               </>
             ) : null}
 
-            <div className="flex gap-2">
-              <button
-                className="wf-btn wf-btn-ghost flex-1"
-                onClick={() => {
-                  setStep("capture");
-                  setFaces([]);
-                }}
-              >
-                <IRefresh size={15} /> Retake
-              </button>
-              <button className="wf-btn wf-btn-primary flex-1" onClick={confirm}>
-                <ICheck size={16} /> Confirm attendance
-              </button>
-            </div>
 
             {error ? (
               <p className="wf-inset px-3.5 py-3 text-[0.78rem] text-[var(--wf-red)]">{error}</p>

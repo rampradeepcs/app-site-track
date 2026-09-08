@@ -66,6 +66,15 @@ export default function NewProjectPage() {
     setError("");
   };
 
+  /** Step one is done when the project has a name worth saving. */
+  const goToLocation = () => {
+    if (name.trim().length < 3) {
+      setError("Give the project a name (3+ characters).");
+      return;
+    }
+    setStep(1);
+  };
+
   const create = () => {
     saveProject({
       name: name.trim(),
@@ -113,6 +122,24 @@ export default function NewProjectPage() {
             : "Where it is, and how far the boundary reaches."
         }
         back="/manager/projects"
+        /* The step's own action, in the bar: on a form this long the button
+           that finishes it was below the fold on every phone. */
+        action={
+          step === 0 ? (
+            <button className="wf-btn wf-btn-primary" onClick={goToLocation}>
+              Next — site location <IArrowR size={16} />
+            </button>
+          ) : (
+            <>
+              <button className="wf-btn wf-btn-ghost" onClick={() => setStep(0)}>
+                Back
+              </button>
+              <button className="wf-btn wf-btn-primary" onClick={create}>
+                Create project
+              </button>
+            </>
+          )
+        }
       />
       <div className="px-4 pb-6">
       {step === 0 ? (
@@ -206,18 +233,6 @@ export default function NewProjectPage() {
           <Field label="Description">
             <textarea className="wf-input" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
           </Field>
-          <button
-            className="wf-btn wf-btn-primary"
-            onClick={() => {
-              if (name.trim().length < 3) {
-                setError("Give the project a name (3+ characters).");
-                return;
-              }
-              setStep(1);
-            }}
-          >
-            Next — site location <IArrowR size={16} />
-          </button>
         </div>
       ) : (
         <div className="flex flex-col gap-3.5">
@@ -271,14 +286,6 @@ export default function NewProjectPage() {
                 </span>
               </p>
             )}
-          </div>
-          <div className="flex gap-2.5">
-            <button className="wf-btn wf-btn-ghost flex-1" onClick={() => setStep(0)}>
-              Back
-            </button>
-            <button className="wf-btn wf-btn-primary flex-1" onClick={create}>
-              Create project
-            </button>
           </div>
           <p className="text-center text-[0.68rem] text-[var(--wf-faint)]">
             {state.projects.length} existing projects

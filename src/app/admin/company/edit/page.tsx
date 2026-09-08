@@ -13,7 +13,6 @@
  * its own profile would not have a subscription, it would have a suggestion.
  */
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ScreenHeader } from "@/components/shell";
@@ -112,7 +111,24 @@ export default function EditCompanyPage() {
 
   return (
     <div>
-      <ScreenHeader back="/admin/company" title="Edit company" sub={org.code} />
+      <ScreenHeader
+        back="/admin/company"
+        title="Edit company"
+        sub={org.code}
+        /* Just Save. The bar's own back control already returns to the
+           company page, which is all Cancel did; two controls for one act,
+           side by side, is one too many. */
+        action={
+          <button
+            type="button"
+            className="wf-btn wf-btn-primary"
+            disabled={busy}
+            onClick={() => void save()}
+          >
+            <ICheck size={16} /> {busy ? "Saving…" : "Save changes"}
+          </button>
+        }
+      />
       <div className="flex flex-col gap-4 px-4 pb-8">
         <div className="wf-card flex flex-col gap-3.5 p-4">
           <SectionTitle>Identity</SectionTitle>
@@ -250,20 +266,6 @@ export default function EditCompanyPage() {
         {error ? (
           <p className="text-[0.8rem] font-semibold text-[var(--wf-red)]">{error}</p>
         ) : null}
-
-        <div className="grid grid-cols-2 gap-2.5">
-          <Link href="/admin/company" className="wf-btn wf-btn-ghost">
-            Cancel
-          </Link>
-          <button
-            type="button"
-            className="wf-btn wf-btn-primary"
-            disabled={busy}
-            onClick={() => void save()}
-          >
-            <ICheck size={16} /> {busy ? "Saving…" : "Save changes"}
-          </button>
-        </div>
 
         <p className="text-center text-[0.72rem] leading-relaxed text-[var(--wf-faint)]">
           Your plan, subscription and sign-in address are managed by Workfence.

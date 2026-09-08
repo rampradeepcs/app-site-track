@@ -31,7 +31,7 @@ import { inviteMemberRemote } from "@/lib/supabase/repository";
 import { describeError } from "@/lib/errors";
 import { showToast } from "@/lib/toast";
 import type { Role } from "@/lib/types";
-import { IArrowR, ICheck, IUsers } from "@/components/WfIcons";
+import { IArrowR, ICheck } from "@/components/WfIcons";
 
 export default function AddPeoplePage() {
   const { state, currentUser, saveEmployee, reloadFromBackend } = useWorkforce();
@@ -123,6 +123,25 @@ export default function AddPeoplePage() {
         back="/admin/team"
         title="Add people"
         sub={live ? "They are invited to join this company" : "Added to this company"}
+        /* Just the send. The bar's back control returns to Team & Roles,
+           which is all Cancel did. */
+        action={
+          <button
+            type="button"
+            className="wf-btn wf-btn-primary"
+            disabled={busy || crew.length === 0}
+            onClick={() => void send()}
+          >
+            {busy ? (
+              "Sending…"
+            ) : (
+              <>
+                <ICheck size={16} /> {live ? "Send" : "Add"}
+                {crew.length > 0 ? ` ${crew.length}` : ""}
+              </>
+            )}
+          </button>
+        }
       />
       <div className="flex flex-col gap-4 px-4 pb-8">
         <div className="grid grid-cols-2 gap-3">
@@ -162,30 +181,6 @@ export default function AddPeoplePage() {
             {result}
           </p>
         ) : null}
-
-        <div className="grid grid-cols-2 gap-2.5">
-          <Link href="/admin/team" className="wf-btn wf-btn-ghost">
-            Cancel
-          </Link>
-          <button
-            type="button"
-            className="wf-btn wf-btn-primary"
-            disabled={busy || crew.length === 0}
-            onClick={() => void send()}
-          >
-            {busy ? (
-              "Sending…"
-            ) : crew.length === 0 ? (
-              <>
-                <IUsers size={16} /> Add someone first
-              </>
-            ) : (
-              <>
-                <ICheck size={16} /> {live ? "Send" : "Add"} {crew.length}
-              </>
-            )}
-          </button>
-        </div>
 
         {live ? (
           <p className="text-[0.74rem] leading-relaxed text-[var(--wf-faint)]">
