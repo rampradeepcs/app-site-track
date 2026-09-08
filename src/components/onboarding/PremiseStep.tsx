@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { SiteMap } from "../SiteMap";
+import { SitePlacer } from "../SitePlacer";
 import { Field } from "../ui";
 import { ICrosshair } from "../WfIcons";
 import { LocationSearch, type PlaceHit } from "../LocationSearch";
@@ -105,7 +105,7 @@ export function PremiseStep({
 
       <Field
         label="Find on the map"
-        hint="Jumps the map to a place — then fine-tune by tapping."
+        hint="Jumps the map to a place — then use Move the pin to place it exactly."
       >
         <LocationSearch
           onPick={(hit) => {
@@ -131,26 +131,16 @@ export function PremiseStep({
         <p className="text-[0.78rem] text-[var(--wf-amber)]">{locateError}</p>
       ) : null}
 
-      <SiteMap
+      <SitePlacer
+        location={value.location}
+        onChange={(p: LatLng) => onChange({ ...value, location: p })}
         fence={fence}
         follow={focus}
-        heightClass="h-[260px]"
-        onMapClick={(p: LatLng) => onChange({ ...value, location: p })}
-        onCenterDrag={(p: LatLng) => onChange({ ...value, location: p })}
-        markers={[
-          {
-            id: "premise",
-            coords: value.location,
-            kind: "site",
-            color: "var(--wf-orange)",
-            label: value.name || namePlaceholder,
-          },
-        ]}
+        label={value.name || namePlaceholder}
       />
       <p className="text-[0.78rem] leading-relaxed text-[var(--wf-muted)]">
-        Tap the map to move the boundary. Workers can only check in{" "}
-        <strong>inside</strong> it — you can reshape it properly from Projects
-        later.
+        Workers can only check in <strong>inside</strong> the boundary — you
+        can reshape it properly from Projects later.
       </p>
 
       <label className="wf-card2 flex items-center gap-4 px-4 py-3">

@@ -2,8 +2,9 @@
 
 /**
  * Interactive geofence editor for the manager. Supports circular fences
- * (drag centre, radius slider) and custom polygons (tap to drop vertices,
- * drag to adjust), plus the buffer band that counts as "at the gate".
+ * (drag the centre handle, radius slider) and custom polygons (tap to drop
+ * vertices, drag to adjust), plus the buffer band that counts as "at the
+ * gate".
  */
 
 import { useState } from "react";
@@ -48,11 +49,19 @@ export function GeofenceEditor({
     setDrawing(false);
   };
 
+  /*
+   * Only while drawing a polygon does a tap mean anything.
+   *
+   * A circular fence used to move its centre on any tap the map did not read
+   * as a pan — three pixels apart — so looking around a site with a steady
+   * finger moved the boundary, and nothing said it had. Dragging the amber
+   * handle is the deliberate gesture and was always there; the tap is gone.
+   * Drawing a polygon is different: it is a mode entered on purpose, and
+   * dropping corners is the whole of it.
+   */
   const onMapClick = (p: LatLng) => {
     if (draft.kind === "polygon" && drawing) {
       patch({ polygon: [...draft.polygon, p] });
-    } else if (draft.kind === "circle") {
-      patch({ center: p });
     }
   };
 
@@ -136,7 +145,7 @@ export function GeofenceEditor({
 
       <p className="text-xs leading-relaxed text-[var(--wf-muted)]">
         {draft.kind === "circle"
-          ? "Tap the map (or drag the amber handle) to move the fence centre; set the radius below."
+          ? "Drag the amber handle to move the fence centre; set the radius below."
           : drawing && draft.polygon.length < 3
             ? `Tap the map to drop boundary corners — ${Math.max(0, 3 - draft.polygon.length)} more needed.`
             : "Drag the amber handles to reshape the boundary, or tap the map to append another corner."}{" "}

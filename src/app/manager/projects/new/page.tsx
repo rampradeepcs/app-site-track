@@ -12,7 +12,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ScreenHeader } from "@/components/shell";
-import { SiteMap } from "@/components/SiteMap";
+import { SitePlacer } from "@/components/SitePlacer";
 import { Field, Toggle } from "@/components/ui";
 import { LocationSearch } from "@/components/LocationSearch";
 import { offsetMeters } from "@/lib/geo";
@@ -222,17 +222,17 @@ export default function NewProjectPage() {
       ) : (
         <div className="flex flex-col gap-3.5">
           {/* No second search box. The address field above already placed
-              the map; here it is only nudged by tapping. */}
-          <SiteMap
+              the map; Move the pin puts it exactly. */}
+          <SitePlacer
+            location={location}
+            onChange={setLocation}
             fence={{ kind: "circle", polygon: [], center: location, radius, bufferMeters: 40 }}
-            markers={[{ id: "site", coords: location, kind: "site", color: "var(--wf-orange)", label: name || "New site" }]}
-            fit={[offsetMeters(location, radius * 1.6, 0), offsetMeters(location, radius * 1.6, 180)]}
-            onMapClick={(p) => setLocation(p)}
+            label={name || "New site"}
             heightClass="h-64"
           />
           <p className="text-xs text-[var(--wf-muted)]">
-            Tap the map to drop the project marker. You can redraw a precise
-            polygon boundary any time from the project&apos;s geofence editor.
+            You can redraw a precise polygon boundary any time from the
+            project&apos;s geofence editor.
           </p>
           <label className="wf-card2 flex items-center gap-4 px-4 py-3">
             <span className="w-24 shrink-0 text-[0.74rem] font-bold uppercase tracking-wider text-[var(--wf-muted)]">

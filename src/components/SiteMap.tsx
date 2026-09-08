@@ -105,6 +105,7 @@ export function SiteMap({
   onMapClick,
   onVertexDrag,
   onCenterDrag,
+  onViewCenter,
   heightClass = "h-72",
   showControls = true,
   interactive = true,
@@ -123,6 +124,14 @@ export function SiteMap({
   onMapClick?: (p: LatLng) => void;
   onVertexDrag?: (index: number, p: LatLng) => void;
   onCenterDrag?: (p: LatLng) => void;
+  /**
+   * Where the map is looking, reported as it moves.
+   *
+   * For placing a pin by moving the map under a fixed crosshair — the way a
+   * phone can put a marker on a precise spot without asking a fingertip to
+   * hit it.
+   */
+  onViewCenter?: (p: LatLng) => void;
   heightClass?: string;
   showControls?: boolean;
   interactive?: boolean;
@@ -139,6 +148,17 @@ export function SiteMap({
   const wrapRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ w: 360, h: 288 });
   const [view, setView] = useState<View | null>(null);
+
+  /* Held in a ref so a caller passing a fresh arrow function every render
+     does not re-run the effect that reports the centre — which would report,
+     re-render, and report again. */
+  const viewCenterRef = useRef(onViewCenter);
+  useEffect(() => {
+    viewCenterRef.current = onViewCenter;
+  }, [onViewCenter]);
+  useEffect(() => {
+    if (view) viewCenterRef.current?.(view.center);
+  }, [view?.center.lat, view?.center.lng, view]);
   const uid = useId().replace(/[:]/g, "");
 
   const activeFence = fence ?? project?.geofence ?? null;
