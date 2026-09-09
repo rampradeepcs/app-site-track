@@ -153,19 +153,23 @@ export default function BillingPage() {
                     </td>
                     <td className="text-[0.72rem] text-[var(--wf-muted)]">{inv.paymentMethod}</td>
                     <td>
+                      {/* A table row has no room to stack, so these stay
+                          on one line — the label wraps at the narrower
+                          widths otherwise — and the row's own horizontal
+                          scroll (below) carries any overflow instead. */}
                       <span className="flex gap-1">
                         {inv.status !== "paid" && inv.status !== "cancelled" && inv.status !== "refunded" && (
-                          <button className="wf-btn wf-btn-quiet wf-btn-sm" onClick={() => setInvoiceStatus(inv.id, "paid")}>
+                          <button className="wf-btn wf-btn-quiet wf-btn-sm whitespace-nowrap" onClick={() => setInvoiceStatus(inv.id, "paid")}>
                             Mark paid
                           </button>
                         )}
                         {inv.status === "paid" && (
-                          <button className="wf-btn wf-btn-quiet wf-btn-sm" onClick={() => setInvoiceStatus(inv.id, "refunded")}>
+                          <button className="wf-btn wf-btn-quiet wf-btn-sm whitespace-nowrap" onClick={() => setInvoiceStatus(inv.id, "refunded")}>
                             Refund
                           </button>
                         )}
                         {(inv.status === "draft" || inv.status === "issued") && (
-                          <button className="wf-btn wf-btn-quiet wf-btn-sm" onClick={() => setInvoiceStatus(inv.id, "cancelled")}>
+                          <button className="wf-btn wf-btn-quiet wf-btn-sm whitespace-nowrap" onClick={() => setInvoiceStatus(inv.id, "cancelled")}>
                             Void
                           </button>
                         )}

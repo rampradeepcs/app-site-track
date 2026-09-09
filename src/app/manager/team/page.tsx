@@ -171,14 +171,17 @@ export default function TeamPage() {
         </div>
 
         {mayCapture ? (
-          <div className="flex gap-2">
+          // Stacked, not side by side: "Group photo" wraps to two lines
+          // in half a row at phone widths, so each action gets the full
+          // row instead of a cramped half.
+          <div className="flex flex-col gap-2">
             <Link
               href={`/manager/group-attendance?project=${team.projectId}&team=${team.id}`}
-              className="wf-btn wf-btn-primary flex-1"
+              className="wf-btn wf-btn-primary w-full"
             >
               <ICamera size={16} /> Group photo
             </Link>
-            <button className="wf-btn wf-btn-ghost flex-1" onClick={() => setLogging(true)}>
+            <button className="wf-btn wf-btn-ghost w-full" onClick={() => setLogging(true)}>
               <IClipboard size={16} /> Log update
             </button>
           </div>

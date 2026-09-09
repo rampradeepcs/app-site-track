@@ -210,12 +210,15 @@ export function OnboardWizard({
               </div>
             ))}
           </dl>
-          <div className="flex gap-2.5">
-            <button className="wf-btn wf-btn-ghost flex-1" onClick={close}>
+          {/* Stacked, not side by side: "Open client" wraps to two lines
+              beside "Done" on the narrowest phones, so each action gets
+              the full row instead of a cramped half. */}
+          <div className="flex flex-col gap-2">
+            <button className="wf-btn wf-btn-ghost w-full" onClick={close}>
               Done
             </button>
             <button
-              className="wf-btn wf-btn-primary flex-1"
+              className="wf-btn wf-btn-primary w-full"
               onClick={() => {
                 const id = created.id;
                 close();
@@ -494,18 +497,21 @@ export function OnboardWizard({
           </div>
         )}
 
-        <div className="flex gap-2.5 pt-1">
+        {/* Stacked, not side by side: "Next — {step name}" and "Create
+            client account" wrap to two lines beside "Back", so each
+            action gets the full row instead of a cramped half. */}
+        <div className="flex flex-col gap-2 pt-1">
           {step > 0 && (
-            <button className="wf-btn wf-btn-ghost flex-1" onClick={() => setStep((s) => s - 1)}>
+            <button className="wf-btn wf-btn-ghost w-full" onClick={() => setStep((s) => s - 1)}>
               Back
             </button>
           )}
           {step < 4 ? (
-            <button className="wf-btn wf-btn-primary flex-1" onClick={next}>
+            <button className="wf-btn wf-btn-primary w-full" onClick={next}>
               Next — {STEPS[step + 1]}
             </button>
           ) : (
-            <button className="wf-btn wf-btn-primary flex-1" onClick={() => void create()} disabled={saving}>
+            <button className="wf-btn wf-btn-primary w-full" onClick={() => void create()} disabled={saving}>
               Create client account
             </button>
           )}

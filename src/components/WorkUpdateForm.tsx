@@ -143,13 +143,16 @@ export function WorkUpdateForm({
         {!online && <span className="ml-auto font-bold text-[var(--wf-amber)]">will queue</span>}
       </div>
 
-      <div className="flex gap-2.5">
+      {/* Stacked, not side by side: "Submit update" wraps to two lines
+          in half a row at phone widths, so each action gets the full row
+          instead of a cramped half. */}
+      <div className="flex flex-col gap-2">
         {onSkip && (
-          <button className="wf-btn wf-btn-ghost flex-1" onClick={onSkip}>
+          <button className="wf-btn wf-btn-ghost w-full" onClick={onSkip}>
             Skip for now
           </button>
         )}
-        <button className="wf-btn wf-btn-primary flex-1" onClick={submit}>
+        <button className="wf-btn wf-btn-primary w-full" onClick={submit}>
           <ICheck size={17} /> Submit update
         </button>
       </div>

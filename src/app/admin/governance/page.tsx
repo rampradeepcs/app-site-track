@@ -209,12 +209,15 @@ export default function AdminGovernance() {
           </div>
         </div>
 
-        <div className="flex gap-2.5">
-          <button className="wf-btn wf-btn-ghost flex-1" onClick={() => confirmDestructive(ERASE_DEVICE, eraseLocalData)}>
+        {/* Stacked, not side by side: "Erase this device" wraps to two
+            lines in half a row at phone widths, so each action gets the
+            full row instead of a cramped half. */}
+        <div className="flex flex-col gap-2">
+          <button className="wf-btn wf-btn-ghost w-full" onClick={() => confirmDestructive(ERASE_DEVICE, eraseLocalData)}>
             <IRefresh size={15} /> Erase this device
           </button>
           <button
-            className="wf-btn wf-btn-ghost flex-1"
+            className="wf-btn wf-btn-ghost w-full"
             onClick={() => {
               logout();
               router.replace("/");

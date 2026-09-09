@@ -76,13 +76,16 @@ export function RemoveMemberDialog({
             placeholder="Contract ended, left the site…"
           />
         </Field>
-        <div className="grid grid-cols-2 gap-2.5">
-          <button type="button" className="wf-btn wf-btn-ghost" onClick={onClose}>
+        {/* Stacked, not side by side: "Remove employee" wraps to two
+            lines in half a row at phone widths, so each action gets the
+            full row instead of a cramped half. */}
+        <div className="flex flex-col gap-2">
+          <button type="button" className="wf-btn wf-btn-ghost w-full" onClick={onClose}>
             Cancel
           </button>
           <button
             type="button"
-            className="wf-btn wf-btn-danger"
+            className="wf-btn wf-btn-danger w-full"
             disabled={busy}
             onClick={() => void remove()}
           >

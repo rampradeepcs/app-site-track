@@ -684,10 +684,13 @@ function ClientInner() {
           <Field label="Reason (recorded in the audit log)" required>
             <textarea className="wf-input" rows={3} value={suspendReason} onChange={(e) => setSuspendReason(e.target.value)} placeholder="e.g. Two invoices overdue past 45 days" />
           </Field>
-          <div className="flex gap-2.5">
-            <button className="wf-btn wf-btn-ghost flex-1" onClick={() => setSuspendOpen(false)}>Cancel</button>
+          {/* Stacked, not side by side: "Suspend client" wraps to two
+              lines in half a row at phone widths, so each action gets the
+              full row instead of a cramped half. */}
+          <div className="flex flex-col gap-2">
+            <button className="wf-btn wf-btn-ghost w-full" onClick={() => setSuspendOpen(false)}>Cancel</button>
             <button
-              className="wf-btn wf-btn-danger flex-1"
+              className="wf-btn wf-btn-danger w-full"
               disabled={suspendReason.trim().length < 4}
               onClick={() => {
                 setOrgStatus(org.id, "suspended", suspendReason.trim());
@@ -763,10 +766,13 @@ function ClientInner() {
           <Field label="Reason for access" required>
             <input className="wf-input" value={impersonateReason} onChange={(e) => setImpersonateReason(e.target.value)} placeholder="e.g. Reproducing ticket tkt_4 — managers can't sign in" />
           </Field>
-          <div className="flex gap-2.5">
-            <button className="wf-btn wf-btn-ghost flex-1" onClick={() => setImpersonateOpen(false)}>Cancel</button>
+          {/* Stacked, not side by side: "Continue as admin" wraps to two
+              lines in half a row at phone widths, so each action gets the
+              full row instead of a cramped half. */}
+          <div className="flex flex-col gap-2">
+            <button className="wf-btn wf-btn-ghost w-full" onClick={() => setImpersonateOpen(false)}>Cancel</button>
             <button
-              className="wf-btn wf-btn-primary flex-1"
+              className="wf-btn wf-btn-primary w-full"
               disabled={impersonateReason.trim().length < 4}
               onClick={() => {
                 startImpersonation(org.id, "usr_manager", impersonateReason.trim());

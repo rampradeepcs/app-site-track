@@ -123,11 +123,14 @@ export default function PlatformSettingsPage() {
               a manager in one client can never read another client&apos;s data.
             </span>
           </p>
-          <div className="mt-3 flex flex-wrap gap-2.5">
-            <button className="wf-btn wf-btn-ghost" onClick={resetPlatform}>
+          {/* Stacked, not side by side: "Erase workforce data on this
+              device" wraps to two lines whenever it shares a row, so each
+              action gets the full row instead of a cramped share. */}
+          <div className="mt-3 flex flex-col gap-2">
+            <button className="wf-btn wf-btn-ghost w-full" onClick={resetPlatform}>
               <IRefresh size={15} /> Reset platform data
             </button>
-            <button className="wf-btn wf-btn-ghost" onClick={() => confirmDestructive(ERASE_DEVICE, eraseLocalData)}>
+            <button className="wf-btn wf-btn-ghost w-full" onClick={() => confirmDestructive(ERASE_DEVICE, eraseLocalData)}>
               <IRefresh size={15} /> Erase workforce data on this device
             </button>
           </div>

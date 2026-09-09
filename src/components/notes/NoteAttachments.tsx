@@ -122,15 +122,18 @@ export function NoteAttachments({
 
       {canEdit ? (
         <>
-          <div className="flex gap-2">
+          {/* Stacked, not side by side: "Cancel voice" wraps to two lines
+              beside "Add file" on the narrowest phones, so each action
+              gets the full row instead of a cramped half. */}
+          <div className="flex flex-col gap-2">
             <button
-              className="wf-btn wf-btn-ghost wf-btn-sm flex-1"
+              className="wf-btn wf-btn-ghost wf-btn-sm w-full"
               onClick={() => fileRef.current?.click()}
             >
               <IImage size={14} /> Add file
             </button>
             <button
-              className="wf-btn wf-btn-ghost wf-btn-sm flex-1"
+              className="wf-btn wf-btn-ghost wf-btn-sm w-full"
               onClick={() => setRecording((r) => !r)}
               aria-pressed={recording}
             >

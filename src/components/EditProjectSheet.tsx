@@ -225,11 +225,14 @@ function EditProjectForm({ project, onDone }: { project: Project; onDone: () => 
         />
       </Field>
 
-      <div className="mt-1 grid grid-cols-2 gap-2.5">
-        <button type="button" className="wf-btn wf-btn-ghost" onClick={onDone}>
+      {/* Stacked, not side by side: "Save changes" wraps to two lines in
+          half a row at phone widths, so each action gets the full row
+          instead of a cramped half. */}
+      <div className="mt-1 flex flex-col gap-2">
+        <button type="button" className="wf-btn wf-btn-ghost w-full" onClick={onDone}>
           Cancel
         </button>
-        <button type="button" className="wf-btn wf-btn-primary" onClick={save}>
+        <button type="button" className="wf-btn wf-btn-primary w-full" onClick={save}>
           <ICheck size={16} /> Save changes
         </button>
       </div>

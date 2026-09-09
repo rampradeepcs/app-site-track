@@ -67,11 +67,14 @@ export default function AdminOverview() {
           <KpiCard label="Avg hours" value={fmtDuration(stats.avgWorkedMinutes)} sub="per closed shift today" />
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5">
-          <Link href="/manager/shifts" className="wf-btn wf-btn-ghost">
+        {/* Stacked, not side by side: "Shifts & breaks" wraps to two lines
+            in half a row at phone widths, so each action gets the full row
+            instead of a cramped half. */}
+        <div className="flex flex-col gap-2">
+          <Link href="/manager/shifts" className="wf-btn wf-btn-ghost w-full">
             Shifts & breaks
           </Link>
-          <Link href="/manager/payroll" className="wf-btn wf-btn-ghost">
+          <Link href="/manager/payroll" className="wf-btn wf-btn-ghost w-full">
             Payroll
           </Link>
         </div>

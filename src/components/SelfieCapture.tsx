@@ -139,7 +139,11 @@ export function SelfieCapture({
         </span>
       </div>
 
-      <div className="flex items-center justify-center gap-3">
+      {/* "Continue with placeholder" wraps to two lines beside "Cancel" in
+          a centred row, so the denied phase stacks its actions full width
+          instead of sharing a cramped half; the other phases' short labels
+          stay side by side. */}
+      <div className={phase === "denied" ? "flex flex-col gap-2" : "flex items-center justify-center gap-3"}>
         {phase === "shot" && shot ? (
           <>
             <button
@@ -169,10 +173,10 @@ export function SelfieCapture({
           </>
         ) : phase === "denied" ? (
           <>
-            <button className="wf-btn wf-btn-ghost" onClick={onCancel}>
+            <button className="wf-btn wf-btn-ghost w-full" onClick={onCancel}>
               <IX size={16} /> Cancel
             </button>
-            <button className="wf-btn wf-btn-primary" onClick={usePlaceholder}>
+            <button className="wf-btn wf-btn-primary w-full" onClick={usePlaceholder}>
               Continue with placeholder
             </button>
           </>

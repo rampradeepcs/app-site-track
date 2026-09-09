@@ -138,11 +138,14 @@ export default function ManagerDashboard() {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5">
-          <Link href="/manager/shifts" className="wf-btn wf-btn-ghost">
+        {/* Stacked, not side by side: "Manage shifts" wraps to two lines
+            in half a row at phone widths, so each action gets the full row
+            instead of a cramped half. */}
+        <div className="flex flex-col gap-2">
+          <Link href="/manager/shifts" className="wf-btn wf-btn-ghost w-full">
             <IClock size={16} /> Manage shifts
           </Link>
-          <Link href="/manager/payroll" className="wf-btn wf-btn-ghost">
+          <Link href="/manager/payroll" className="wf-btn wf-btn-ghost w-full">
             <IChart size={16} /> Payroll
           </Link>
         </div>

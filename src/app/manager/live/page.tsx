@@ -287,13 +287,16 @@ function LiveCard({
       ) : (
         <p className="text-center text-[0.76rem] text-[var(--wf-faint)]">No work update yet today.</p>
       )}
-      <div className="flex gap-2.5">
-        <button className="wf-btn wf-btn-primary flex-1" onClick={onTrack}>
+      {/* Stacked, not side by side: "Track employee" wraps to two lines
+          in half a row at phone widths, so each action gets the full row
+          instead of a cramped half. */}
+      <div className="flex flex-col gap-2">
+        <button className="wf-btn wf-btn-primary w-full" onClick={onTrack}>
           <ICrosshair size={16} /> Track employee
         </button>
         <Link
           href={`/manager/history?att=${b.attendance?.id ?? ""}`}
-          className="wf-btn wf-btn-ghost flex-1"
+          className="wf-btn wf-btn-ghost w-full"
         >
           <IRoute size={16} /> Route so far
         </Link>
