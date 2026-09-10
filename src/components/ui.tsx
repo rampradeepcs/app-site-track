@@ -235,10 +235,15 @@ export function SectionTitle({
 }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
-      <h2 className="wf-display text-[0.95rem] tracking-tight">
+      {/* The heading is the part that gives way. Without min-w-0 it refuses
+          to shrink, and the row takes the space out of the button instead —
+          which is how "Full map" ended up as two lines beside a long
+          section title. A heading can afford a second line; a button that
+          breaks mid-label cannot. */}
+      <h2 className="wf-display min-w-0 text-[0.95rem] tracking-tight">
         {children}
       </h2>
-      {action}
+      {action ? <span className="shrink-0">{action}</span> : null}
     </div>
   );
 }
