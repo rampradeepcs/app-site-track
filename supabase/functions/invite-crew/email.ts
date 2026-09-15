@@ -37,6 +37,10 @@ export interface InviteInput {
   actionUrl?: string;
   /** The Android build. Omitted when no release is configured. */
   apkUrl?: string;
+  /** The mark, as an absolute URL. Mail cannot fetch a relative path. */
+  logoUrl?: string;
+  /** Where the product lives on the web, for the foot of the letter. */
+  siteUrl?: string;
 }
 
 const INK = "#111111";
@@ -108,7 +112,7 @@ export function inviteText(input: InviteInput): string {
     "If you were not expecting this, you can ignore it - nothing happens until",
     "you sign in.",
     "",
-    "Workfence",
+    input.siteUrl ? `Workfence - site attendance - ${input.siteUrl}` : "Workfence",
   );
   return lines.join("\n");
 }
@@ -166,12 +170,19 @@ export function inviteHtml(input: InviteInput): string {
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
                  style="max-width:560px;background:#ffffff;border:1px solid ${LINE};border-radius:14px;">
 
+            <!-- The mark, with the name as its alt text: a client that
+                 blocks images still says who this is from, which is the
+                 only job the top of the letter has. Width and height are
+                 attributes as well as style, because Outlook sizes from
+                 the attributes. -->
             <tr>
-              <td style="padding:26px 28px 6px 28px;">
-                <p style="margin:0;font:700 13px/1 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-                          letter-spacing:0.14em;text-transform:uppercase;color:${AMBER};">
-                  Workfence
-                </p>
+              <td style="padding:26px 28px 8px 28px;">
+                ${
+                  input.logoUrl
+                    ? `<img src="${esc(input.logoUrl)}" width="104" height="43" alt="Workfence"
+                         style="display:block;border:0;outline:none;text-decoration:none;width:104px;height:43px;" />`
+                    : `<p style="margin:0;font:700 13px/1 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;letter-spacing:0.14em;text-transform:uppercase;color:${AMBER};">Workfence</p>`
+                }
               </td>
             </tr>
 
@@ -258,7 +269,11 @@ export function inviteHtml(input: InviteInput): string {
           </table>
 
           <p style="margin:14px 0 0 0;font:400 12px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:${MUTED};">
-            Workfence - site attendance
+            Workfence - site attendance${
+              input.siteUrl
+                ? ` &nbsp;·&nbsp; <a href="https://${esc(input.siteUrl)}" style="color:${MUTED};text-decoration:underline;">${esc(input.siteUrl)}</a>`
+                : ""
+            }
           </p>
         </td>
       </tr>

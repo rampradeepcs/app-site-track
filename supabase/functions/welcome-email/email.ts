@@ -22,6 +22,10 @@ export interface WelcomeInput {
   crewInvited: number;
   siteName?: string;
   trialDays?: number;
+  /** The mark, as an absolute URL. Mail cannot fetch a relative path. */
+  logoUrl?: string;
+  /** Where the product lives on the web, for the foot of the letter. */
+  siteUrl?: string;
 }
 
 const INK = "#111111";
@@ -107,7 +111,7 @@ export function welcomeText(input: WelcomeInput): string {
     "",
     "If you get stuck, reply to this message.",
     "",
-    "Workfence",
+    input.siteUrl ? `Workfence - ${input.siteUrl}` : "Workfence",
   ];
   return lines.filter((l) => l !== undefined).join("\n");
 }
@@ -151,9 +155,11 @@ export function welcomeHtml(input: WelcomeInput): string {
 
           <tr>
             <td style="padding:28px 28px 0 28px;">
-              <div style="font:700 13px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:${INK};">
-                Workfence
-              </div>
+              ${
+                input.logoUrl
+                  ? `<img src="${esc(input.logoUrl)}" width="104" height="43" alt="Workfence" style="display:block;border:0;outline:none;text-decoration:none;width:104px;height:43px;" />`
+                  : `<div style="font:700 13px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:${INK};">Workfence</div>`
+              }
             </td>
           </tr>
 
@@ -236,7 +242,11 @@ export function welcomeHtml(input: WelcomeInput): string {
         </table>
 
         <p style="margin:16px 0 0 0;font:400 11px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${MUTED};">
-          You are receiving this because ${esc(input.company)} was created on Workfence.
+          You are receiving this because ${esc(input.company)} was created on Workfence.${
+            input.siteUrl
+              ? `<br /><a href="https://${esc(input.siteUrl)}" style="color:${MUTED};text-decoration:underline;">${esc(input.siteUrl)}</a>`
+              : ""
+          }
         </p>
       </td>
     </tr>

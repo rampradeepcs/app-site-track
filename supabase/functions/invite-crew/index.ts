@@ -55,6 +55,10 @@ const json = (body: unknown, status = 200) =>
 const DEFAULT_APK_URL =
   "https://github.com/rampradeepcs/app-site-track/releases/download/android-latest/workfence.apk";
 
+/** The product's own address, for the foot of the letter. Not where the
+ *  buttons point: those go to the app the person was actually invited to. */
+const DEFAULT_SITE_URL = "www.workfence.app";
+
 const isRealAddress = (e: string) =>
   /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e) && !e.endsWith("@placeholder.workfence.app");
 
@@ -193,6 +197,13 @@ Deno.serve(async (req: Request) => {
   // Set APK_URL to "" to leave the Android block out of the letter entirely.
   const apkRaw = Deno.env.get("APK_URL");
   const apkUrl = apkRaw === "" ? undefined : (apkRaw ?? DEFAULT_APK_URL);
+  // Absolute, because mail cannot fetch a relative path, and served from the
+  // app rather than the marketing domain so it is there whatever that domain
+  // is currently pointing at. Set either to "" to drop it.
+  const logoRaw = Deno.env.get("LOGO_URL");
+  const logoUrl = logoRaw === "" ? undefined : (logoRaw ?? `${appUrl}/brand/workfence-mark.png`);
+  const siteRaw = Deno.env.get("SITE_URL");
+  const siteUrl = siteRaw === "" ? undefined : (siteRaw ?? DEFAULT_SITE_URL);
   const redirectTo = Deno.env.get("INVITE_REDIRECT_URL") ?? tenantUrl ?? appUrl;
 
   const resendKey = Deno.env.get("RESEND_API_KEY");
@@ -269,6 +280,8 @@ Deno.serve(async (req: Request) => {
       tenantUrl,
       actionUrl,
       apkUrl,
+      logoUrl,
+      siteUrl,
     };
 
     const res = await fetch("https://api.resend.com/emails", {

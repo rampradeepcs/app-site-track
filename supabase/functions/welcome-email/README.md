@@ -36,6 +36,8 @@ Optional, and worth setting before real customers see it:
 | `MAIL_REPLY_TO` | none | the letter says "reply to this message — it reaches a person", so give it somewhere to reach |
 | `APP_URL` | the Vercel address | where the dashboard button points |
 | `TENANT_BASE_DOMAIN` | none | with a wildcard domain, the crew's sign-in address becomes `slug.yourdomain` instead of `/t/slug` |
+| `LOGO_URL` | `<APP_URL>/brand/workfence-mark.png` | the mark at the top; `""` drops it and the typed wordmark returns |
+| `SITE_URL` | `www.workfence.app` | the address at the foot of the letter |
 
 ## Sent once
 

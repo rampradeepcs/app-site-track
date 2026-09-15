@@ -70,6 +70,19 @@ gh release upload android-latest workfence.apk --clobber
 The link is the filename, so the name is the contract: upload it as
 `workfence.apk` or rename it first.
 
+## The mark
+
+`public/brand/workfence-mark.png` is the same geometry the app draws on
+screen: it is decoded straight from `MARK_PNG_BASE64` in
+`src/lib/brand-mark-png.ts`, which is itself generated from the `MARK_PATHS`
+in `src/lib/brand.ts`. Regenerate it from there rather than redrawing it, so
+the logo in an invitation cannot drift from the logo in the app.
+
+It is referenced absolutely and served from the app's own domain, because
+mail cannot fetch a relative path. Clients that block remote images show the
+`alt` text instead, which is the word "Workfence" — so the top of the letter
+still says who it is from with images off.
+
 ## Sending it
 
 It needs one secret. **Without `RESEND_API_KEY` this falls back to Supabase's
@@ -89,6 +102,8 @@ Optional:
 | `MAIL_REPLY_TO` | none | somewhere for a confused new employee to reply |
 | `APP_URL` | the Vercel address | where the web button points |
 | `APK_URL` | the release asset above | set it to `""` to drop the Android block from the letter entirely |
+| `LOGO_URL` | `<APP_URL>/brand/workfence-mark.png` | the mark at the top; served from the app rather than the marketing domain so it is there whatever that domain points at. `""` drops it and the typed wordmark returns |
+| `SITE_URL` | `www.workfence.app` | the address at the foot of the letter. Not where the buttons point |
 | `TENANT_BASE_DOMAIN` | none | with a wildcard domain the crew's address becomes `slug.yourdomain` instead of `/t/slug` |
 | `INVITE_REDIRECT_URL` | the company's own address | where the one-time link lands |
 

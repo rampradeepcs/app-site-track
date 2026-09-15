@@ -109,6 +109,14 @@ Deno.serve(async (req: Request) => {
       )
     : undefined;
 
+  // Absolute, because mail cannot fetch a relative path, and served from the
+  // app rather than the marketing domain so it is there whatever that domain
+  // currently points at. Set either to "" to drop it.
+  const logoRaw = Deno.env.get("LOGO_URL");
+  const logoUrl = logoRaw === "" ? undefined : (logoRaw ?? `${appUrl}/brand/workfence-mark.png`);
+  const siteRaw = Deno.env.get("SITE_URL");
+  const siteUrl = siteRaw === "" ? undefined : (siteRaw ?? "www.workfence.app");
+
   const input = {
     name: (me.name || to.split("@")[0]).trim(),
     company: org.name,
@@ -121,6 +129,8 @@ Deno.serve(async (req: Request) => {
     crewInvited: waiting ?? 0,
     siteName: site?.name ?? undefined,
     trialDays: trialDays && trialDays > 0 ? trialDays : undefined,
+    logoUrl,
+    siteUrl,
   };
 
   /*
