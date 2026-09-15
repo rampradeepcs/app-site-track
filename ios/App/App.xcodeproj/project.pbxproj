@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		08CCC1AB6464F1B834864B6B /* WatchPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0CA0475C12D5CD66F1F38CA /* WatchPlugin.swift */; };
+		1BA9B8182B08A7FEAE7E4E95 /* WorkfenceWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 4076B253BD91351B4014F19B /* WorkfenceWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
@@ -15,11 +17,43 @@
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		5B321F849A8CAA0C9F9B06C0 /* PhoneLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6821B2310175ACBDA49BB74 /* PhoneLink.swift */; };
+		65573C7C3E902791D487C505 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D107A8B1398C59191F81B469 /* Foundation.framework */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
+		A74997998216A0C5FF276728 /* Screens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51131C2220F2C2104400FB1E /* Screens.swift */; };
+		A870511615F797E692D940DE /* WorkfenceWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3193AAD6BEEA57117E6D6ED2 /* WorkfenceWatchApp.swift */; };
+		B1D034EC429DAE2354755C42 /* WatchState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09C1E8F56699E530F0686922 /* WatchState.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		12800820CDD425211BFE3AA1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 322BFAF513F6EF84D7A2F957;
+			remoteInfo = WorkfenceWatch;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		C2832E268B6233F5C9E88175 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				1BA9B8182B08A7FEAE7E4E95 /* WorkfenceWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		09C1E8F56699E530F0686922 /* WatchState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchState.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
+		3193AAD6BEEA57117E6D6ED2 /* WorkfenceWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WorkfenceWatchApp.swift; sourceTree = "<group>"; };
+		4076B253BD91351B4014F19B /* WorkfenceWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WorkfenceWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -28,8 +62,12 @@
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
+		51131C2220F2C2104400FB1E /* Screens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Screens.swift; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		C0CA0475C12D5CD66F1F38CA /* WatchPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchPlugin.swift; sourceTree = "<group>"; };
+		D107A8B1398C59191F81B469 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		D6821B2310175ACBDA49BB74 /* PhoneLink.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PhoneLink.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -41,15 +79,33 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E9AA632DF62962F808B09E59 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65573C7C3E902791D487C505 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		13C4EA6B53397F6EAA2DCDBC /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				BD6D6A11BEFD24EB795E0DFD /* watchOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		504EC2FB1FED79650016851F = {
 			isa = PBXGroup;
 			children = (
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
 				504EC3051FED79650016851F /* Products */,
+				13C4EA6B53397F6EAA2DCDBC /* Frameworks */,
+				E9AE1EB5EA4854E89F6F2EDF /* WorkfenceWatch */,
 			);
 			sourceTree = "<group>";
 		};
@@ -57,6 +113,7 @@
 			isa = PBXGroup;
 			children = (
 				504EC3041FED79650016851F /* App.app */,
+				4076B253BD91351B4014F19B /* WorkfenceWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -73,13 +130,60 @@
 				504EC3131FED79650016851F /* Info.plist */,
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
+				95950AAE64F67AC89B3510AE /* Watch */,
 			);
 			path = App;
 			sourceTree = "<group>";
 		};
+		95950AAE64F67AC89B3510AE /* Watch */ = {
+			isa = PBXGroup;
+			children = (
+				C0CA0475C12D5CD66F1F38CA /* WatchPlugin.swift */,
+			);
+			name = Watch;
+			path = App/Watch;
+			sourceTree = "<group>";
+		};
+		BD6D6A11BEFD24EB795E0DFD /* watchOS */ = {
+			isa = PBXGroup;
+			children = (
+				D107A8B1398C59191F81B469 /* Foundation.framework */,
+			);
+			name = watchOS;
+			sourceTree = "<group>";
+		};
+		E9AE1EB5EA4854E89F6F2EDF /* WorkfenceWatch */ = {
+			isa = PBXGroup;
+			children = (
+				09C1E8F56699E530F0686922 /* WatchState.swift */,
+				D6821B2310175ACBDA49BB74 /* PhoneLink.swift */,
+				51131C2220F2C2104400FB1E /* Screens.swift */,
+				3193AAD6BEEA57117E6D6ED2 /* WorkfenceWatchApp.swift */,
+			);
+			name = WorkfenceWatch;
+			path = WorkfenceWatch/Sources;
+			sourceTree = SOURCE_ROOT;
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		322BFAF513F6EF84D7A2F957 /* WorkfenceWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FE1AEC6871CBDCAA3437CE96 /* Build configuration list for PBXNativeTarget "WorkfenceWatch" */;
+			buildPhases = (
+				62239CB2E75D3E20EABC1151 /* Sources */,
+				E9AA632DF62962F808B09E59 /* Frameworks */,
+				783C666F89D4FA67F9ED2221 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = WorkfenceWatch;
+			productName = WorkfenceWatch;
+			productReference = 4076B253BD91351B4014F19B /* WorkfenceWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
 		504EC3031FED79650016851F /* App */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 504EC3161FED79650016851F /* Build configuration list for PBXNativeTarget "App" */;
@@ -87,10 +191,12 @@
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
+				C2832E268B6233F5C9E88175 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				44C8409FB84064F4AC70B320 /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -133,6 +239,7 @@
 			projectRoot = "";
 			targets = (
 				504EC3031FED79650016851F /* App */,
+				322BFAF513F6EF84D7A2F957 /* WorkfenceWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -151,6 +258,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		783C666F89D4FA67F9ED2221 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -160,10 +274,31 @@
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
+				08CCC1AB6464F1B834864B6B /* WatchPlugin.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		62239CB2E75D3E20EABC1151 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B1D034EC429DAE2354755C42 /* WatchState.swift in Sources */,
+				5B321F849A8CAA0C9F9B06C0 /* PhoneLink.swift in Sources */,
+				A74997998216A0C5FF276728 /* Screens.swift in Sources */,
+				A870511615F797E692D940DE /* WorkfenceWatchApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		44C8409FB84064F4AC70B320 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = WorkfenceWatch;
+			target = 322BFAF513F6EF84D7A2F957 /* WorkfenceWatch */;
+			targetProxy = 12800820CDD425211BFE3AA1 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		504EC30B1FED79650016851F /* Main.storyboard */ = {
@@ -185,6 +320,28 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		2B61B66C7E7051ABA9541945 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Workfence;
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = app.workfence.workforce;
+				PRODUCT_BUNDLE_IDENTIFIER = app.workfence.workforce.watchkitapp;
+				PRODUCT_NAME = Workfence;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
 		504EC3141FED79650016851F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 958DCC722DB07C7200EA8C5F /* debug.xcconfig */;
@@ -338,6 +495,29 @@
 			};
 			name = Release;
 		};
+		92A0A092686F49518D35BFD0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Workfence;
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = app.workfence.workforce;
+				PRODUCT_BUNDLE_IDENTIFIER = app.workfence.workforce.watchkitapp;
+				PRODUCT_NAME = Workfence;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -355,6 +535,15 @@
 			buildConfigurations = (
 				504EC3171FED79650016851F /* Debug */,
 				504EC3181FED79650016851F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FE1AEC6871CBDCAA3437CE96 /* Build configuration list for PBXNativeTarget "WorkfenceWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				92A0A092686F49518D35BFD0 /* Release */,
+				2B61B66C7E7051ABA9541945 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
