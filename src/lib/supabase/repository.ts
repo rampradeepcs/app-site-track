@@ -788,6 +788,39 @@ export async function inviteCrewRemote(
   return data ?? { invited: 0, existing: 0, failed: 0, results: [] };
 }
 
+/* ------------------------------------------------------------- welcome --- */
+
+/** What a company says to somebody arriving in it for the first time. */
+export interface WelcomeClaim {
+  due: boolean;
+  company: string;
+  site: string;
+  name: string;
+  role: string;
+}
+
+/**
+ * Claim the one-time welcome into the active company.
+ *
+ * The read and the claim are one call on purpose: two calls race, and the
+ * loser greets somebody twice. `due: false` covers both "already welcomed"
+ * and "no company to be welcomed into", because they mean the same thing
+ * here — show nothing.
+ */
+export async function claimWelcomeRemote(): Promise<WelcomeClaim> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("claim_welcome");
+  if (error) throw error;
+  const d = (data ?? {}) as Record<string, unknown>;
+  return {
+    due: !!d.due,
+    company: String(d.company ?? ""),
+    site: String(d.site ?? ""),
+    name: String(d.name ?? ""),
+    role: String(d.role ?? ""),
+  };
+}
+
 /* ------------------------------------------------------- tenant + clients --- */
 
 /** Name and branding of the company at a subdomain, or null. Anonymous. */

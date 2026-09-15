@@ -480,6 +480,14 @@ export type Database = {
       restore_member: { Args: { p_user: string }; Returns: Json };
       /** Found another company as an identity that already has one. */
       create_company: { Args: { payload: Json }; Returns: Json };
+      /**
+       * Claim the one-time welcome into the active company.
+       *
+       * Reads and stamps in a single call, because two calls race: somebody
+       * opening the app on a phone and a laptop in the same minute would
+       * pass the read on both and be greeted twice.
+       */
+      claim_welcome: { Args: Record<string, never>; Returns: Json };
       /** Public: name and branding of the company at a subdomain, or null. */
       tenant_branding: {
         Args: { p_slug: string };

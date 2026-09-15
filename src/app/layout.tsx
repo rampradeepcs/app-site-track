@@ -10,6 +10,7 @@ import { ToastHost } from "@/components/ToastHost";
 import { TileCache } from "@/components/TileCache";
 import { NoteReminders } from "@/components/NoteReminders";
 import { SsoReturn } from "@/components/SsoReturn";
+import { WelcomeAboard } from "@/components/WelcomeAboard";
 
 /*
  * The face is the identity, so the webfont leads the stack (workforce.css
@@ -62,6 +63,7 @@ export default function RootLayout({
               <TileCache />
               <NoteReminders />
               <SsoReturn />
+              <WelcomeAboard />
               <ToastHost />
               <DemoBar />
             </WorkforceProvider>
