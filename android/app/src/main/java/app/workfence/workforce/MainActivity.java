@@ -22,6 +22,7 @@ public class MainActivity extends BridgeActivity {
         // are — capacitor.plugins.json only lists packages — so this has to be
         // registered by hand, and before super.onCreate builds the bridge.
         registerPlugin(ContactPickerPlugin.class);
+        registerPlugin(WatchPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

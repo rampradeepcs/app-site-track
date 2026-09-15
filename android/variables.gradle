@@ -13,4 +13,16 @@ ext {
     androidxJunitVersion = '1.3.0'
     androidxEspressoCoreVersion = '3.7.0'
     cordovaAndroidVersion = '14.0.1'
+
+    /* ---------------------------------------------------------- wear os */
+    /* The watch module only. The phone app is untouched by these. */
+    kotlinVersion = '2.0.21'
+    // Wear's own Compose layer: material (stable) rather than material3,
+    // which is still alpha and would put a preview dependency on a shift.
+    wearComposeVersion = '1.4.1'
+    composeBomVersion = '2024.10.00'
+    activityComposeVersion = '1.9.3'
+    // The Data Layer: how the phone and the watch talk at all.
+    playServicesWearableVersion = '18.2.0'
+    wearVersion = '1.3.0'
 }

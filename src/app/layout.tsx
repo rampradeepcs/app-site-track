@@ -11,6 +11,7 @@ import { TileCache } from "@/components/TileCache";
 import { NoteReminders } from "@/components/NoteReminders";
 import { SsoReturn } from "@/components/SsoReturn";
 import { WelcomeAboard } from "@/components/WelcomeAboard";
+import { WatchLink } from "@/components/WatchLink";
 
 /*
  * The face is the identity, so the webfont leads the stack (workforce.css
@@ -64,6 +65,7 @@ export default function RootLayout({
               <NoteReminders />
               <SsoReturn />
               <WelcomeAboard />
+              <WatchLink />
               <ToastHost />
               <DemoBar />
             </WorkforceProvider>

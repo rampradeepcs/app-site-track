@@ -1,0 +1,74 @@
+/*
+ * The Workfence watch.
+ *
+ * A companion, not a second app: the phone holds the session, the offline
+ * outbox and the camera, and decides what is allowed. This module renders
+ * what it is told over the Data Layer and asks for the handful of things a
+ * worker reaches for without taking a phone out at a site gate.
+ *
+ * Its applicationId matches the phone's on purpose. Wear pairs a watch app
+ * to a phone app by that id, which is also what lets the watch app be
+ * delivered alongside the phone one rather than found separately.
+ */
+apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
+
+android {
+    namespace "app.workfence.workforce.wear"
+    compileSdk rootProject.ext.compileSdkVersion
+
+    defaultConfig {
+        applicationId "app.workfence.workforce"
+        // Wear OS 3 and later. Below this the Compose layer is not supported
+        // and the watches are a different product anyway.
+        minSdkVersion 30
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 5
+        versionName "1.4"
+    }
+
+    buildFeatures {
+        compose true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+
+    kotlinOptions {
+        jvmTarget = '21'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    implementation platform("androidx.compose:compose-bom:$rootProject.ext.composeBomVersion")
+
+    implementation "androidx.core:core-ktx:$rootProject.ext.androidxCoreVersion"
+    implementation "androidx.activity:activity-compose:$rootProject.ext.activityComposeVersion"
+
+    // Wear's own Compose layer. Material rather than Material3: the latter is
+    // still alpha, and a shift is not the place for a preview dependency.
+    implementation "androidx.wear.compose:compose-material:$rootProject.ext.wearComposeVersion"
+    implementation "androidx.wear.compose:compose-foundation:$rootProject.ext.wearComposeVersion"
+    implementation "androidx.wear.compose:compose-navigation:$rootProject.ext.wearComposeVersion"
+    implementation "androidx.wear:wear:$rootProject.ext.wearVersion"
+
+    // The pager lives in core foundation: Wear's own Compose layer at this
+    // version has no equivalent, and this is what the Wear samples use.
+    implementation "androidx.compose.foundation:foundation"
+    implementation "androidx.compose.ui:ui"
+    implementation "androidx.compose.ui:ui-tooling-preview"
+    debugImplementation "androidx.compose.ui:ui-tooling"
+
+    // How the phone and the watch talk at all.
+    implementation "com.google.android.gms:play-services-wearable:$rootProject.ext.playServicesWearableVersion"
+}

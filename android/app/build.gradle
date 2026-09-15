@@ -40,6 +40,10 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+    // The Data Layer, for talking to a paired Wear OS watch. Present on every
+    // phone with Play services; absent on one without, where WatchPlugin
+    // simply reports no watch and the web layer stops asking.
+    implementation "com.google.android.gms:play-services-wearable:$playServicesWearableVersion"
 }
 
 apply from: 'capacitor.build.gradle'
