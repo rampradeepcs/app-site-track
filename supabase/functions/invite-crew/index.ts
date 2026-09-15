@@ -75,14 +75,15 @@ Deno.serve(async (req: Request) => {
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const authorization = req.headers.get("Authorization") ?? "";
 
-  // The caller, as themselves. Every policy resolves against them, so this
-  // client can only see what they can see.
-  const asCaller = createClient(url, anonKey, {
-    global: { headers: { Authorization: authorization } },
-  });
-  const { data: who } = await asCaller.auth.getUser();
-  if (!who?.user) return json({ error: "Sign in first." }, 401);
-
+  /*
+   * The body is read before the client is built, because which company this
+   * runs for decides what the caller is even allowed to see.
+   *
+   * private.active_org_id() answers from the x-workfence-company header, and
+   * with no header somebody who belongs to more than one company resolves to
+   * nothing at all — every read below would come back empty, which reads
+   * exactly like a company with nobody left to invite.
+   */
   let body: { orgId?: string; emails?: string[] };
   try {
     body = await req.json();
@@ -92,12 +93,30 @@ Deno.serve(async (req: Request) => {
   const orgId = body.orgId?.trim();
   if (!orgId) return json({ error: "orgId is required." }, 400);
 
+  /*
+   * Naming the company here is not a way in. active_org_id() honours the
+   * header only for somebody who is a live member of what it names, so the
+   * database decides membership and this only says which of their companies
+   * to answer as. The caller's own header wins when the app sent one.
+   */
+  const asCaller = createClient(url, anonKey, {
+    global: {
+      headers: {
+        Authorization: authorization,
+        "x-workfence-company": req.headers.get("x-workfence-company") ?? orgId,
+      },
+    },
+  });
+  const { data: who } = await asCaller.auth.getUser();
+  if (!who?.user) return json({ error: "Sign in first." }, 401);
+
   // May this person invite for this company? Asked of the database as the
   // caller, so the answer is the same one every other screen gets.
   const { data: me, error: meError } = await asCaller
     .from("users")
     .select("id, name, org_id, role")
     .eq("auth_id", who.user.id)
+    .eq("org_id", orgId)
     .maybeSingle();
   if (meError) return json({ error: meError.message }, 400);
   if (!me || me.org_id !== orgId || !["admin", "manager"].includes(me.role)) {
@@ -127,7 +146,11 @@ Deno.serve(async (req: Request) => {
       .eq("org_id", orgId)
       .eq("status", "pending"),
   ]);
+  // Both errors are reported. A policy that quietly returns no rows looks
+  // exactly like a company with nobody left to invite, and the whole point of
+  // this function is that silence is what went wrong last time.
   if (crewRes.error) return json({ error: crewRes.error.message }, 400);
+  if (invitesRes.error) return json({ error: invitesRes.error.message }, 400);
 
   const byEmail = new Map<string, Recipient>();
   for (const p of crewRes.data ?? []) {
