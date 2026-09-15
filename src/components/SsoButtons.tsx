@@ -52,6 +52,16 @@ const MARKS: Record<SsoProvider, () => React.JSX.Element> = {
   azure: OutlookMark,
 };
 
+/** True inside the Capacitor shell, where the answer returns on a deep link
+ *  rather than on this page. The web and the device recover differently, and
+ *  this is what tells them apart. */
+function isNative(): boolean {
+  if (typeof window === "undefined") return false;
+  const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } })
+    .Capacitor;
+  return typeof cap?.isNativePlatform === "function" && cap.isNativePlatform();
+}
+
 export function SsoButtons({
   onError,
   onStart,
@@ -60,6 +70,52 @@ export function SsoButtons({
   onStart?: () => void;
 }) {
   const [busy, setBusy] = useState<SsoProvider | null>(null);
+
+  /*
+   * Recover when the *web* page comes back with the button still pressed.
+   *
+   * On the web the redirect leaves this page, so `busy` is deliberately left
+   * set — there is nothing to hand back to. Except when the person returns:
+   * pressing Back from Google restores this page from the back/forward
+   * cache, which restores React's state with it, and both buttons came back
+   * disabled with one reading "Opening…". Nothing cleared it, because the
+   * only recovery this component had bailed out on anything that was not
+   * Capacitor, so the sign-in was dead until a full reload.
+   *
+   * Two signals, because browsers differ on which they give. `pageshow` with
+   * `persisted` is the precise one for a cached restore; a tab becoming
+   * visible again covers the rest, and asks the one question that decides it
+   * — is there a session now? If there is, the gate is already taking them
+   * in and the buttons do not matter.
+   */
+  useEffect(() => {
+    if (!busy || isNative()) return;
+    let cancelled = false;
+
+    const handBack = () => {
+      if (!cancelled) setBusy(null);
+    };
+
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) handBack();
+    };
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      void (async () => {
+        const email = await currentAuthEmail();
+        if (cancelled || email) return; // signed in: the gate has it from here
+        handBack();
+      })();
+    };
+
+    window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [busy]);
 
   /*
    * Recover when the browser comes back without a session.
@@ -82,9 +138,7 @@ export function SsoButtons({
     let remove: (() => void) | undefined;
 
     void (async () => {
-      const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } })
-        .Capacitor;
-      if (typeof cap?.isNativePlatform !== "function" || !cap.isNativePlatform()) return;
+      if (!isNative()) return;
 
       const { App } = await import("@capacitor/app");
       const handle = await App.addListener("appStateChange", ({ isActive }) => {
