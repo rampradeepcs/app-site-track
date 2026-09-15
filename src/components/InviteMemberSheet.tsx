@@ -14,7 +14,8 @@
 import { useState } from "react";
 import { BottomSheet, Field } from "./ui";
 import { useWorkforce } from "@/lib/store";
-import { inviteMemberRemote } from "@/lib/supabase/repository";
+import { inviteCrewRemote, inviteMemberRemote } from "@/lib/supabase/repository";
+import { activeCompanyId } from "@/lib/company";
 import { describeError } from "@/lib/errors";
 import { showToast } from "@/lib/toast";
 import type { Role } from "@/lib/types";
@@ -78,11 +79,34 @@ export function InviteMemberSheet({
         shiftId: shiftId || null,
         employmentType,
       });
+
+      /*
+       * The membership exists now; this is the part the person invited
+       * actually sees. Recording the invitation and writing to them are
+       * separate acts, and only the first is the database's — so a mail that
+       * fails must not undo a membership that succeeded. It is reported
+       * rather than thrown, because "added, but could not email" is a true
+       * and useful thing to tell somebody.
+       */
+      let mailed = true;
+      const org = activeCompanyId();
+      if (org) {
+        try {
+          const sent = await inviteCrewRemote(org, [out.email]);
+          mailed = sent.failed === 0;
+        } catch (e) {
+          mailed = false;
+          console.warn("[workfence] invitation email failed:", describeError(e));
+        }
+      }
+
       showToast(
-        out.existingUser
-          ? `${out.email} already has a Workfence account — invited to join this company`
-          : `Invitation sent to ${out.email}`,
-        "success",
+        !mailed
+          ? `${out.email} was added, but the invitation email could not be sent`
+          : out.existingUser
+            ? `${out.email} already has a Workfence account — invited to join this company`
+            : `Invitation sent to ${out.email}`,
+        mailed ? "success" : "info",
       );
       reset();
       onInvited?.();

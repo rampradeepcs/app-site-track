@@ -27,7 +27,8 @@ import { useMyCompanies } from "@/lib/companies";
 import { useWorkforce, type CrewInvite } from "@/lib/store";
 import { isLiveBackend } from "@/lib/supabase/client";
 import { demoActive } from "@/lib/demo/mode";
-import { inviteMemberRemote } from "@/lib/supabase/repository";
+import { inviteCrewRemote, inviteMemberRemote } from "@/lib/supabase/repository";
+import { activeCompanyId } from "@/lib/company";
 import { describeError } from "@/lib/errors";
 import { showToast } from "@/lib/toast";
 import type { Role } from "@/lib/types";
@@ -76,6 +77,7 @@ export default function AddPeoplePage() {
       // One at a time, and each failure named: a mistyped address in the
       // fourth row must not throw away the three that were fine.
       const failed: string[] = [];
+      const invitedEmails: string[] = [];
       let sent = 0;
       let existing = 0;
       for (const c of crew) {
@@ -89,19 +91,42 @@ export default function AddPeoplePage() {
             projectId: projectId || null,
           });
           sent += 1;
+          invitedEmails.push(out.email);
           if (out.existingUser) existing += 1;
         } catch (e) {
           failed.push(`${c.email || c.name}: ${describeError(e)}`);
         }
       }
+
+      /*
+       * The memberships exist now; this is the part the crew actually sees —
+       * the web address and the Android app, in one letter each.
+       *
+       * Sent in a single call for everybody who made it, and never allowed to
+       * fail the whole screen: recording somebody and writing to them are
+       * separate acts, and a refused mail server must not undo a row that was
+       * written. What could not be sent is said plainly instead.
+       */
+      let unmailed = 0;
+      const org = activeCompanyId();
+      if (org && invitedEmails.length) {
+        try {
+          const mail = await inviteCrewRemote(org, invitedEmails);
+          unmailed = mail.failed;
+        } catch (e) {
+          unmailed = invitedEmails.length;
+          console.warn("[workfence] invitation emails failed:", describeError(e));
+        }
+      }
+
       await reloadFromBackend();
 
       if (sent > 0 && failed.length === 0) {
         showToast(
           `Invited ${sent} to ${companyName}${
             existing > 0 ? ` — ${existing} already had a Workfence account` : ""
-          }`,
-          "success",
+          }${unmailed > 0 ? ` · ${unmailed} could not be emailed` : ""}`,
+          unmailed > 0 ? "info" : "success",
         );
         router.replace("/admin/team");
         return;
