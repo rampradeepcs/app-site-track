@@ -10,7 +10,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { EmployeeEditor } from "@/components/EmployeeEditor";
-import { InviteMemberSheet } from "@/components/InviteMemberSheet";
 import { RemoveMemberDialog } from "@/components/RemoveMemberDialog";
 import { useMyCompanies } from "@/lib/companies";
 import { MemberStatusChip } from "@/components/MemberStatus";
@@ -92,7 +91,6 @@ export default function AdminTeam() {
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<Role | "all" | "invited">("all");
   const [editing, setEditing] = useState<User | null | "new">(null);
-  const [inviting, setInviting] = useState(false);
   const [removing, setRemoving] = useState<User | null>(null);
   const { active } = useMyCompanies();
 
@@ -159,12 +157,12 @@ export default function AdminTeam() {
                 already have a Workfence account it becomes a second
                 membership on the identity they already have. */}
             {isLiveBackend && !demoActive() ? (
-              <button
+              <Link
                 className="wf-btn wf-btn-ghost wf-btn-sm"
-                onClick={() => setInviting(true)}
+                href="/admin/team/invite"
               >
                 <IUsers size={15} /> Invite
-              </button>
+              </Link>
             ) : null}
             {/* Its own screen, and the same one onboarding uses: type them
                 in or take them from the phone's contacts. */}
@@ -173,11 +171,6 @@ export default function AdminTeam() {
             </Link>
           </span>
         }
-      />
-      <InviteMemberSheet
-        open={inviting}
-        onClose={() => setInviting(false)}
-        onInvited={() => void reloadFromBackend()}
       />
       <RemoveMemberDialog
         member={removing}

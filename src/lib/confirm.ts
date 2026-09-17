@@ -55,7 +55,7 @@ export const DISCARD_PERSON =
 
 export const DISCARD_INVITE =
   "Discard this invitation?\n\n" +
-  "It has not been sent, and what was filled in goes with the sheet.";
+  "It has not been sent, and what was filled in goes with it.";
 
 export const DISCARD_CLIENT =
   "Discard this client?\n\n" +
