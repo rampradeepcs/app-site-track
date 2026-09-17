@@ -29,3 +29,4 @@ build.err
 /android/keystore.properties
 *.jks
 *.keystore
+/dist/

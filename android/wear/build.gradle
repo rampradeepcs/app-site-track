@@ -40,8 +40,8 @@ android {
          * version code. The offset keeps them distinct for ever without
          * anybody having to remember to bump two numbers in step.
          */
-        versionCode 1005
-        versionName "1.4"
+        versionCode 1011
+        versionName "1.5"
     }
 
     buildFeatures {
