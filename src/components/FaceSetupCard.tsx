@@ -24,6 +24,39 @@ import { ICheckCircle, IShield } from "./WfIcons";
 
 const DEFER_KEY = "workfence.face-setup.deferred";
 
+/**
+ * How long "Later" lasts.
+ *
+ * It used to last for ever: the key was set to "1" and nothing anywhere
+ * cleared it, so one tap at a gate on a busy morning meant the card was
+ * never offered again on that phone. Every worker who had ever put it off
+ * was permanently without an enrolment and there was no way back.
+ *
+ * A week is long enough that nobody is nagged and short enough that a
+ * deferral is a deferral rather than a refusal. Somebody who genuinely does
+ * not want it taps Later again, which costs them a second.
+ */
+const DEFER_DAYS = 7;
+
+/**
+ * Whether the card is being held back right now.
+ *
+ * The old permanent value is read as a deferral that has already run out,
+ * so everybody carrying one is offered the enrolment again the next time
+ * they open the app — which is the whole point of changing this.
+ */
+function deferredUntil(): number {
+  try {
+    const raw = localStorage.getItem(DEFER_KEY);
+    if (!raw) return 0;
+    if (raw === "1") return 0; // the old for-ever value: expired by definition
+    const at = Number(raw);
+    return Number.isFinite(at) ? at + DEFER_DAYS * 86_400_000 : 0;
+  } catch {
+    return 0;
+  }
+}
+
 export function FaceSetupCard() {
   const { currentUser, enrollFace } = useWorkforce();
   const [open, setOpen] = useState(false);
@@ -33,11 +66,7 @@ export function FaceSetupCard() {
   // Both reads touch the browser, so they wait for the client.
   useEffect(() => {
     setCapable(likelySupported());
-    try {
-      setDeferred(localStorage.getItem(DEFER_KEY) === "1");
-    } catch {
-      setDeferred(false);
-    }
+    setDeferred(Date.now() < deferredUntil());
   }, []);
 
   if (!currentUser || currentUser.role !== "employee") return null;
@@ -67,7 +96,8 @@ export function FaceSetupCard() {
               className="wf-btn wf-btn-ghost wf-btn-sm"
               onClick={() => {
                 try {
-                  localStorage.setItem(DEFER_KEY, "1");
+                  // When, not whether. The reader turns this into an expiry.
+                  localStorage.setItem(DEFER_KEY, String(Date.now()));
                 } catch {
                   /* it simply reappears next launch */
                 }
