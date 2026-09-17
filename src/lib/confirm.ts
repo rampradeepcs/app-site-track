@@ -69,3 +69,7 @@ export const DISCARD_UPDATE =
 export const DISCARD_FENCE =
   "Leave the boundary unsaved?\n\n" +
   "The corners moved here go back to the saved shape.";
+
+export const DISCARD_NOTE =
+  "Discard this note?\n\n" +
+  "What has been written goes, and nothing is posted to the project.";

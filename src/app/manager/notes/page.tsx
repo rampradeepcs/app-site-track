@@ -9,10 +9,10 @@
  * most recently", it is "what do I need to know before I walk out there".
  */
 
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
-import { NoteEditor } from "@/components/notes/NoteEditor";
 import { NoteAttachments } from "@/components/notes/NoteAttachments";
 import { Avatar, BottomSheet, Chip, Segmented } from "@/components/ui";
 import { canCreateNote, canEditNote, canPinNote } from "@/lib/access";
@@ -31,6 +31,7 @@ const PRIORITY_TONE: Record<NotePriority, "green" | "neutral" | "amber" | "red">
 
 export default function NotesPage() {
   const params = useSearchParams();
+  const router = useRouter();
   const { state, setNotePinned, setNoteStatus, deleteNote } = useWorkforce();
 
   const [projectId, setProjectId] = useState(
@@ -41,7 +42,6 @@ export default function NotesPage() {
   const [category, setCategory] = useState<string>("");
   const [priority, setPriority] = useState<string>("");
   const [includeClosed, setIncludeClosed] = useState(false);
-  const [editing, setEditing] = useState<ProjectNote | null | "new">(null);
   const [open, setOpen] = useState<ProjectNote | null>(null);
 
   const me = state.session?.userId;
@@ -71,12 +71,12 @@ export default function NotesPage() {
         sub={`${notes.length} note${notes.length === 1 ? "" : "s"} you can see`}
         action={
           mayCreate ? (
-            <button
+            <Link
               className="wf-btn wf-btn-primary wf-btn-sm"
-              onClick={() => setEditing("new")}
+              href={`/manager/notes/edit?project=${projectId}`}
             >
               <IPlus size={15} /> Note
-            </button>
+            </Link>
           ) : undefined
         }
       />
@@ -171,12 +171,12 @@ export default function NotesPage() {
               one place.
             </p>
             {mayCreate ? (
-              <button
+              <Link
                 className="wf-btn wf-btn-ghost wf-btn-sm"
-                onClick={() => setEditing("new")}
+                href={`/manager/notes/edit?project=${projectId}`}
               >
                 <IPlus size={14} /> Write the first note
-              </button>
+              </Link>
             ) : null}
           </div>
         ) : view === "list" ? (
@@ -200,16 +200,6 @@ export default function NotesPage() {
           </div>
         )}
       </div>
-
-      {projectId ? (
-        <NoteEditor
-          key={editing === "new" ? "new" : (editing?.id ?? "closed")}
-          open={editing !== null}
-          projectId={projectId}
-          editing={editing === "new" ? null : editing}
-          onClose={() => setEditing(null)}
-        />
-      ) : null}
 
       {/* one note, opened */}
       <BottomSheet open={!!open} onClose={() => setOpen(null)} title={open?.title} tall>
@@ -253,8 +243,9 @@ export default function NotesPage() {
                 <button
                   className="wf-btn wf-btn-ghost"
                   onClick={() => {
-                    setEditing(open);
+                    const id = open?.id;
                     setOpen(null);
+                    if (id) router.push(`/manager/notes/edit?id=${id}`);
                   }}
                 >
                   <IEdit size={15} /> Edit note
