@@ -14,6 +14,14 @@ apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
 apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
+/* Same upload key as the phone: Play treats the two as one app, and an
+   artifact signed with a different key is rejected outright. */
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace "app.workfence.workforce.wear"
     compileSdk rootProject.ext.compileSdkVersion
@@ -24,7 +32,15 @@ android {
         // and the watches are a different product anyway.
         minSdkVersion 30
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 5
+        /*
+         * Offset from the phone's on purpose.
+         *
+         * Play takes the watch and the phone as two artifacts of one app,
+         * under one package name, and refuses two artifacts that share a
+         * version code. The offset keeps them distinct for ever without
+         * anybody having to remember to bump two numbers in step.
+         */
+        versionCode 1005
         versionName "1.4"
     }
 
@@ -41,8 +57,22 @@ android {
         jvmTarget = '21'
     }
 
+    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            release {
+                storeFile rootProject.file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

@@ -1,5 +1,20 @@
 apply plugin: 'com.android.application'
 
+/*
+ * Release signing, read from a file that is never committed.
+ *
+ * Play will not take an unsigned bundle, and the upload key is a credential:
+ * it belongs in keystore.properties beside this file, which .gitignore
+ * excludes. Absent, a release build still runs and produces an unsigned
+ * bundle — useful for checking the build, useless for uploading — rather
+ * than failing with something cryptic.
+ */
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "app.workfence.workforce"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,8 +31,22 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            release {
+                storeFile rootProject.file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

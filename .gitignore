@@ -22,3 +22,10 @@ next-env.d.ts
 # Build artefacts written next to the source by the release steps
 *.apk
 build.err
+
+# Release signing. The upload key and its passwords are credentials and never
+# belong in the repository; a lost one is recoverable through Play App Signing,
+# a leaked one is not.
+/android/keystore.properties
+*.jks
+*.keystore
