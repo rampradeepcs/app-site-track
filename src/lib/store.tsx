@@ -3760,14 +3760,46 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
   const saveEmployee = useCallback(
     (patch: Partial<User> & { name: string }, id?: string): User => {
       let saved: User | null = null;
+      /* Every project this save touches, old assignment or new. The writer
+         below rebuilds each one's roster, and a project somebody has just
+         been taken off has to be rebuilt too or the removal never lands. */
+      let touched: string[] = [];
       mutate((s) => {
         if (id) {
+          const before = s.users.find((u) => u.id === id)?.projectIds ?? [];
           const users = s.users.map((u) => {
             if (u.id !== id) return u;
             saved = { ...u, ...patch, id };
             return saved;
           });
-          return { ...s, users };
+          /*
+           * The rosters move with the person.
+           *
+           * Without this the projects kept the membership they had before
+           * the edit, and the writer that follows rebuilt each project from
+           * `employeeIds` — so assigning somebody to a site deleted that
+           * site's members and put back the list that did not include them.
+           * The edit looked saved, the worker had no project, and check-in
+           * told them so at the gate.
+           */
+          const after = saved!.projectIds;
+          const projects =
+            patch.projectIds === undefined
+              ? s.projects
+              : s.projects.map((p) => {
+                  const should = after.includes(p.id);
+                  const has = p.employeeIds.includes(id);
+                  if (should === has) return p;
+                  return {
+                    ...p,
+                    employeeIds: should
+                      ? [...p.employeeIds, id]
+                      : p.employeeIds.filter((x) => x !== id),
+                  };
+                });
+          touched =
+            patch.projectIds === undefined ? [] : [...new Set([...before, ...after])];
+          return { ...s, users, projects };
         }
         const created: User = {
           id: uid(),
@@ -3793,15 +3825,18 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
             ? { ...p, employeeIds: [...new Set([...p.employeeIds, created.id])] }
             : p,
         );
+        touched = created.projectIds;
         return { ...s, users: [...s.users, created], projects };
       });
       const person = saved!;
       persist("save the person", async () => {
         await upsertUser(person, person.orgId);
-        // A new hire assigned to sites in the same breath: the membership
-        // rows are part of saving them, not a separate thing the manager
-        // has to remember to do.
-        for (const projectId of person.projectIds) {
+        // A hire assigned to sites in the same breath: the membership rows
+        // are part of saving them, not a separate thing somebody has to
+        // remember to do. Every project the save touched is rebuilt, the
+        // ones they left as well as the ones they joined, because the row
+        // that has to disappear is on a project they are no longer in.
+        for (const projectId of touched) {
           const project = stateRef.current?.projects.find((p) => p.id === projectId);
           if (project) {
             await replaceProjectMembers(projectId, project.employeeIds, person.orgId);
