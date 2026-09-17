@@ -57,15 +57,29 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
-    <!-- Keeps the shift route recording while the phone is pocketed. Requested
-         separately, only after the worker has checked in, and never held
-         outside an active shift. Play Store submissions must justify this. -->
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Location is foreground-only, deliberately. The shift route is recorded
+         by the WebView while the app is open; nothing tracks a pocketed phone.
+         ACCESS_BACKGROUND_LOCATION, FOREGROUND_SERVICE and
+         FOREGROUND_SERVICE_LOCATION were declared here for a year without a
+         single line of code behind them — no Service subclass, no
+         startForeground call, and Capacitor only ever requests COARSE+FINE
+         (BridgeWebChromeClient.onGeolocationPermissionsShowPrompt), so the
+         background permission could not be granted from inside the app at all.
+         They are gone. Bringing background tracking back means bringing all
+         three back together, with a typed foreground service, its ongoing
+         notification, POST_NOTIFICATIONS, and a Play declaration carrying a
+         demo video and an annual re-review. Do not re-add them speculatively.
 
-    <!-- Check-in / checkout selfies and work-update photos. -->
+         POST_NOTIFICATIONS went with them: nothing in this app posts an
+         Android notification. The bell on the profile screen is an in-app
+         feed, not a system one. -->
+
+    <!-- Check-in / checkout selfies and work-update photos. Capture only.
+         Reading the gallery needs no permission and never did: the WebView's
+         file input hands back a content URI from the system picker carrying
+         its own temporary grant, which is why READ_MEDIA_IMAGES is not here.
+         (It used to be — declared with no READ_EXTERNAL_STORAGE beside it for
+         API 24-32, which is the tell that it was never load-bearing.) -->
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Checkout voice notes. Capacitor's WebChromeClient asks for BOTH of
          these when the page calls getUserMedia({audio}), and treats the
@@ -73,7 +87,6 @@
          has to be declared here even though it is an install-time permission. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
     <!-- The multi-select crew picker: Android has no multi-select system
          picker, so bulk-inviting a crew means the app draws the contact list

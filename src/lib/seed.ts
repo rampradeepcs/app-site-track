@@ -82,9 +82,7 @@ export function buildSeedState(): WorkforceState {
     noteAttachments: [],
     permissions: {
       location: "prompt",
-      backgroundLocation: "prompt",
       camera: "prompt",
-      notifications: "prompt",
       privacyAccepted: false,
     },
     settings: {

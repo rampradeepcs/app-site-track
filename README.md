@@ -290,18 +290,34 @@ also produces a signed release APK.
 
 Declared in `android/app/src/main/AndroidManifest.xml`, each tied to a feature:
 
-| Permission                                          | Why                                                                                                                                                                              |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION`   | Geofence validation and route recording. Coarse is declared too because Android 12+ allows approximate-only grants; the app degrades to a distance estimate rather than failing. |
-| `ACCESS_BACKGROUND_LOCATION`                        | Keeps the route recording while the phone is pocketed. Requested separately, only after check-in, and never held outside an active shift.                                        |
-| `FOREGROUND_SERVICE_LOCATION`, `POST_NOTIFICATIONS` | The persistent "tracking active" notification, which is what makes the tracking visible to the worker.                                                                           |
-| `CAMERA`                                            | Check-in / checkout selfies and work-update photos.                                                                                                                              |
+| Permission                                        | Why                                                                                                                                                                              |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION` | Geofence validation and route recording. Coarse is declared too because Android 12+ allows approximate-only grants; the app degrades to a distance estimate rather than failing. |
+| `CAMERA`                                          | Check-in / checkout selfies and work-update photos. Capture only.                                                                                                                |
+| `RECORD_AUDIO`, `MODIFY_AUDIO_SETTINGS`           | Checkout voice notes. Capacitor's `WebChromeClient` requests both for a `getUserMedia({audio})` call and ANDs the results, so the pair is indivisible.                           |
+| `READ_CONTACTS`                                   | The multi-select crew picker in `ContactPickerPlugin`. Android has no multi-select system picker, so the app draws the list itself. Read only, never `WRITE_CONTACTS`.           |
+| `INTERNET`, `ACCESS_NETWORK_STATE`                | Sync, and knowing when to queue instead.                                                                                                                                         |
 
-**Not** declared: anything for contacts. The signup wizard reads a contact
-through `ACTION_PICK`, which returns a one-shot read grant for the row the
-user picked — so the app never holds address-book access, and there is
-nothing to justify to Play Store review.
+`USE_BIOMETRIC` and `USE_FINGERPRINT` also appear in the merged manifest. Both
+come from `androidx.biometric`, not from us, and both are load-bearing: below
+API 29 `BiometricManager.canAuthenticate()` routes through
+`FingerprintManagerCompat`, which is guarded by `USE_FINGERPRINT`. Stripping
+them with a `tools:node="remove"` would disable check-in biometrics on older
+handsets *silently* — the plugin catches the `SecurityException` and reports
+"unavailable".
 
-`ACCESS_BACKGROUND_LOCATION` requires a Play Store justification: tracking runs
-only between check-in and checkout, is disclosed in-app before it starts, and
-is visible throughout via the foreground-service notification.
+**Not** declared, deliberately:
+
+- `ACCESS_BACKGROUND_LOCATION`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION`
+  — the route is recorded by the WebView while the app is open. There is no
+  `Service` subclass and no `startForeground` call anywhere in the project, and
+  Capacitor only ever requests `COARSE`+`FINE`, so the background permission
+  could not be granted from inside the app even when it was declared. Adding
+  background tracking means adding all three back at once, with a typed
+  foreground service and a Play declaration that carries a demo video and an
+  annual re-review.
+- `POST_NOTIFICATIONS` — nothing here posts an Android notification. The bell on
+  the profile screen is an in-app feed.
+- `READ_MEDIA_IMAGES` / `READ_EXTERNAL_STORAGE` — the WebView's file input
+  returns a content URI from the system picker with its own temporary grant, so
+  reading a chosen photo needs no permission on any supported API level.

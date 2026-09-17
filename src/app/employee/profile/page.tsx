@@ -31,7 +31,6 @@ import type { Permissions } from "@/lib/types";
 import { ERASE_DEVICE, confirmDestructive } from "@/lib/confirm";
 import {
   IAlert,
-  IBell,
   ICamera,
   ICheckCircle,
   IInfo,
@@ -192,16 +191,9 @@ function ProfileInner() {
             <PermissionRow
               icon={<IMapPin size={18} />}
               title="Location"
-              body="Needed to verify you're on site and to record your route during shifts."
+              body="Checks you are inside the site boundary, and records your route while the app is open during a shift."
               value={state.permissions.location}
               onChange={(v) => setPermission("location", v)}
-            />
-            <PermissionRow
-              icon={<IMapPin size={18} />}
-              title="Background location"
-              body="Keeps tracking alive when the app is minimised mid-shift. Never used off shift."
-              value={state.permissions.backgroundLocation}
-              onChange={(v) => setPermission("backgroundLocation", v)}
             />
             <PermissionRow
               icon={<ICamera size={18} />}
@@ -209,13 +201,6 @@ function ProfileInner() {
               body="Used only for check-in / checkout selfies and work-update photos."
               value={state.permissions.camera}
               onChange={(v) => setPermission("camera", v)}
-            />
-            <PermissionRow
-              icon={<IBell size={18} />}
-              title="Notifications"
-              body="Checkout reminders, sync status and tracking alerts."
-              value={state.permissions.notifications}
-              onChange={(v) => setPermission("notifications", v)}
             />
           </>
         )}

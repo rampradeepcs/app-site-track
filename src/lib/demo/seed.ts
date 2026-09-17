@@ -1483,9 +1483,7 @@ export function buildDemoData(now = Date.now()): DemoData {
     noteAttachments,
     permissions: {
       location: "granted",
-      backgroundLocation: "granted",
       camera: "granted",
-      notifications: "granted",
       privacyAccepted: true,
     },
     settings: {

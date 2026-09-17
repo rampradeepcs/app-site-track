@@ -66,7 +66,19 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Workfence takes your check-in and check-out selfie, and lets you attach photos to a work update. The camera is only used while you are on one of those screens.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Workfence asks for Face ID at check-in to confirm the phone is in your hands before your shift is recorded.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Workfence checks that you are inside the site boundary when you check in, and follows your route while the app is open during a shift. It never uses your location in the background.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Workfence records a short voice note at check-out, so you can say what happened on site instead of typing it.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Workfence saves a photo you have just taken back to your own library, so the picture stays on your phone as well as on the job record.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Workfence lets you attach a photo you already have to a work update or a site note.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Workfence turns your check-out voice note into text, so the day&apos;s record can be read and searched rather than listened to.</string>
 </dict>
 </plist>

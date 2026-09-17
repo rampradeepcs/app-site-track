@@ -839,9 +839,7 @@ export interface OutboxItem {
 
 export interface Permissions {
   location: "granted" | "denied" | "prompt";
-  backgroundLocation: "granted" | "denied" | "prompt";
   camera: "granted" | "denied" | "prompt";
-  notifications: "granted" | "denied" | "prompt";
   privacyAccepted: boolean;
 }
 
