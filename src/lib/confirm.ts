@@ -16,8 +16,21 @@
  * have to reimplement to be as safe.
  */
 export function confirmDestructive(message: string, run: () => void): void {
-  if (typeof window === "undefined") return;
-  if (window.confirm(message)) run();
+  if (askDestructive(message)) run();
+}
+
+/**
+ * The same question, answered rather than acted on.
+ *
+ * Some callers cannot be handed a callback: a sheet being thrown off the
+ * screen has to know, before it starts animating, whether it is going —
+ * because a sheet that slides away and springs back reads as a bug rather
+ * than a question. `window.confirm` blocks, so the answer is available in
+ * the same tick the gesture ends.
+ */
+export function askDestructive(message: string): boolean {
+  if (typeof window === "undefined") return false;
+  return window.confirm(message);
 }
 
 export const ERASE_DEVICE =
@@ -27,3 +40,24 @@ export const ERASE_DEVICE =
 export const DISCARD_PROJECT =
   "Discard this project?\n\n" +
   "Everything filled in so far goes, and the project is not created.";
+
+export const DISCARD_PEOPLE =
+  "Discard these invitations?\n\n" +
+  "Nobody on the list has been invited yet, and the list goes with the screen.";
+
+export const DISCARD_EDITS =
+  "Leave without saving?\n\n" +
+  "The changes made here go back to what they were.";
+
+export const DISCARD_PERSON =
+  "Discard this person?\n\n" +
+  "What has been filled in goes, and nobody is added.";
+
+export const DISCARD_INVITE =
+  "Discard this invitation?\n\n" +
+  "It has not been sent, and what was filled in goes with the sheet.";
+
+export const DISCARD_CLIENT =
+  "Discard this client?\n\n" +
+  "Nothing has been created yet — the company, the administrator, the plan " +
+  "and the branding all go.";

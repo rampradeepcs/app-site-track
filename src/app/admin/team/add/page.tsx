@@ -22,6 +22,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { InviteCrew } from "@/components/onboarding/InviteCrew";
 import { ScreenHeader } from "@/components/shell";
+import { DISCARD_PEOPLE } from "@/lib/confirm";
 import { Field } from "@/components/ui";
 import { useMyCompanies } from "@/lib/companies";
 import { useWorkforce, type CrewInvite } from "@/lib/store";
@@ -146,6 +147,8 @@ export default function AddPeoplePage() {
     <div>
       <ScreenHeader
         back="/admin/team"
+        /* A list of people typed in one at a time and not yet sent. */
+        confirmBack={crew.length ? DISCARD_PEOPLE : undefined}
         title="Add people"
         sub={live ? "They are invited to join this company" : "Added to this company"}
         /* Just the send. The bar's back control returns to Team & Roles,

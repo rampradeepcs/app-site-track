@@ -16,6 +16,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ScreenHeader } from "@/components/shell";
+import { DISCARD_EDITS } from "@/lib/confirm";
 import { Field, SectionTitle } from "@/components/ui";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
@@ -51,6 +52,36 @@ export default function EditCompanyPage() {
   const [taxId, setTaxId] = useState(org?.billing.taxId ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  /*
+   * Sixteen fields loaded from the company and edited in place, so "dirty"
+   * is changed-from-what-was-loaded rather than non-empty. Snapshotted into
+   * a state that is never set: stable for the life of the screen, and unlike
+   * a ref it may be read while rendering.
+   */
+  const [loaded] = useState(() => [
+    org?.name ?? "",
+    org?.billing.legalName ?? "",
+    org?.industry ?? "",
+    org?.website ?? "",
+    org?.branding.appName ?? "Workfence",
+    org?.contactName ?? "",
+    org?.contactEmail ?? "",
+    org?.contactPhone ?? "",
+    org?.billing.addressLine ?? "",
+    org?.billing.city ?? "",
+    org?.billing.state ?? "",
+    org?.billing.postcode ?? "",
+    org?.country ?? "",
+    org?.timezone ?? "",
+    org?.billing.taxIdLabel ?? "GSTIN",
+    org?.billing.taxId ?? "",
+  ]);
+  const dirty = [
+    name, legalName, industry, website, appName, contactName, contactEmail,
+    contactPhone, addressLine, city, stateName, postcode, country, timezone,
+    taxIdLabel, taxId,
+  ].some((v, i) => v !== loaded[i]);
 
   if (!org || currentUser?.role !== "admin") {
     return (
@@ -113,6 +144,7 @@ export default function EditCompanyPage() {
     <div>
       <ScreenHeader
         back="/admin/company"
+        confirmBack={dirty ? DISCARD_EDITS : undefined}
         title="Edit company"
         sub={org.code}
         /* Just Save. The bar's own back control already returns to the

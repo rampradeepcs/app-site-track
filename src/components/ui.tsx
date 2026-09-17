@@ -9,6 +9,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { DECELERATION, VelocityTracker, project, rubberband, spring } from "@/lib/spring";
 import { fmtClock, initialsOf } from "@/lib/format";
 import type { AttendanceStatus } from "@/lib/types";
+import { askDestructive, confirmDestructive } from "@/lib/confirm";
 import { IX } from "./WfIcons";
 
 /* ------------------------------------------------------------- avatar */
@@ -411,6 +412,7 @@ const FOCUSABLE =
 export function BottomSheet({
   open,
   onClose,
+  confirmClose,
   title,
   children,
   tall,
@@ -419,6 +421,18 @@ export function BottomSheet({
 }: {
   open: boolean;
   onClose: () => void;
+  /**
+   * Ask before closing, when the sheet holds work worth losing.
+   *
+   * A sheet has four exits — the button, the backdrop, Escape and a swipe —
+   * and a guard on one of them is not a guard. Set here rather than at each
+   * call site so all four ask the same question, and so a sheet that gains a
+   * fifth way out later cannot quietly skip it.
+   *
+   * `undefined` is what all fifty other sheets pass, and they behave exactly
+   * as they did.
+   */
+  confirmClose?: string;
   title?: string;
   children: React.ReactNode;
   tall?: boolean;
@@ -441,10 +455,21 @@ export function BottomSheet({
    * dropdown opened its picker and had it dismissed in the same tap, and
    * text inputs would have lost focus mid-word.
    */
-  const onCloseRef = useRef(onClose);
+  /*
+   * Every exit routes through this. Escape reads it from the ref below, the
+   * backdrop and the button call it directly, and the swipe asks its own
+   * question before it starts animating — so the four ways out cannot drift
+   * apart.
+   */
+  const close = useCallback(() => {
+    if (confirmClose) confirmDestructive(confirmClose, onClose);
+    else onClose();
+  }, [confirmClose, onClose]);
+
+  const onCloseRef = useRef(close);
   useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
+    onCloseRef.current = close;
+  }, [close]);
 
   useEffect(() => {
     if (!open) return;
@@ -583,6 +608,15 @@ export function BottomSheet({
     // from near the top dismisses; a slow drag most of the way does not.
     const projected = d.y + project(v, DECELERATION.sheet);
     if (projected > d.height * 0.4) {
+      // Asked here rather than after the animation: a sheet that has already
+      // slid off the screen and then springs back reads as a fault, not a
+      // question. window.confirm blocks, so the answer is in hand before the
+      // spring starts.
+      if (confirmClose && !askDestructive(confirmClose)) {
+        stopSpring.current = spring(d.y, 0, paint,
+          { damping: 0.82, response: 0.4, velocity: v });
+        return;
+      }
       stopSpring.current = spring(d.y, d.height, paint,
         { damping: 1, response: 0.32, velocity: v }, onClose);
     } else {
@@ -602,7 +636,7 @@ export function BottomSheet({
         aria-label="Close"
         className="wf-fade-in absolute inset-0 cursor-pointer"
         style={{ background: "var(--wf-scrim)", backdropFilter: "blur(2px)" }}
-        onClick={onClose}
+        onClick={close}
       />
       <div
         ref={ref}
@@ -634,7 +668,7 @@ export function BottomSheet({
             <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-2.5">
               <h2 className="wf-title">{title}</h2>
               <button
-                onClick={onClose}
+                onClick={close}
                 aria-label="Close sheet"
                 className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full bg-[var(--wf-fill-2)] text-[var(--wf-muted)]"
               >

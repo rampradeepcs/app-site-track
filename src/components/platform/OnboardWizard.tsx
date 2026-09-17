@@ -17,6 +17,7 @@ import { isValidSlug, slugify, tenantUrl } from "@/lib/tenant";
 import type { FeatureSet, PlanLimits } from "@/lib/saas-types";
 import { FEATURE_LABELS } from "@/lib/saas-types";
 import { BottomSheet, Field, Segmented, Toggle } from "@/components/ui";
+import { DISCARD_CLIENT } from "@/lib/confirm";
 import { money } from "@/lib/saas-metrics";
 import { ICheck, ICheckCircle } from "@/components/WfIcons";
 
@@ -68,6 +69,32 @@ export function OnboardWizard({
   const [appName, setAppName] = useState("Workfence");
   const [accent, setAccent] = useState("#000000");
   const [slug, setSlug] = useState("");
+
+  /*
+   * Five steps and nothing written until the last one, which is exactly what
+   * makes losing it expensive: a whole client — company, admin, plan,
+   * branding — typed and gone.
+   *
+   * Industry, country, timezone, currency, plan, cycle, trial days and the
+   * app name all open on platform defaults nobody chose, so none of them
+   * count. Advancing past the first step does, because the wizard will not
+   * let anybody do that without a name.
+   */
+  const dirty =
+    !created &&
+    (step > 0 ||
+      name.trim() !== "" ||
+      code.trim() !== "" ||
+      website.trim() !== "" ||
+      contactName.trim() !== "" ||
+      contactEmail.trim() !== "" ||
+      contactPhone.trim() !== "" ||
+      addressLine.trim() !== "" ||
+      city.trim() !== "" ||
+      adminName.trim() !== "" ||
+      adminEmail.trim() !== "" ||
+      adminPhone.trim() !== "" ||
+      slug.trim() !== "");
   const [features, setFeatures] = useState<Partial<FeatureSet>>({});
 
   const plan = platform.plans.find((p) => p.id === planId);
@@ -234,7 +261,14 @@ export function OnboardWizard({
   }
 
   return (
-    <BottomSheet open={open} onClose={close} title={`Onboard client — ${STEPS[step]}`} tall wide>
+    <BottomSheet
+      open={open}
+      onClose={close}
+      confirmClose={dirty ? DISCARD_CLIENT : undefined}
+      title={`Onboard client — ${STEPS[step]}`}
+      tall
+      wide
+    >
       <div className="flex flex-col gap-4">
         {/* stepper */}
         <ol className="flex items-center gap-1.5" aria-label="Onboarding progress">

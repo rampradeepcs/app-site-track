@@ -13,6 +13,7 @@
 
 import { useState } from "react";
 import { BottomSheet, Field } from "./ui";
+import { DISCARD_INVITE } from "@/lib/confirm";
 import { useWorkforce } from "@/lib/store";
 import { inviteCrewRemote, inviteMemberRemote } from "@/lib/supabase/repository";
 import { activeCompanyId } from "@/lib/company";
@@ -42,6 +43,19 @@ export function InviteMemberSheet({
   const [employmentType, setEmploymentType] = useState("full-time");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  /*
+   * Department opens on "Site", employment type on "full-time" and the role
+   * on whatever the sheet defaults to — none of those are decisions anybody
+   * made, so none of them count. What somebody typed does.
+   */
+  const dirty =
+    email.trim() !== "" ||
+    name.trim() !== "" ||
+    phone.trim() !== "" ||
+    designation.trim() !== "" ||
+    projectId !== "" ||
+    shiftId !== "";
 
   // A manager may bring in workers; only an owner may bring in another
   // manager or owner. The database enforces this too — this only spares
@@ -119,7 +133,13 @@ export function InviteMemberSheet({
   };
 
   return (
-    <BottomSheet open={open} onClose={onClose} title="Invite to this company" tall>
+    <BottomSheet
+      open={open}
+      onClose={onClose}
+      confirmClose={dirty ? DISCARD_INVITE : undefined}
+      title="Invite to this company"
+      tall
+    >
       <div className="flex flex-col gap-3.5 pb-2">
         <Field label="Email address" required hint="Where the invitation goes, and how they sign in.">
           <input

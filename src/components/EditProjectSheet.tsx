@@ -14,11 +14,12 @@
  * from the gate it guards.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BottomSheet, Field } from "./ui";
 import { useWorkforce } from "@/lib/store";
 import type { PremiseKind, Project, ProjectStatus } from "@/lib/types";
 import { ICheck } from "./WfIcons";
+import { DISCARD_EDITS } from "@/lib/confirm";
 
 export function EditProjectSheet({
   project,
@@ -29,16 +30,45 @@ export function EditProjectSheet({
   open: boolean;
   onClose: () => void;
 }) {
+  /*
+   * The fields live in the form below, so it says when it has been touched
+   * and the sheet asks the question — all four of its exits route through
+   * one place, which is the point of putting it on BottomSheet rather than
+   * on a close button.
+   */
+  const [dirty, setDirty] = useState(false);
+
   return (
-    <BottomSheet open={open} onClose={onClose} title="Edit project" tall>
+    <BottomSheet
+      open={open}
+      onClose={onClose}
+      confirmClose={dirty ? DISCARD_EDITS : undefined}
+      title="Edit project"
+      tall
+    >
       {/* Keyed on the opening so every open starts from what is saved, not
           from what was typed and abandoned last time. */}
-      {open ? <EditProjectForm key={project.id} project={project} onDone={onClose} /> : null}
+      {open ? (
+        <EditProjectForm
+          key={project.id}
+          project={project}
+          onDone={onClose}
+          onDirty={setDirty}
+        />
+      ) : null}
     </BottomSheet>
   );
 }
 
-function EditProjectForm({ project, onDone }: { project: Project; onDone: () => void }) {
+function EditProjectForm({
+  project,
+  onDone,
+  onDirty,
+}: {
+  project: Project;
+  onDone: () => void;
+  onDirty: (dirty: boolean) => void;
+}) {
   const { state, saveProject } = useWorkforce();
 
   const [name, setName] = useState(project.name);
@@ -54,6 +84,26 @@ function EditProjectForm({ project, onDone }: { project: Project; onDone: () => 
   const [managerId, setManagerId] = useState(project.managerId);
   const [description, setDescription] = useState(project.description);
   const [error, setError] = useState("");
+
+  /*
+   * Changed from what was loaded, not merely non-empty: every field here
+   * opens with the project's current value, so "has a name" is true the
+   * instant the sheet appears and would ask on a sheet nobody touched.
+   */
+  const dirty =
+    name !== project.name ||
+    code !== project.code ||
+    kind !== project.kind ||
+    status !== project.status ||
+    client !== project.client ||
+    address !== project.address ||
+    siteContact !== project.siteContact ||
+    siteContactPhone !== project.siteContactPhone ||
+    startDate !== project.startDate ||
+    endDate !== project.endDate ||
+    managerId !== project.managerId ||
+    description !== project.description;
+  useEffect(() => onDirty(dirty), [dirty, onDirty]);
 
   /*
    * Who may own a project: the company's managers and administrators. The

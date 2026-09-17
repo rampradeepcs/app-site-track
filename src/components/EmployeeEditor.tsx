@@ -10,6 +10,7 @@ import { useWorkforce } from "@/lib/store";
 import { usePlatform } from "@/lib/platform-store";
 import type { User } from "@/lib/types";
 import { BottomSheet, Field, Segmented, Toggle } from "./ui";
+import { DISCARD_EDITS, DISCARD_PERSON } from "@/lib/confirm";
 import { phoneKey } from "./onboarding/InviteCrew";
 
 const DEPARTMENTS = ["Civil", "MEP", "EHS", "Plant", "Quality"];
@@ -56,10 +57,38 @@ export function EmployeeEditor({
   const [appAccess, setAppAccess] = useState(base?.appAccess ?? true);
   const [error, setError] = useState("");
 
+  /*
+   * One component, two jobs, so two meanings of dirty.
+   *
+   * Editing somebody opens on their saved values, and a change is a
+   * difference from those. Adding somebody opens on defaults the sheet
+   * chose — Worker, Civil, active, app access on — and only what was typed
+   * counts, or the sheet would ask on its way out of an untouched form.
+   */
+  const dirty = base
+    ? name !== base.name ||
+      code !== base.employeeCode ||
+      designation !== base.designation ||
+      department !== base.department ||
+      phone !== (base.phone ?? "") ||
+      email !== (base.email ?? "") ||
+      status !== base.status ||
+      appAccess !== (base.appAccess ?? true) ||
+      projectIds.length !== base.projectIds.length ||
+      projectIds.some((id) => !base.projectIds.includes(id))
+    : name.trim() !== "" ||
+      code.trim() !== "" ||
+      phone.trim() !== "" ||
+      email.trim() !== "" ||
+      projectIds.length > 0 ||
+      designation !== "Worker" ||
+      department !== "Civil";
+
   return (
     <BottomSheet
       open={editing !== null}
       onClose={onClose}
+      confirmClose={dirty ? (base ? DISCARD_EDITS : DISCARD_PERSON) : undefined}
       title={base ? `Edit — ${base.name}` : "Add employee"}
       tall
     >
