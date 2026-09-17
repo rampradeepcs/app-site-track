@@ -19,10 +19,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import Link from "next/link";
 import { InviteCrew } from "@/components/onboarding/InviteCrew";
 import { ScreenHeader } from "@/components/shell";
-import { DISCARD_PEOPLE } from "@/lib/confirm";
+import { DISCARD_CREW, confirmDestructive } from "@/lib/confirm";
 import { Field } from "@/components/ui";
 import { useMyCompanies } from "@/lib/companies";
 import { useWorkforce, type CrewInvite } from "@/lib/store";
@@ -45,6 +44,18 @@ export default function AddPeoplePage() {
   const [projectId, setProjectId] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+
+  /*
+   * The list, and only the list.
+   *
+   * Join as and Project are the screen's own defaults and cost one tap each
+   * to set again, and with nobody on the list the send button is disabled —
+   * so nothing could have been created and there is nothing to lose. It
+   * stays true after a partial send, where the rows that failed are left on
+   * screen beside the reason: that list is then the only record of which
+   * invitations did not go.
+   */
+  const dirty = crew.length > 0;
 
   const live = isLiveBackend && !demoActive();
   const isOwner = currentUser?.role === "admin";
@@ -148,7 +159,7 @@ export default function AddPeoplePage() {
       <ScreenHeader
         back="/admin/team"
         /* A list of people typed in one at a time and not yet sent. */
-        confirmBack={crew.length ? DISCARD_PEOPLE : undefined}
+        confirmBack={dirty ? DISCARD_CREW : undefined}
         title="Add people"
         sub={live ? "They are invited to join this company" : "Added to this company"}
         /* Just the send. The bar's back control returns to Team & Roles,
@@ -218,12 +229,23 @@ export default function AddPeoplePage() {
           </p>
         ) : null}
 
-        <Link
-          href="/admin/team"
+        {/*
+          A button rather than a Link, because a Link leaves before anything
+          can ask. It is the same journey as the back control above and has
+          to ask the same question — a guard that one of two identical exits
+          honours is not a guard.
+        */}
+        <button
+          type="button"
+          onClick={() => {
+            const go = () => router.push("/admin/team");
+            if (dirty) confirmDestructive(DISCARD_CREW, go);
+            else go();
+          }}
           className="flex items-center justify-center gap-1.5 text-[0.8rem] font-semibold text-[var(--wf-muted)]"
         >
           Back to Team &amp; Roles <IArrowR size={14} />
-        </Link>
+        </button>
       </div>
     </div>
   );

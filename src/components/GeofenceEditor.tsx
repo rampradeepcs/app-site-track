@@ -7,7 +7,7 @@
  * gate".
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SiteMap } from "./SiteMap";
 import { UseMyLocation } from "./UseMyLocation";
 import { offsetMeters } from "@/lib/geo";
@@ -20,10 +20,19 @@ export function GeofenceEditor({
   project,
   onSave,
   onCancel,
+  onDirty,
 }: {
   project: Project;
   onSave: (fence: Geofence) => void;
   onCancel?: () => void;
+  /**
+   * Says when the boundary has been redrawn and not saved.
+   *
+   * This component cannot defend its own work: it is a child inside a tab
+   * body, and the control that destroys it is the tab strip above it, which
+   * belongs to the page. So it reports, and the page asks.
+   */
+  onDirty?: (dirty: boolean) => void;
 }) {
   const [draft, setDraft] = useState<Geofence>(() => ({
     ...project.geofence,
@@ -31,6 +40,8 @@ export function GeofenceEditor({
   }));
   const [drawing, setDrawing] = useState(false);
   const [dirty, setDirty] = useState(false);
+
+  useEffect(() => onDirty?.(dirty), [dirty, onDirty]);
 
   const patch = (p: Partial<Geofence>) => {
     setDraft((d) => ({ ...d, ...p }));

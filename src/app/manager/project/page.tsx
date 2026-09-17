@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { GeofenceEditor } from "@/components/GeofenceEditor";
+import { DISCARD_FENCE, confirmDestructive } from "@/lib/confirm";
 import { EditProjectSheet } from "@/components/EditProjectSheet";
 import { ScreenHeader } from "@/components/shell";
 import { SiteMap, type MapMarker } from "@/components/SiteMap";
@@ -70,6 +71,15 @@ function ProjectInner() {
   const id = params.get("id");
   const project = state.projects.find((p) => p.id === id) ?? null;
   const [tab, setTab] = useState<Tab>("overview");
+
+  /*
+   * A redrawn boundary lives in the editor below and dies with the tab.
+   *
+   * The control that destroys it is the tab strip, not the back button, so
+   * the question has to be asked where the tab changes — the editor cannot
+   * defend itself from a parent unmounting it.
+   */
+  const [fenceDirty, setFenceDirty] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [editing, setEditing] = useState(false);
   const now = useNowTick(15);
@@ -209,6 +219,7 @@ function ProjectInner() {
     <div>
       <ScreenHeader
         back
+        confirmBack={fenceDirty ? DISCARD_FENCE : undefined}
         title={project.name}
         sub={`${project.code} · ${project.client} · ${
           project.status[0].toUpperCase() + project.status.slice(1)
@@ -232,7 +243,13 @@ function ProjectInner() {
         <Segmented<Tab>
           ariaLabel="Project sections"
           value={tab}
-          onChange={setTab}
+          onChange={(next) => {
+            if (next === tab || !fenceDirty) return setTab(next);
+            confirmDestructive(DISCARD_FENCE, () => {
+              setFenceDirty(false);
+              setTab(next);
+            });
+          }}
           size="sm"
           options={[
             { value: "overview", label: "Overview" },
@@ -324,6 +341,7 @@ function ProjectInner() {
             <GeofenceEditor
               key={project.id}
               project={project}
+              onDirty={setFenceDirty}
               onSave={(fence) => {
                 updateGeofence(project.id, fence);
               }}

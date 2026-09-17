@@ -13,6 +13,7 @@ import { useState } from "react";
 import { useWorkforce } from "@/lib/store";
 import { WORK_CATEGORIES, type LabourTeam, type WorkCategory } from "@/lib/types";
 import { BottomSheet, Field } from "../ui";
+import { DISCARD_UPDATE } from "@/lib/confirm";
 import { ICamera, IX } from "../WfIcons";
 
 export function TeamUpdateForm({
@@ -29,6 +30,18 @@ export function TeamUpdateForm({
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
   const [error, setError] = useState("");
+
+  /*
+   * A photograph is the reason this asks at all.
+   *
+   * Typed text can be typed again; a picture of a wall as it was an hour ago
+   * cannot be taken again, and these are held only here — read to data URLs
+   * in component state and gone the moment the sheet unmounts. The category
+   * opens on "Civil Work", which nobody chose, so it only counts once it has
+   * been changed.
+   */
+  const dirty =
+    description.trim() !== "" || photos.length > 0 || category !== "Civil Work";
 
   const project = state.projects.find((p) => p.id === team.projectId);
   const zone = project?.zones.find((z) => z.id === team.workZoneId);
@@ -57,7 +70,13 @@ export function TeamUpdateForm({
   };
 
   return (
-    <BottomSheet open={open} onClose={onClose} title={`${team.name} update`} tall>
+    <BottomSheet
+      open={open}
+      onClose={onClose}
+      confirmClose={dirty ? DISCARD_UPDATE : undefined}
+      title={`${team.name} update`}
+      tall
+    >
       <div className="flex flex-col gap-3.5">
         <div className="wf-inset px-3.5 py-2.5">
           <p className="text-[0.74rem] text-[var(--wf-muted)]">

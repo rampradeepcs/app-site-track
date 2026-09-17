@@ -41,9 +41,9 @@ export const DISCARD_PROJECT =
   "Discard this project?\n\n" +
   "Everything filled in so far goes, and the project is not created.";
 
-export const DISCARD_PEOPLE =
-  "Discard these invitations?\n\n" +
-  "Nobody on the list has been invited yet, and the list goes with the screen.";
+export const DISCARD_CREW =
+  "Discard this list?\n\n" +
+  "Everybody still on it goes, and nobody joins the company.";
 
 export const DISCARD_EDITS =
   "Leave without saving?\n\n" +
@@ -61,3 +61,11 @@ export const DISCARD_CLIENT =
   "Discard this client?\n\n" +
   "Nothing has been created yet — the company, the administrator, the plan " +
   "and the branding all go.";
+
+export const DISCARD_UPDATE =
+  "Discard this update?\n\n" +
+  "The photos taken for it go with it, and they cannot be taken again.";
+
+export const DISCARD_FENCE =
+  "Leave the boundary unsaved?\n\n" +
+  "The corners moved here go back to the saved shape.";
