@@ -41,7 +41,7 @@ android {
          * anybody having to remember to bump two numbers in step.
          */
         versionCode 1011
-        versionName "1.5"
+        versionName "1.6"
     }
 
     buildFeatures {
