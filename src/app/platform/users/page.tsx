@@ -18,19 +18,45 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PageHead } from "@/components/platform/PlatformShell";
 import { MemberStatusChip } from "@/components/MemberStatus";
-import { Segmented } from "@/components/ui";
-import { fmtRelative } from "@/lib/format";
+import { Modal, Segmented } from "@/components/ui";
+import { fmtDateLong, fmtRelative, fmtShiftTime } from "@/lib/format";
+import { fmtINR } from "@/lib/payroll";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
+import type { User } from "@/lib/types";
 import { ISearch, IUsers } from "@/components/WfIcons";
 
 type Filter = "all" | "admins" | "managers" | "employees" | "pending" | "inactive";
+
+/** One labelled fact. The whole record is made of these. */
+function Fact({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-b border-[var(--wf-line)] py-2 last:border-0">
+      <span className="shrink-0 text-[0.72rem] uppercase tracking-wide text-[var(--wf-faint)]">
+        {label}
+      </span>
+      <span className="min-w-0 break-words text-right text-[0.85rem]">{value || "—"}</span>
+    </div>
+  );
+}
+
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="mb-5 last:mb-0">
+      <h3 className="mb-1 text-[0.7rem] font-bold uppercase tracking-wider text-[var(--wf-muted)]">
+        {title}
+      </h3>
+      <div className="wf-inset px-3 py-1">{children}</div>
+    </section>
+  );
+}
 
 export default function PlatformUsersPage() {
   const { platform } = usePlatform();
   const { state } = useWorkforce();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [open, setOpen] = useState<User | null>(null);
 
   /* Company names by id, so the table does not do a find() per row. */
   const orgName = useMemo(
@@ -154,8 +180,16 @@ export default function PlatformUsersPage() {
                 {people.map(({ user, company, pending }) => (
                   <tr key={user.id}>
                     <td className="whitespace-nowrap">
-                      <div className="font-bold">{user.name}</div>
-                      <div className="text-[0.72rem] text-[var(--wf-muted)]">{user.email}</div>
+                      {/* The name opens the record. Everything a table cannot
+                          hold — the shift, the vehicle, the pay, whether a
+                          face is enrolled — lives behind this. */}
+                      <button
+                        className="cursor-pointer text-left hover:text-[var(--wf-violet)]"
+                        onClick={() => setOpen(user)}
+                      >
+                        <div className="font-bold">{user.name}</div>
+                        <div className="text-[0.72rem] text-[var(--wf-muted)]">{user.email}</div>
+                      </button>
                     </td>
                     <td className="whitespace-nowrap">
                       {/* Straight through to the tenant, because the next
@@ -198,6 +232,146 @@ export default function PlatformUsersPage() {
           Everyone the console can see. Row-level security decides that, not this screen.
         </p>
       </div>
+
+      <PersonRecord
+        user={open}
+        company={open?.orgId ? (orgName.get(open.orgId) ?? "Unknown company") : "Platform"}
+        onClose={() => setOpen(null)}
+      />
     </div>
+  );
+}
+
+/**
+ * Everything held about one person, in one place.
+ *
+ * Grouped the way somebody asks about it rather than the way the table
+ * stores it: who they are, where they work, whether they can get in, what
+ * they are paid, what the phone knows about them.
+ *
+ * The face enrolment says only whether one exists. The template itself is
+ * 128 floats on the phone that captured it and is never sent here, so there
+ * is nothing to show and showing a count is the honest answer.
+ */
+function PersonRecord({
+  user,
+  company,
+  onClose,
+}: {
+  user: User | null;
+  company: string;
+  onClose: () => void;
+}) {
+  const { state } = useWorkforce();
+
+  const extra = useMemo(() => {
+    if (!user) return null;
+    const projects = state.projects.filter((p) => user.projectIds.includes(p.id));
+    const days = state.attendance.filter((a) => a.employeeId === user.id);
+    const last = days.reduce<number>((t, a) => Math.max(t, a.checkIn?.at ?? 0), 0);
+    /* Salary is a history; the current figure is the newest one that has
+       already taken effect. */
+    const pay = (state.comp ?? [])
+      .filter((c) => c.employeeId === user.id)
+      .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0];
+    return { projects, days: days.length, last, pay };
+  }, [user, state.projects, state.attendance, state.comp]);
+
+  if (!user || !extra) return null;
+
+  const rate = extra.pay
+    ? `${fmtINR(extra.pay.amount)} ${extra.pay.type === "monthly" ? "per month" : extra.pay.type === "daily" ? "per day" : "per hour"}`
+    : null;
+
+  return (
+    <Modal open onClose={onClose} title={user.name}>
+      <Group title="Identity">
+        <Fact label="Name" value={user.name} />
+        <Fact label="Email" value={user.email} />
+        <Fact
+          label="Email verified"
+          value={user.emailVerified === undefined ? "Unknown" : user.emailVerified ? "Yes" : "No"}
+        />
+        <Fact label="Phone" value={user.phone} />
+        <Fact label="Employee code" value={user.employeeCode} />
+      </Group>
+
+      <Group title="Place in the company">
+        <Fact label="Company" value={company} />
+        <Fact label="Role" value={<span className="capitalize">{user.role}</span>} />
+        <Fact label="Designation" value={user.designation} />
+        <Fact label="Department" value={user.department} />
+        <Fact label="Status" value={<MemberStatusChip user={user} />} />
+        <Fact label="Joined" value={user.joinedAt ? fmtDateLong(user.joinedAt) : null} />
+        <Fact
+          label="Projects"
+          value={extra.projects.length ? extra.projects.map((p) => p.name).join(", ") : "None assigned"}
+        />
+      </Group>
+
+      <Group title="Getting in">
+        <Fact
+          label="Signs in with"
+          value={
+            user.authProvider === "azure"
+              ? "Outlook"
+              : user.authProvider === "google"
+                ? "Google"
+                : user.authProvider === "email"
+                  ? "Email code"
+                  : "Not linked yet"
+          }
+        />
+        <Fact
+          label="Last signed in"
+          value={user.lastSignInAt ? fmtRelative(user.lastSignInAt) : <span className="text-[var(--wf-amber)]">Never</span>}
+        />
+        <Fact label="App access" value={user.appAccess === false ? "Blocked" : "Allowed"} />
+        <Fact
+          label="Face enrolled"
+          value={
+            user.face?.descriptors?.length
+              ? `Yes — ${user.face.descriptors.length} samples, on their own phone`
+              : "No"
+          }
+        />
+      </Group>
+
+      <Group title="Work and pay">
+        <Fact
+          label="Shift"
+          value={`${fmtShiftTime(user.shiftStart)} — ${fmtShiftTime(user.shiftEnd)}`}
+        />
+        <Fact label="Days recorded" value={String(extra.days)} />
+        <Fact
+          label="Last check-in"
+          value={extra.last ? fmtRelative(extra.last) : "None"}
+        />
+        <Fact label="Pay rate" value={rate ?? "Not set"} />
+        <Fact
+          label="Supervisor rating"
+          value={user.supervisorRating != null ? `${user.supervisorRating}/100` : null}
+        />
+      </Group>
+
+      {user.vehicle && user.vehicle.type !== "none" ? (
+        <Group title="Vehicle">
+          <Fact label="Type" value={<span className="capitalize">{user.vehicle.type.replace("-", " ")}</span>} />
+          <Fact label="Ownership" value={<span className="capitalize">{user.vehicle.ownership}</span>} />
+          <Fact label="Registration" value={user.vehicle.registration} />
+          <Fact label="Fuel" value={user.vehicle.fuelType} />
+        </Group>
+      ) : null}
+
+      {user.orgId ? (
+        <Link
+          href={`/platform/client?id=${user.orgId}`}
+          className="wf-btn wf-btn-ghost w-full"
+          onClick={onClose}
+        >
+          Open {company}
+        </Link>
+      ) : null}
+    </Modal>
   );
 }
