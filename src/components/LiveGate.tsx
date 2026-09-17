@@ -42,6 +42,7 @@ import { PersonaChooser } from "@/components/demo/PersonaPicker";
 import { consumeSignInDirect, landingFor } from "@/lib/routes";
 import { useTenant } from "@/lib/tenant";
 import { ROUTE_FOR, resolveSignInDestination } from "@/lib/companies";
+import { fetchMyInvitations } from "@/lib/supabase/repository";
 import { Field } from "@/components/ui";
 import { WorkfenceMark } from "@/components/Brand";
 import {
@@ -108,11 +109,33 @@ export default function LiveGate() {
    * in exactly one place. Returns false for an identity that authenticated
    * but matches no worker record.
    */
-  /* Authenticated, on no company: founding one is the answer. A real
-     session leaves the demonstration on the way, or the wizard would run
-     on top of the demo's own data. */
-  const toOnboarding = useCallback(() => {
-    if (!leaveDemoFor("/start")) router.replace("/start");
+  /*
+   * Authenticated, on no company yet. Two different people arrive here and
+   * they need opposite answers.
+   *
+   * Somebody a company invited is not founding anything — they were asked
+   * to join a construction firm and the only sensible first screen is that
+   * invitation. Sending them to the founding wizard asks a mason to name a
+   * company and pick a plan, and the invitation they were sent goes
+   * unanswered behind it.
+   *
+   * Somebody nobody invited really is starting from nothing, and for them
+   * founding one is the answer.
+   *
+   * So the invitations decide, and an invitation list that fails to load is
+   * treated as empty: the wizard is the safe wrong answer, a blank screen
+   * is not. A real session leaves the demonstration on the way, or either
+   * destination would run on top of the demo's own data.
+   */
+  const toOnboarding = useCallback(async () => {
+    let waiting = 0;
+    try {
+      waiting = (await fetchMyInvitations()).length;
+    } catch {
+      /* treated as none */
+    }
+    const to = waiting ? "/invitations" : "/start";
+    if (!leaveDemoFor(to)) router.replace(to);
   }, [router]);
 
   const enter = useCallback(async (): Promise<boolean> => {
@@ -176,7 +199,7 @@ export default function LiveGate() {
         const who = await sessionEmail();
         if (cancelled) return;
         if (who && !askedToSignIn) {
-          toOnboarding();
+          void toOnboarding();
           return;
         }
         arrive();
@@ -291,7 +314,7 @@ export default function LiveGate() {
     // — the same answer Google and Outlook get for the same address.
     const ok = await enter();
     setBusy(false);
-    if (!ok) toOnboarding();
+    if (!ok) void toOnboarding();
   };
 
   return (

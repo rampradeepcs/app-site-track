@@ -96,6 +96,9 @@ export default function InvitationsPage() {
             <Link href="/companies" className="wf-btn wf-btn-ghost w-full">
               Your companies <IArrowR size={15} />
             </Link>
+            <Link href="/start" className="wf-btn wf-btn-ghost w-full">
+              Set up your own company
+            </Link>
           </div>
         ) : (
           list.map((inv) => (
@@ -142,6 +145,21 @@ export default function InvitationsPage() {
             </div>
           ))
         )}
+
+        {/*
+          Secondary on purpose, and only once there is something to be
+          secondary to. Somebody holding an invitation almost always means to
+          accept it; the small number who were invited and are also setting up
+          their own firm should not have to decline first to find the door.
+        */}
+        {list && list.length > 0 ? (
+          <Link
+            href="/start"
+            className="mt-1 text-center text-[0.78rem] text-[var(--wf-muted)] underline underline-offset-4"
+          >
+            Or set up your own company instead
+          </Link>
+        ) : null}
       </div>
     </div>
   );
