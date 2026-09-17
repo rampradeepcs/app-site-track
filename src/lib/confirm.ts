@@ -23,3 +23,7 @@ export function confirmDestructive(message: string, run: () => void): void {
 export const ERASE_DEVICE =
   "Erase everything on this device?\n\n" +
   "People, premises, attendance and routes all go, and there is no undo.";
+
+export const DISCARD_PROJECT =
+  "Discard this project?\n\n" +
+  "Everything filled in so far goes, and the project is not created.";

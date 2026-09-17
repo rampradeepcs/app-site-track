@@ -10,6 +10,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
+import { confirmDestructive } from "@/lib/confirm";
 import { homeFor } from "@/lib/routes";
 import type { Role } from "@/lib/types";
 import { roleLabel } from "@/lib/format";
@@ -445,6 +446,7 @@ export function ScreenHeader({
   title,
   sub,
   back,
+  confirmBack,
   action,
 }: {
   title: string;
@@ -456,6 +458,15 @@ export function ScreenHeader({
    * admin's, and hard-coding either one strands the other.
    */
   back?: string | true;
+  /**
+   * Ask before leaving, when there is something to lose.
+   *
+   * A string turns the back control into a question; `undefined` leaves it
+   * exactly as it was, which is what all two dozen other call sites want.
+   * The screen decides when there is work worth protecting — a guard that
+   * fires on a form nobody has touched teaches people to dismiss it.
+   */
+  confirmBack?: string;
   action?: React.ReactNode;
 }) {
   const router = useRouter();
@@ -496,7 +507,11 @@ export function ScreenHeader({
 
   return (
     <>
-    {action ? <FloatingActions back={backHere}>{action}</FloatingActions> : null}
+    {action ? (
+      <FloatingActions back={backHere} confirmBack={confirmBack}>
+        {action}
+      </FloatingActions>
+    ) : null}
     <header
       className="wf-navbar flex items-center gap-3 px-4 pb-3 pt-4"
       data-scrolled={scrolled}
@@ -507,12 +522,16 @@ export function ScreenHeader({
         <button
           aria-label="Go back"
           onClick={() => {
-            if (backHere !== true) return router.push(backHere);
-            // A cold deep link has nothing behind it, and router.back()
-            // on an empty history does nothing at all — which is the
-            // dead end this button exists to prevent.
-            if (window.history.length > 1) router.back();
-            else router.push(homeFor(state.session?.role ?? "employee"));
+            const go = () => {
+              if (backHere !== true) return router.push(backHere);
+              // A cold deep link has nothing behind it, and router.back()
+              // on an empty history does nothing at all — which is the
+              // dead end this button exists to prevent.
+              if (window.history.length > 1) router.back();
+              else router.push(homeFor(state.session?.role ?? "employee"));
+            };
+            if (confirmBack) confirmDestructive(confirmBack, go);
+            else go();
           }}
           className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl border border-[var(--wf-line)] bg-[var(--wf-surface)] text-[var(--wf-muted)] transition hover:text-[var(--wf-fg)]"
         >
@@ -555,9 +574,19 @@ export function ScreenHeader({
  */
 function FloatingActions({
   back,
+  confirmBack,
   children,
 }: {
   back?: string | true;
+  /**
+   * Ask before leaving, when there is something to lose.
+   *
+   * A string turns the back control into a question; `undefined` leaves it
+   * exactly as it was, which is what all two dozen other call sites want.
+   * The screen decides when there is work worth protecting — a guard that
+   * fires on a form nobody has touched teaches people to dismiss it.
+   */
+  confirmBack?: string;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -595,11 +624,15 @@ function FloatingActions({
           aria-label="Go back"
           className="wf-btn wf-btn-ghost wf-fab-icon"
           onClick={() => {
-            if (back !== true) return router.push(back);
-            // A cold deep link has nothing behind it, and router.back() on
-            // an empty history does nothing at all.
-            if (window.history.length > 1) router.back();
-            else router.push(homeFor(state.session?.role ?? "employee"));
+            const go = () => {
+              if (back !== true) return router.push(back);
+              // A cold deep link has nothing behind it, and router.back() on
+              // an empty history does nothing at all.
+              if (window.history.length > 1) router.back();
+              else router.push(homeFor(state.session?.role ?? "employee"));
+            };
+            if (confirmBack) confirmDestructive(confirmBack, go);
+            else go();
           }}
         >
           <svg

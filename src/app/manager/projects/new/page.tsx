@@ -10,12 +10,13 @@
  */
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
 import { SitePlacer } from "@/components/SitePlacer";
 import { Field, Toggle } from "@/components/ui";
 import { LocationSearch } from "@/components/LocationSearch";
 import { UseMyLocation } from "@/components/UseMyLocation";
+import { DISCARD_PROJECT, confirmDestructive } from "@/lib/confirm";
 import { offsetMeters } from "@/lib/geo";
 import { todayISO } from "@/lib/format";
 import { useWorkforce } from "@/lib/store";
@@ -53,6 +54,81 @@ export default function NewProjectPage() {
   // narrower policy should be something a manager opts into knowingly.
   const [trackInside, setTrackInside] = useState(true);
   const [error, setError] = useState("");
+
+  /*
+   * Whether there is work here worth protecting.
+   *
+   * Only what somebody actually typed or moved counts. The screen sets a
+   * start date, a radius, a status, a premise type and a tracking policy on
+   * its own, and a guard that fires because of its own defaults is a guard
+   * people learn to dismiss without reading — which is worse than not having
+   * one, because it trains the reflex on the day it matters.
+   *
+   * The pin is compared against where it opened rather than against any
+   * fixed point: it opens on an existing site or, failing that, the centre
+   * of the country, and neither is a decision anybody made.
+   */
+  /* A state that is never set: stable for the life of the screen and,
+     unlike a ref, legitimately readable while rendering. */
+  const [openedAt] = useState(location);
+  const dirty =
+    name.trim() !== "" ||
+    code.trim() !== "" ||
+    client.trim() !== "" ||
+    address.trim() !== "" ||
+    contact.trim() !== "" ||
+    contactPhone.trim() !== "" ||
+    description.trim() !== "" ||
+    endDate !== "" ||
+    status !== "planning" ||
+    kind !== "site" ||
+    !trackInside ||
+    radius !== 160 ||
+    location.lat !== openedAt.lat ||
+    location.lng !== openedAt.lng;
+
+  /*
+   * The same question, asked of the ways out that are not our button.
+   *
+   * Closing the tab or reloading is the browser's to ask, and it only
+   * honours the prompt when something has been typed — which is the same
+   * condition as ours.
+   */
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  /*
+   * Android's hardware back and the system back gesture never reach a
+   * button, so they are caught where they arrive. Nothing else in the app
+   * listens for this, which is why it is set up and torn down here rather
+   * than centrally — a global handler would change every screen's behaviour
+   * at once, and that is a bigger decision than this screen gets to make.
+   */
+  useEffect(() => {
+    if (!dirty) return;
+    let off: (() => void) | undefined;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { App } = await import("@capacitor/app");
+        const handle = await App.addListener("backButton", () => {
+          confirmDestructive(DISCARD_PROJECT, () => router.replace("/manager/projects"));
+        });
+        if (cancelled) void handle.remove();
+        else off = () => void handle.remove();
+      } catch {
+        /* not a device: the browser's own back is handled by the button */
+      }
+    })();
+    return () => {
+      cancelled = true;
+      off?.();
+    };
+  }, [dirty, router]);
 
   const reset = () => {
     setStep(0);
@@ -125,6 +201,7 @@ export default function NewProjectPage() {
             : "Where it is, and how far the boundary reaches."
         }
         back="/manager/projects"
+        confirmBack={dirty ? DISCARD_PROJECT : undefined}
         /* The step's own action, in the bar: on a form this long the button
            that finishes it was below the fold on every phone. */
         action={
