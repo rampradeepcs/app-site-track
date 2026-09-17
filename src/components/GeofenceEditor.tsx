@@ -9,6 +9,7 @@
 
 import { useState } from "react";
 import { SiteMap } from "./SiteMap";
+import { UseMyLocation } from "./UseMyLocation";
 import { offsetMeters } from "@/lib/geo";
 import type { Geofence, LatLng, Project } from "@/lib/types";
 import { Segmented } from "./ui";
@@ -142,6 +143,23 @@ export function GeofenceEditor({
           },
         ]}
       />
+
+      {/*
+        A circular boundary is nearly always redrawn by somebody standing in
+        the middle of it — a manager who has walked the ground and found the
+        gate is not where the pin says. Dragging a handle across a map to a
+        place you are already standing is the long way round.
+
+        Only for a circle: a polygon has no single centre to move, and
+        shifting every corner by the same offset is a different action that
+        should be asked for, not implied by a button about location.
+      */}
+      {draft.kind === "circle" ? (
+        <UseMyLocation
+          label="Centre on my location"
+          onPick={(here) => patch({ center: here })}
+        />
+      ) : null}
 
       <p className="text-xs leading-relaxed text-[var(--wf-muted)]">
         {draft.kind === "circle"

@@ -13,11 +13,11 @@
  * asks for the smallest thing that makes check-in work today.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { SitePlacer } from "../SitePlacer";
+import { UseMyLocation } from "../UseMyLocation";
 import { Field } from "../ui";
-import { ICrosshair } from "../WfIcons";
-import { LocationSearch, type PlaceHit } from "../LocationSearch";
+import { LocationSearch } from "../LocationSearch";
 import type { Geofence, LatLng } from "@/lib/types";
 
 export interface PremiseFields {
@@ -38,8 +38,6 @@ export function PremiseStep({
   namePlaceholder: string;
   children?: React.ReactNode;
 }) {
-  const [locating, setLocating] = useState(false);
-  const [locateError, setLocateError] = useState<string | null>(null);
   /*
    * Where the map should jump: set on a search pick or a geolocation fix,
    * never on a tap. A tap already happens inside the current view, and
@@ -55,32 +53,6 @@ export function PremiseStep({
     center: value.location,
     radius: value.radius,
     bufferMeters: 40,
-  };
-
-  const useMyPosition = () => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      setLocateError("This device can't share a location.");
-      return;
-    }
-    setLocating(true);
-    setLocateError(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocating(false);
-        const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setFocus(here);
-        onChange({ ...value, location: here });
-      },
-      (err) => {
-        setLocating(false);
-        setLocateError(
-          err.code === err.PERMISSION_DENIED
-            ? "Location permission was declined — drop the pin on the map instead."
-            : "Couldn't get a fix. Drop the pin on the map instead.",
-        );
-      },
-      { enableHighAccuracy: true, timeout: 10_000 },
-    );
   };
 
   return (
@@ -119,17 +91,12 @@ export function PremiseStep({
         />
       </Field>
 
-      <button
-        className="wf-btn wf-btn-ghost wf-btn-sm w-fit"
-        onClick={useMyPosition}
-        disabled={locating}
-      >
-        <ICrosshair size={15} />
-        {locating ? "Locating…" : "Use my current location"}
-      </button>
-      {locateError ? (
-        <p className="text-[0.78rem] text-[var(--wf-amber)]">{locateError}</p>
-      ) : null}
+      <UseMyLocation
+        onPick={(here) => {
+          setFocus(here);
+          onChange({ ...value, location: here });
+        }}
+      />
 
       <SitePlacer
         location={value.location}

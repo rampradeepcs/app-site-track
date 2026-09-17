@@ -15,6 +15,7 @@ import { ScreenHeader } from "@/components/shell";
 import { SitePlacer } from "@/components/SitePlacer";
 import { Field, Toggle } from "@/components/ui";
 import { LocationSearch } from "@/components/LocationSearch";
+import { UseMyLocation } from "@/components/UseMyLocation";
 import { offsetMeters } from "@/lib/geo";
 import { todayISO } from "@/lib/format";
 import { useWorkforce } from "@/lib/store";
@@ -38,9 +39,11 @@ export default function NewProjectPage() {
   /* The label of the place they picked, so the screen can say the map moved
      rather than moving it silently underneath them. */
   const [pickedPlace, setPickedPlace] = useState<string | null>(null);
-  /* Opens on a premise this company already has, falling back to the
-     country's centre. A hardcoded landmark in one city was fine while the
-     product had one customer. */
+  /*
+   * Opens on a premise this company already has, falling back to the
+   * country's centre — which is a point in a field in Madhya Pradesh, and
+   * why the control below exists.
+   */
   const [location, setLocation] = useState<LatLng>(
     () => state.projects[0]?.location ?? { lat: 20.5937, lng: 78.9629 },
   );
@@ -191,6 +194,8 @@ export default function NewProjectPage() {
             <LocationSearch
               onPick={(hit) => {
                 setAddress(hit.label);
+                // Through placePin, so a GPS fix arriving a second later
+                // cannot drag the map off the place they just searched for.
                 setLocation(hit.at);
                 setPickedPlace(hit.label);
               }}
@@ -238,6 +243,14 @@ export default function NewProjectPage() {
         <div className="flex flex-col gap-3.5">
           {/* No second search box. The address field above already placed
               the map; Move the pin puts it exactly. */}
+          {/*
+            Most new sites are created standing on them. The pin already
+            opens on the current fix where there is one; this puts it back
+            after somebody has searched or dragged, and says plainly when the
+            app has no position to offer rather than doing nothing on a tap.
+          */}
+          {/* Most new sites are created standing on them. */}
+          <UseMyLocation onPick={setLocation} />
           <SitePlacer
             location={location}
             onChange={setLocation}
