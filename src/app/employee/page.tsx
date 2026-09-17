@@ -252,19 +252,30 @@ export default function EmployeeHome() {
   const completeSelfie = async (dir: "in" | "out", dataUrl: string) => {
     if (dir === "in") {
       /*
-       * Verify the selfie against the enrolled face, when there is one and
-       * the phone can run the model.
+       * Verify the selfie against the enrolled face — unless the phone has
+       * already answered the same question.
        *
-       * A failure to *run* is not a failure to match: no enrolment, an
+       * When the device biometric passed, identity is settled: the person
+       * holding this phone proved it to the phone a moment ago, with a sensor
+       * built for exactly that. Loading a model and comparing 128 floats
+       * would ask it again, more slowly, while a worker stands at a gate. So
+       * the photograph is still taken and still kept — a record needs a face
+       * somebody can look at in a month — and the comparison is skipped.
+       *
+       * That does not leave the mark ambiguous. An absent `faceCheck` could
+       * mean no enrolment, an unsupported phone, or this; `deviceAuth` sits
+       * beside it and says which.
+       *
+       * When the device could not ask, the model runs as it always did. A
+       * failure to *run* is still not a failure to match: no enrolment, an
        * unsupported device, or a reading the model could not take all leave
-       * the verdict absent, and the check-in proceeds exactly as it did
-       * before. Only an actual comparison that disagreed records
-       * `verified: false`, which the supervisor sees — nobody is stopped at
-       * the gate by a dusty lens.
+       * the verdict absent, and the check-in proceeds. Only an actual
+       * comparison that disagreed records `verified: false`, which the
+       * supervisor sees — nobody is stopped at the gate by a dusty lens.
        */
       let faceCheck: { verified: boolean; distance: number } | undefined;
       const enrolled = currentUser?.face?.descriptors;
-      if (enrolled?.length) {
+      if (deviceAuth !== "ok" && enrolled?.length) {
         const reading = await readFace(dataUrl);
         if (reading) {
           const m = matchAgainst(reading.descriptor, enrolled);
