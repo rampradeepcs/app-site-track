@@ -15,6 +15,7 @@ import { ScreenHeader } from "@/components/shell";
 import { SitePlacer } from "@/components/SitePlacer";
 import { Field, Toggle } from "@/components/ui";
 import { LocationSearch } from "@/components/LocationSearch";
+import { reverseGeocode, type PlaceAddress } from "@/lib/geocode";
 import { UseMyLocation } from "@/components/UseMyLocation";
 import { DISCARD_PROJECT, confirmDestructive } from "@/lib/confirm";
 import { offsetMeters } from "@/lib/geo";
@@ -30,7 +31,10 @@ export default function NewProjectPage() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [client, setClient] = useState("");
+  /* Read back from the pin rather than typed. See the effect below. */
   const [address, setAddress] = useState("");
+  const [place, setPlace] = useState<PlaceAddress | null>(null);
+  const [placeBusy, setPlaceBusy] = useState(false);
   const [contact, setContact] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [startDate, setStartDate] = useState(todayISO());
@@ -39,7 +43,6 @@ export default function NewProjectPage() {
   const [description, setDescription] = useState("");
   /* The label of the place they picked, so the screen can say the map moved
      rather than moving it silently underneath them. */
-  const [pickedPlace, setPickedPlace] = useState<string | null>(null);
   /*
    * Opens on a premise this company already has, falling back to the
    * country's centre — which is a point in a field in Madhya Pradesh, and
@@ -49,6 +52,35 @@ export default function NewProjectPage() {
     () => state.projects[0]?.location ?? { lat: 20.5937, lng: 78.9629 },
   );
   const [radius, setRadius] = useState(160);
+
+  /*
+   * Where the pin is, said in words.
+   *
+   * The address used to be typed on the first step and the pin dropped on
+   * the second, which is one question asked twice — and on a site they
+   * disagree, because the gate is on a road the postal address has never
+   * heard of. The pin is the answer now and this is its label.
+   *
+   * Debounced, because the pin moves continuously under a dragging thumb
+   * and Nominatim is a free service being asked politely. Aborted on the
+   * next move so a slow reply cannot overwrite a newer one.
+   */
+  useEffect(() => {
+    const ctl = new AbortController();
+    const t = window.setTimeout(() => {
+      setPlaceBusy(true);
+      void reverseGeocode(location, ctl.signal).then((found) => {
+        if (ctl.signal.aborted) return;
+        setPlaceBusy(false);
+        setPlace(found);
+        setAddress(found?.label ?? "");
+      });
+    }, 700);
+    return () => {
+      window.clearTimeout(t);
+      ctl.abort();
+    };
+  }, [location]);
   const [kind, setKind] = useState<PremiseKind>("site");
   // Defaults on: recording the whole shift is what people expect, and the
   // narrower policy should be something a manager opts into knowingly.
@@ -75,7 +107,6 @@ export default function NewProjectPage() {
     name.trim() !== "" ||
     code.trim() !== "" ||
     client.trim() !== "" ||
-    address.trim() !== "" ||
     contact.trim() !== "" ||
     contactPhone.trim() !== "" ||
     description.trim() !== "" ||
@@ -139,7 +170,7 @@ export default function NewProjectPage() {
     setContact("");
     setContactPhone("");
     setDescription("");
-    setPickedPlace(null);
+    setPlace(null);
     setKind("site");
     setTrackInside(true);
     setError("");
@@ -258,41 +289,6 @@ export default function NewProjectPage() {
           <Field label="Client name">
             <input className="wf-input" value={client} onChange={(e) => setClient(e.target.value)} />
           </Field>
-          {/*
-            * The address is asked once, here, and answering it places the
-            * map. Typing a full address twice — once as text and again by
-            * hunting for it on a map — was the old shape of this, and the
-            * two could disagree.
-            */}
-          <Field
-            label="Project address"
-            hint="Search for it, or type it in. Picking a result also sets the map."
-          >
-            <LocationSearch
-              onPick={(hit) => {
-                setAddress(hit.label);
-                // Through placePin, so a GPS fix arriving a second later
-                // cannot drag the map off the place they just searched for.
-                setLocation(hit.at);
-                setPickedPlace(hit.label);
-              }}
-            />
-            <input
-              className="wf-input mt-2"
-              value={address}
-              onChange={(e) => {
-                setAddress(e.target.value);
-                setPickedPlace(null);
-              }}
-              placeholder="Street, area, city"
-            />
-            {pickedPlace ? (
-              <p className="mt-1.5 flex items-start gap-1.5 text-[0.74rem] text-[var(--wf-muted)]">
-                <IMapPin size={13} className="mt-0.5 shrink-0 text-[var(--wf-amber)]" />
-                <span>Map moved to this place. Fine-tune it on the next step.</span>
-              </p>
-            ) : null}
-          </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Site contact">
               <input className="wf-input" value={contact} onChange={(e) => setContact(e.target.value)} />
@@ -327,6 +323,17 @@ export default function NewProjectPage() {
             app has no position to offer rather than doing nothing on a tap.
           */}
           {/* Most new sites are created standing on them. */}
+          {/*
+            Two ways to place the boundary and no third: stand on it, or
+            find it by name. The address is not asked for — it is read back
+            from wherever the pin lands, below.
+          */}
+          <Field
+            label="Find on the map"
+            hint="Jumps the map to a place — then drag the pin to sit it exactly."
+          >
+            <LocationSearch onPick={(hit) => setLocation(hit.at)} />
+          </Field>
           <UseMyLocation onPick={setLocation} />
           <SitePlacer
             location={location}
@@ -335,6 +342,32 @@ export default function NewProjectPage() {
             label={name || "New site"}
             heightClass="h-64"
           />
+          {/*
+            What the pin turned out to be. Shown rather than asked, and shown
+            honestly when nothing came back — a half-built road on the edge
+            of a city often has no address yet, and inventing one would be
+            worse than the gap. The boundary is the fact either way; this is
+            the line somebody reads on a report.
+          */}
+          <div className="wf-inset flex items-start gap-2 px-3 py-2.5 text-[0.78rem]">
+            <IMapPin size={14} className="mt-0.5 shrink-0 text-[var(--wf-amber)]" />
+            {placeBusy ? (
+              <span className="text-[var(--wf-muted)]">Looking up the address…</span>
+            ) : place ? (
+              <span className="min-w-0">
+                <span className="font-semibold">
+                  {[place.street, place.city].filter(Boolean).join(", ") || place.label}
+                </span>
+                <span className="block text-[var(--wf-muted)]">{place.label}</span>
+              </span>
+            ) : (
+              <span className="text-[var(--wf-muted)]">
+                No address found for this spot. The boundary is what matters;
+                the address can be added later.
+              </span>
+            )}
+          </div>
+
           <p className="text-xs text-[var(--wf-muted)]">
             You can redraw a precise polygon boundary any time from the
             project&apos;s geofence editor.
