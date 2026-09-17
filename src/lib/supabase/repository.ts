@@ -1251,27 +1251,31 @@ export async function upsertProject(p: Project) {
 /**
  * Make the roster of a project match `userIds` exactly.
  *
- * Delete-then-insert rather than a diff: the set is small (a crew, not a
- * customer base), the whole thing arrives together from the UI, and a diff
- * would need to be right about a membership row that another manager may have
- * changed in between. Replacing states the intent — this is the roster now.
+ * The work happens in `set_project_members`, in one statement, rather than
+ * here as a delete followed by an insert. That used to read as stating the
+ * intent — this is the roster now — but the intent was only ever as good as
+ * the list the browser was holding, and a list assembled from state that had
+ * not finished loading deleted people and did not put them back.
+ *
+ * It also had a gap between the two statements. A failure there left the
+ * project with nobody on it, which is a sentence no crew should have to hear
+ * from a database.
  */
 export async function replaceProjectMembers(
   projectId: string,
   userIds: string[],
-  orgId: string,
-) {
+  // Kept for the call sites; the function reads the project's own company,
+  // which is the one that must own the rows.
+  _orgId?: string,
+): Promise<{ added: number; removed: number }> {
   const sb = requireSupabase();
-  const { error: delError } = await sb
-    .from("project_members")
-    .delete()
-    .eq("project_id", projectId);
-  if (delError) throw delError;
-  if (userIds.length === 0) return;
-  const { error } = await sb.from("project_members").insert(
-    userIds.map((user_id) => ({ project_id: projectId, user_id, org_id: orgId })),
-  );
+  const { data, error } = await sb.rpc("set_project_members", {
+    p_project: projectId,
+    p_users: userIds,
+  });
   if (error) throw error;
+  const d = (data ?? {}) as Record<string, unknown>;
+  return { added: Number(d.added ?? 0), removed: Number(d.removed ?? 0) };
 }
 
 /* ------------------ shifts, payroll, travel, allowances (mappers) -------- */

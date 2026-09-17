@@ -21,3 +21,9 @@ accepting, isolation by active company, removal and what survives it,
 re-joining, and founding a second company. It asserts refusals as often as it
 asserts successes, because the interesting half of a tenancy model is what it
 will not do.
+
+`project_roster_test.py` covers `set_project_members`: adding somebody to a
+site leaves everyone already on it alone, removing one removes only that one,
+saying the same thing twice changes nothing, and neither a plain employee nor
+another company's administrator may rewrite a roster. The first of those is
+the property the old delete-then-insert client code broke.

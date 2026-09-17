@@ -477,6 +477,7 @@ export type Database = {
       decline_invitation: { Args: { p_id: string }; Returns: undefined };
       /** End a membership in the active company. The row and its records stay. */
       remove_member: { Args: { p_user: string; p_reason?: string }; Returns: Json };
+      set_project_members: { Args: { p_project: string; p_users: string[] }; Returns: Json };
       restore_member: { Args: { p_user: string }; Returns: Json };
       /** Found another company as an identity that already has one. */
       create_company: { Args: { payload: Json }; Returns: Json };
