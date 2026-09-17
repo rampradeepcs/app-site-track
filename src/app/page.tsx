@@ -31,7 +31,6 @@ import {
   serverGateNotice,
   subscribeGateNotice,
 } from "@/lib/gate-notice";
-import { LoginBackdrop } from "@/components/LoginBackdrop";
 import { IAlert, IArrowR, IChevronL, ILock, IShield } from "@/components/WfIcons";
 import { consumeSignInDirect, landingFor } from "@/lib/routes";
 import { isLiveBackend } from "@/lib/supabase/client";
@@ -178,7 +177,6 @@ function LocalGate() {
             : "justify-start pt-[9dvh] pb-10"
       }`}
     >
-      <LoginBackdrop />
       {step === "splash" ? (
         <div className="flex flex-col items-center gap-6 text-center">
           <WorkfenceSplash onDone={afterSplash} />

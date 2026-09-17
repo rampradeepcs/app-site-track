@@ -39,7 +39,6 @@ import {
 } from "@/lib/gate-notice";
 import { DEMO_EMAIL, leaveDemoFor } from "@/lib/demo/mode";
 import { PersonaChooser } from "@/components/demo/PersonaPicker";
-import { LoginBackdrop } from "@/components/LoginBackdrop";
 import { consumeSignInDirect, landingFor } from "@/lib/routes";
 import { useTenant } from "@/lib/tenant";
 import { ROUTE_FOR, resolveSignInDestination } from "@/lib/companies";
@@ -309,7 +308,6 @@ export default function LiveGate() {
             : "justify-start pt-[9dvh] pb-10"
       }`}
     >
-      <LoginBackdrop />
       {step === "restoring" ? (
         /*
          * Deliberately not faded in: this is the first thing drawn, and the
