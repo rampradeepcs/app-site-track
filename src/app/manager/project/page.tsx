@@ -10,7 +10,6 @@ import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { GeofenceEditor } from "@/components/GeofenceEditor";
 import { DISCARD_FENCE, confirmDestructive } from "@/lib/confirm";
-import { EditProjectSheet } from "@/components/EditProjectSheet";
 import { ScreenHeader } from "@/components/shell";
 import { SiteMap, type MapMarker } from "@/components/SiteMap";
 import { BarTrend } from "@/components/charts";
@@ -81,7 +80,6 @@ function ProjectInner() {
    */
   const [fenceDirty, setFenceDirty] = useState(false);
   const [assigning, setAssigning] = useState(false);
-  const [editing, setEditing] = useState(false);
   const now = useNowTick(15);
 
   const board = useMemo(
@@ -229,16 +227,14 @@ function ProjectInner() {
              editor, the policy a toggle, the roster a tab, and a client name
              typed wrong on day one stayed wrong. The status is not here: it
              is something to read, and this is a bar of things to press. */
-          <button
-            type="button"
+          <Link
             className="wf-btn wf-btn-primary"
-            onClick={() => setEditing(true)}
+            href={`/manager/projects/edit?id=${project.id}`}
           >
             <IEdit size={16} /> Edit project
-          </button>
+          </Link>
         }
       />
-      <EditProjectSheet project={project} open={editing} onClose={() => setEditing(false)} />
       <div className="flex flex-col gap-4 px-4">
         <Segmented<Tab>
           ariaLabel="Project sections"

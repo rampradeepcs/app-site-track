@@ -1,76 +1,59 @@
 "use client";
 
 /**
- * Changing what a project is, after it exists.
+ * Editing a project.
  *
- * Everything a project was given at creation could be corrected in one
- * place except the details themselves: the boundary had an editor, the
- * tracking policy had a toggle, the roster had its own tab, and a client
- * name typed wrong on day one stayed wrong. This is the missing door.
+ * A screen, like creating one next door at /manager/projects/new. The two
+ * were the same twelve questions rendered two different ways: one with a
+ * back gesture and a guard, one a sheet that a downward flick could throw
+ * away while somebody was still typing into it.
  *
- * The map is deliberately not here. Address is text; where the pin and
- * the boundary sit is decided under Geofence, with the crosshair, because
- * moving a site by retyping a street is how a boundary ends up two roads
- * from the gate it guards.
+ * It loads the project itself rather than being handed one, because a route
+ * has no parent to hand it anything — which is also what makes the address
+ * shareable and the back button honest.
  */
 
-import { useEffect, useState } from "react";
-import { BottomSheet, Field } from "./ui";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { ScreenHeader } from "@/components/shell";
+import { Field } from "@/components/ui";
+import { DISCARD_EDITS, confirmDestructive } from "@/lib/confirm";
 import { useWorkforce } from "@/lib/store";
 import type { PremiseKind, Project, ProjectStatus } from "@/lib/types";
-import { ICheck } from "./WfIcons";
-import { DISCARD_EDITS } from "@/lib/confirm";
+import { ICheck } from "@/components/WfIcons";
 
-export function EditProjectSheet({
-  project,
-  open,
-  onClose,
-}: {
-  project: Project;
-  open: boolean;
-  onClose: () => void;
-}) {
-  /*
-   * The fields live in the form below, so it says when it has been touched
-   * and the sheet asks the question — all four of its exits route through
-   * one place, which is the point of putting it on BottomSheet rather than
-   * on a close button.
-   */
-  const [dirty, setDirty] = useState(false);
-
+export default function EditProjectPage() {
   return (
-    <BottomSheet
-      open={open}
-      onClose={onClose}
-      confirmClose={dirty ? DISCARD_EDITS : undefined}
-      title="Edit project"
-      tall
-    >
-      {/* Keyed on the opening so every open starts from what is saved, not
-          from what was typed and abandoned last time. */}
-      {open ? (
-        <EditProjectForm
-          key={project.id}
-          project={project}
-          onDone={onClose}
-          onDirty={setDirty}
-        />
-      ) : null}
-    </BottomSheet>
+    <Suspense fallback={null}>
+      <EditProjectScreen />
+    </Suspense>
   );
 }
 
-function EditProjectForm({
-  project,
-  onDone,
-  onDirty,
-}: {
-  project: Project;
-  onDone: () => void;
-  onDirty: (dirty: boolean) => void;
-}) {
-  const { state, saveProject } = useWorkforce();
+function EditProjectScreen() {
+  const params = useSearchParams();
+  const id = params.get("id") ?? "";
+  const { state } = useWorkforce();
+  const project = state.projects.find((p) => p.id === id) ?? null;
 
+  if (!project) {
+    return (
+      <div>
+        <ScreenHeader back title="Project not found" />
+        <p className="px-4 pt-6 text-center text-sm text-[var(--wf-muted)]">
+          It may have been removed.
+        </p>
+      </div>
+    );
+  }
+  /* Keyed on the project so switching to another one starts from its values
+     rather than from what was typed against the last. */
+  return <EditProjectForm key={project.id} project={project} />;
+}
+
+function EditProjectForm({ project }: { project: Project }) {
+  const router = useRouter();
+  const { saveProject, state } = useWorkforce();
   const [name, setName] = useState(project.name);
   const [code, setCode] = useState(project.code);
   const [kind, setKind] = useState<PremiseKind>(project.kind);
@@ -103,7 +86,6 @@ function EditProjectForm({
     endDate !== project.endDate ||
     managerId !== project.managerId ||
     description !== project.description;
-  useEffect(() => onDirty(dirty), [dirty, onDirty]);
 
   /*
    * Who may own a project: the company's managers and administrators. The
@@ -144,11 +126,57 @@ function EditProjectForm({
       },
       project.id,
     );
-    onDone();
+    router.replace(`/manager/project?id=${project.id}`);
   };
 
+  /* Where the back control goes, and where a save lands. */
+  const backTo = `/manager/project?id=${project.id}`;
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    let off: (() => void) | undefined;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { App } = await import("@capacitor/app");
+        const handle = await App.addListener("backButton", () => {
+          confirmDestructive(DISCARD_EDITS, () => router.replace(backTo));
+        });
+        if (cancelled) void handle.remove();
+        else off = () => void handle.remove();
+      } catch {
+        /* not a device */
+      }
+    })();
+    return () => {
+      cancelled = true;
+      off?.();
+    };
+  }, [dirty, router, backTo]);
+
   return (
-    <div className="flex flex-col gap-3.5 pb-2">
+    <div>
+      <ScreenHeader
+        back={backTo}
+        confirmBack={dirty ? DISCARD_EDITS : undefined}
+        title="Edit project"
+        sub={project.name}
+        /* Just Save. The bar's back control returns to the project, which is
+           all Cancel did. */
+        action={
+          <button type="button" className="wf-btn wf-btn-primary" onClick={save}>
+            <ICheck size={16} /> Save changes
+          </button>
+        }
+      />
+      <div className="flex flex-col gap-3.5 px-4 pb-8">
       <Field label="Project name" required>
         <input
           className="wf-input"
@@ -274,17 +302,6 @@ function EditProjectForm({
           onChange={(e) => setDescription(e.target.value)}
         />
       </Field>
-
-      {/* Stacked, not side by side: "Save changes" wraps to two lines in
-          half a row at phone widths, so each action gets the full row
-          instead of a cramped half. */}
-      <div className="mt-1 flex flex-col gap-2">
-        <button type="button" className="wf-btn wf-btn-ghost w-full" onClick={onDone}>
-          Cancel
-        </button>
-        <button type="button" className="wf-btn wf-btn-primary w-full" onClick={save}>
-          <ICheck size={16} /> Save changes
-        </button>
       </div>
     </div>
   );
