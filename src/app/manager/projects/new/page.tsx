@@ -147,6 +147,8 @@ export default function NewProjectPage() {
       try {
         const { App } = await import("@capacitor/app");
         const handle = await App.addListener("backButton", () => {
+          // Same two meanings as the button above it.
+          if (step === 1) return setStep(0);
           confirmDestructive(DISCARD_PROJECT, () => router.replace("/manager/projects"));
         });
         if (cancelled) void handle.remove();
@@ -159,7 +161,7 @@ export default function NewProjectPage() {
       cancelled = true;
       off?.();
     };
-  }, [dirty, router]);
+  }, [dirty, router, step]);
 
   const reset = () => {
     setStep(0);
@@ -232,7 +234,12 @@ export default function NewProjectPage() {
             : "Where it is, and how far the boundary reaches."
         }
         back="/manager/projects"
-        confirmBack={dirty ? DISCARD_PROJECT : undefined}
+        /* One back control, two meanings. On the map step it returns to the
+           details rather than leaving, which is what somebody who has just
+           dragged a pin expects — and leaving from there would discard the
+           name they typed a moment ago. */
+        onBack={step === 1 ? () => setStep(0) : undefined}
+        confirmBack={step === 0 && dirty ? DISCARD_PROJECT : undefined}
         /* The step's own action, in the bar: on a form this long the button
            that finishes it was below the fold on every phone. */
         action={
@@ -241,14 +248,9 @@ export default function NewProjectPage() {
               Next — site location <IArrowR size={16} />
             </button>
           ) : (
-            <>
-              <button className="wf-btn wf-btn-ghost" onClick={() => setStep(0)}>
-                Back
-              </button>
-              <button className="wf-btn wf-btn-primary" onClick={create}>
-                Create project
-              </button>
-            </>
+            <button className="wf-btn wf-btn-primary" onClick={create}>
+              Create project
+            </button>
           )
         }
       />

@@ -446,11 +446,22 @@ export function ScreenHeader({
   title,
   sub,
   back,
+  onBack,
   confirmBack,
   action,
 }: {
   title: string;
   sub?: string;
+  /**
+   * What back does, when a screen needs it to mean something else.
+   *
+   * A multi-step screen has two notions of backwards — a step and a way out
+   * — and rendering both is two back buttons side by side, which is one too
+   * many and leaves somebody guessing which one loses their work. The screen
+   * owns the meaning instead: back steps while there is a step to take, and
+   * leaves when there is not.
+   */
+  onBack?: () => void;
   /**
    * Where the back button goes. A path pushes it; `true` steps back through
    * history instead — which is what a page reachable from more than one
@@ -508,7 +519,7 @@ export function ScreenHeader({
   return (
     <>
     {action ? (
-      <FloatingActions back={backHere} confirmBack={confirmBack}>
+      <FloatingActions back={backHere} onBack={onBack} confirmBack={confirmBack}>
         {action}
       </FloatingActions>
     ) : null}
@@ -523,6 +534,7 @@ export function ScreenHeader({
           aria-label="Go back"
           onClick={() => {
             const go = () => {
+              if (onBack) return onBack();
               if (backHere !== true) return router.push(backHere);
               // A cold deep link has nothing behind it, and router.back()
               // on an empty history does nothing at all — which is the
@@ -574,10 +586,22 @@ export function ScreenHeader({
  */
 function FloatingActions({
   back,
+  onBack,
   confirmBack,
   children,
 }: {
   back?: string | true;
+  /**
+   * What back does, when a screen needs it to mean something else.
+   *
+   * A multi-step screen has two notions of backwards — a step and a way out
+   * — and rendering both is two back buttons side by side, which is one too
+   * many and leaves somebody guessing which one loses their work. The screen
+   * owns the meaning instead: back steps while there is a step to take, and
+   * leaves when there is not.
+   */
+  onBack?: () => void;
+
   /**
    * Ask before leaving, when there is something to lose.
    *
@@ -625,6 +649,7 @@ function FloatingActions({
           className="wf-btn wf-btn-ghost wf-fab-icon"
           onClick={() => {
             const go = () => {
+              if (onBack) return onBack();
               if (back !== true) return router.push(back);
               // A cold deep link has nothing behind it, and router.back() on
               // an empty history does nothing at all.
