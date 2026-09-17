@@ -207,6 +207,24 @@ function redirectTarget(): string {
 }
 
 /**
+ * What to ask each provider for.
+ *
+ * Google returns the address by default; Microsoft does not. Its default is
+ * a bare `openid`, which proves somebody signed in and says nothing about
+ * who they are — and this app has no second way to find out. A person is
+ * matched to their company by email address and by nothing else, so an
+ * Outlook sign-in that comes back without one arrives authenticated and
+ * unplaceable, which looks like a different bug entirely.
+ *
+ * It is asked for here because it cannot be asked for anywhere else: the
+ * Supabase dashboard has no scopes field for Azure.
+ */
+const SCOPES: Record<SsoProvider, string> = {
+  google: "email profile",
+  azure: "openid email profile",
+};
+
+/**
  * Start a single sign-on.
  *
  * On the web this is an ordinary redirect and the session is picked up on
@@ -225,6 +243,7 @@ export async function signInWithProvider(
       provider,
       options: {
         redirectTo: redirectTarget(),
+        scopes: SCOPES[provider],
         skipBrowserRedirect: isNative(),
       },
     });
