@@ -8,7 +8,6 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
-import { EmployeeEditor } from "@/components/EmployeeEditor";
 import { GroupAttendanceButton } from "@/components/GroupAttendance";
 import { UpgradeNotice, useLimitGuard } from "@/components/FeatureGate";
 import {
@@ -21,15 +20,13 @@ import {
 import { fmtClock, pct } from "@/lib/format";
 import { liveBoard, performanceFor } from "@/lib/metrics";
 import { useWorkforce } from "@/lib/store";
-import type { User } from "@/lib/types";
 import { IArrowR, IPlus, ISearch } from "@/components/WfIcons";
 
 export default function WorkforcePage() {
-  const { state, saveEmployee } = useWorkforce();
+  const { state } = useWorkforce();
   const now = useNowTick(15);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "working" | "out" | "absent">("all");
-  const [editing, setEditing] = useState<User | null | "new">(null);
 
   const board = useMemo(() => liveBoard(state, undefined, now), [state, now]);
   const seats = useLimitGuard("employees");
@@ -52,14 +49,17 @@ export default function WorkforcePage() {
         title="Workforce"
         sub={`${board.length} active employees`}
         action={
-          <button
-            className="wf-btn wf-btn-primary wf-btn-sm"
-            disabled={seats.blocked}
-            title={seats.blocked ? seats.message : undefined}
-            onClick={() => setEditing("new")}
-          >
-            <IPlus size={15} /> Add
-          </button>
+          /* A Link has no disabled, and the seat limit has to keep
+             biting — so the blocked case stays a button that says why. */
+          seats.blocked ? (
+            <button className="wf-btn wf-btn-primary wf-btn-sm" disabled title={seats.message}>
+              <IPlus size={15} /> Add
+            </button>
+          ) : (
+            <Link href="/manager/workforce/new" className="wf-btn wf-btn-primary wf-btn-sm">
+              <IPlus size={15} /> Add
+            </Link>
+          )
         }
       />
       <div className="flex flex-col gap-3.5 px-4">
@@ -155,15 +155,6 @@ export default function WorkforcePage() {
         </div>
       </div>
 
-      <EmployeeEditor
-        key={editing === "new" ? "new" : editing?.id ?? "closed"}
-        editing={editing}
-        onClose={() => setEditing(null)}
-        onSave={(patch, id) => {
-          saveEmployee(patch, id);
-          setEditing(null);
-        }}
-      />
     </div>
   );
 }

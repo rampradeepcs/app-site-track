@@ -9,7 +9,6 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { EmployeeEditor } from "@/components/EmployeeEditor";
 import { RemoveMemberDialog } from "@/components/RemoveMemberDialog";
 import { useMyCompanies } from "@/lib/companies";
 import { MemberStatusChip } from "@/components/MemberStatus";
@@ -90,7 +89,6 @@ export default function AdminTeam() {
   const now = useNowTick(15);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<Role | "all" | "invited">("all");
-  const [editing, setEditing] = useState<User | null | "new">(null);
   const [removing, setRemoving] = useState<User | null>(null);
   const { active } = useMyCompanies();
 
@@ -327,12 +325,12 @@ export default function AdminTeam() {
                       in with, a typo in one locked them out with no way to
                       fix it from here. Role and status stay separately
                       guarded below. */}
-                  <button
+                  <Link
                     className="wf-btn wf-btn-ghost wf-btn-sm"
-                    onClick={() => setEditing(u)}
+                    href={`/manager/workforce/edit?id=${u.id}&from=${encodeURIComponent("/admin/team")}`}
                   >
                     <IEdit size={13} /> Edit
-                  </button>
+                  </Link>
                   {!isOwner && u.role !== "admin" && (
                     <button
                       className="wf-btn wf-btn-ghost wf-btn-sm"
@@ -383,15 +381,6 @@ export default function AdminTeam() {
         </p>
       </div>
 
-      <EmployeeEditor
-        key={editing === "new" ? "new" : editing?.id ?? "closed"}
-        editing={editing}
-        onClose={() => setEditing(null)}
-        onSave={(patch, id) => {
-          saveEmployee(patch, id);
-          setEditing(null);
-        }}
-      />
     </div>
   );
 }

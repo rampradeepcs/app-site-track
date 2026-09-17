@@ -19,7 +19,6 @@ import {
   StatusChip,
   useNowTick,
 } from "@/components/ui";
-import { EmployeeEditor } from "@/components/EmployeeEditor";
 import { SalaryAndShiftSection } from "@/components/SalarySection";
 import {
   fmtDateLong,
@@ -34,7 +33,6 @@ import {
   PERFORMANCE_WEIGHTS,
 } from "@/lib/metrics";
 import { useWorkforce } from "@/lib/store";
-import type { User } from "@/lib/types";
 import { IArrowR, IEdit, IPhone, IRoute } from "@/components/WfIcons";
 
 export default function EmployeeProfilePage() {
@@ -46,12 +44,11 @@ export default function EmployeeProfilePage() {
 }
 
 function EmployeeInner() {
-  const { state, saveEmployee } = useWorkforce();
+  const { state } = useWorkforce();
   const params = useSearchParams();
   const id = params.get("id");
   const user = state.users.find((u) => u.id === id) ?? null;
   const now = useNowTick(15);
-  const [editing, setEditing] = useState<User | null | "new">(null);
   const [attStatus, setAttStatus] = useState<string | null>(null);
 
   const perf = useMemo(
@@ -98,9 +95,12 @@ function EmployeeInner() {
         title={user.name}
         sub={`${user.designation} · ${user.department} · ${user.employeeCode}`}
         action={
-          <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={() => setEditing(user)}>
+          <Link
+            className="wf-btn wf-btn-ghost wf-btn-sm"
+            href={`/manager/workforce/edit?id=${user.id}&from=${encodeURIComponent(`/manager/employee?id=${user.id}`)}`}
+          >
             <IEdit size={14} /> Edit
-          </button>
+          </Link>
         }
       />
       <div className="flex flex-col gap-4 px-4">
@@ -256,15 +256,6 @@ function EmployeeInner() {
         </div>
       </div>
 
-      <EmployeeEditor
-        key={editing === "new" ? "new" : editing?.id ?? "closed"}
-        editing={editing}
-        onClose={() => setEditing(null)}
-        onSave={(patch, uid) => {
-          saveEmployee(patch, uid);
-          setEditing(null);
-        }}
-      />
     </div>
   );
 }
