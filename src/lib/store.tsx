@@ -402,6 +402,7 @@ interface StoreApi {
   checkIn: (
     selfie: string | null,
     faceCheck?: { verified: boolean; distance: number },
+    deviceAuth?: AttendanceMark["deviceAuth"],
   ) => { ok: boolean; reason?: string };
   enrollFace: (userId: string, descriptors: number[][]) => void;
   markPresentFromPhoto: (
@@ -1507,6 +1508,9 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
        * verdict in keeps the store the single place that *writes* it.
        */
       faceCheck?: { verified: boolean; distance: number },
+      /* What the phone's own sensor said. Recorded whatever it said,
+         including that it could not be asked. */
+      deviceAuth?: AttendanceMark["deviceAuth"],
     ): { ok: boolean; reason?: string } => {
       const s = stateRef.current;
       const f = fixRef.current;
@@ -1541,6 +1545,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         insideGeofence: true,
         syncedAt: isOffline ? undefined : Date.now(),
         faceCheck,
+        deviceAuth,
       };
       // Lateness is judged against the person's assigned shift; the project
       // rules stand in only when no shift has ever been configured.

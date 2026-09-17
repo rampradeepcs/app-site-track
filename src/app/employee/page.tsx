@@ -14,6 +14,7 @@ import { SiteMap, type MapMarker } from "@/components/SiteMap";
 import { SelfieCapture } from "@/components/SelfieCapture";
 import { FaceSetupCard } from "@/components/FaceSetupCard";
 import { matchAgainst, readFace } from "@/lib/face/engine";
+import { biometricVerify, type BiometricOutcome } from "@/lib/biometric";
 import { VoiceRecorder, type RecordedNote } from "@/components/VoiceRecorder";
 import { WorkUpdateForm } from "@/components/WorkUpdateForm";
 import { useFeature } from "@/components/FeatureGate";
@@ -98,6 +99,11 @@ export default function EmployeeHome() {
   const [flow, setFlow] = useState<Flow>(null);
   const [updateSheet, setUpdateSheet] = useState(false);
   const [voiceNote, setVoiceNote] = useState<RecordedNote | null>(null);
+  /* What the phone's own sensor said, recorded on the mark alongside the
+     selfie. 'unavailable' is the normal answer on a phone without one and
+     is kept as plainly as a pass, so a reader can tell a device that could
+     not ask from one that asked and was answered. */
+  const [deviceAuth, setDeviceAuth] = useState<BiometricOutcome | null>(null);
   const [breakError, setBreakError] = useState<string | null>(null);
   const now = useNowTick(5);
   const breaksEnabled = useFeature("breaks");
@@ -197,7 +203,37 @@ export default function EmployeeHome() {
                   "You're outside the project site. Please move inside the site boundary to check in.",
               },
       );
+      if (inside) void askDevice();
     }, 900);
+  };
+
+  /*
+   * The phone's own face or fingerprint, asked once the boundary is settled
+   * and before the camera opens.
+   *
+   * It answers a different question from the selfie — whether the phone is in
+   * the right hands, rather than whose face is at the gate — and it answers
+   * it in a moment, so it goes first: a phone handed to a mate fails here
+   * without anybody having to look at a photograph later.
+   *
+   * What it cannot do is stop somebody working. A phone with no sensor, a
+   * thumb under cement dust, a lockout — all of that lets the check-in
+   * continue to the selfie, which is the evidence either way. Only a person
+   * actively saying no is turned back, and they can simply tap again.
+   */
+  const askDevice = async () => {
+    const outcome = await biometricVerify({
+      title: "Confirm it's you",
+      subtitle: `Checking in to ${project.name}`,
+    });
+    setDeviceAuth(outcome);
+    if (outcome === "cancelled") {
+      setFlow((cur) =>
+        cur?.step === "selfie" && cur.dir === "in"
+          ? { step: "blocked", reason: "Check-in needs you to confirm it's you. Tap Check In to try again." }
+          : cur,
+      );
+    }
   };
 
   const startCheckOut = () => {
@@ -235,7 +271,7 @@ export default function EmployeeHome() {
           faceCheck = { verified: m.matched, distance: Number(m.distance.toFixed(4)) };
         }
       }
-      const res = checkIn(dataUrl, faceCheck);
+      const res = checkIn(dataUrl, faceCheck, deviceAuth ?? "unavailable");
       if (!res.ok) {
         setFlow({ step: "blocked", reason: res.reason ?? "Check-in failed." });
         return;

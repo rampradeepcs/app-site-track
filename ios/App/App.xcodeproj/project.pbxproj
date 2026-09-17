@@ -21,6 +21,7 @@
 		65573C7C3E902791D487C505 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D107A8B1398C59191F81B469 /* Foundation.framework */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 		A74997998216A0C5FF276728 /* Screens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51131C2220F2C2104400FB1E /* Screens.swift */; };
+		A77185D4088F647ACAA52E02 /* BiometricPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5228B0DFD21C77107D09AFBF /* BiometricPlugin.swift */; };
 		A870511615F797E692D940DE /* WorkfenceWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3193AAD6BEEA57117E6D6ED2 /* WorkfenceWatchApp.swift */; };
 		B1D034EC429DAE2354755C42 /* WatchState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09C1E8F56699E530F0686922 /* WatchState.swift */; };
 /* End PBXBuildFile section */
@@ -63,6 +64,7 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		51131C2220F2C2104400FB1E /* Screens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Screens.swift; sourceTree = "<group>"; };
+		5228B0DFD21C77107D09AFBF /* BiometricPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BiometricPlugin.swift; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		C0CA0475C12D5CD66F1F38CA /* WatchPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchPlugin.swift; sourceTree = "<group>"; };
@@ -131,6 +133,7 @@
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
 				95950AAE64F67AC89B3510AE /* Watch */,
+				B472E730DC7DC4B13E034E82 /* Biometric */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -142,6 +145,15 @@
 			);
 			name = Watch;
 			path = App/Watch;
+			sourceTree = "<group>";
+		};
+		B472E730DC7DC4B13E034E82 /* Biometric */ = {
+			isa = PBXGroup;
+			children = (
+				5228B0DFD21C77107D09AFBF /* BiometricPlugin.swift */,
+			);
+			name = Biometric;
+			path = Biometric;
 			sourceTree = "<group>";
 		};
 		BD6D6A11BEFD24EB795E0DFD /* watchOS */ = {
@@ -275,6 +287,7 @@
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
 				08CCC1AB6464F1B834864B6B /* WatchPlugin.swift in Sources */,
+				A77185D4088F647ACAA52E02 /* BiometricPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

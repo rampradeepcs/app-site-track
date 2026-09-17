@@ -23,6 +23,7 @@ public class MainActivity extends BridgeActivity {
         // registered by hand, and before super.onCreate builds the bridge.
         registerPlugin(ContactPickerPlugin.class);
         registerPlugin(WatchPlugin.class);
+        registerPlugin(BiometricPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

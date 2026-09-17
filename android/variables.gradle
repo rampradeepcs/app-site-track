@@ -13,6 +13,8 @@ ext {
     androidxJunitVersion = '1.3.0'
     androidxEspressoCoreVersion = '3.7.0'
     cordovaAndroidVersion = '14.0.1'
+    // The phone's own face or fingerprint, asked for at the gate.
+    androidxBiometricVersion = '1.1.0'
 
     /* ---------------------------------------------------------- wear os */
     /* The watch module only. The phone app is untouched by these. */

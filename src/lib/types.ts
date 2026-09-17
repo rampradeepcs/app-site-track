@@ -567,6 +567,18 @@ export interface AttendanceMark {
     /** Distance to the nearest enrolled sample; lower is closer. */
     distance: number;
   };
+  /**
+   * What the phone's own sensor said when the person was asked to prove
+   * they were holding it.
+   *
+   * A different question from `faceCheck`, kept beside it rather than folded
+   * into it: this one says the device agreed, that one says the face at the
+   * boundary matched the enrolment. Neither substitutes for the other, and
+   * `"unavailable"` — a phone with no sensor, or nothing enrolled on it — is
+   * recorded as plainly as a pass so that a reader can tell a device that
+   * could not ask from one that asked and was answered.
+   */
+  deviceAuth?: "ok" | "cancelled" | "failed" | "unavailable";
   /** Human-readable zone/landmark resolved from the site plan. */
   place: string;
   insideGeofence: boolean;
