@@ -26,6 +26,7 @@ import {
   IGrid,
   IHardHat,
   ILogout,
+  ISettings,
   IShield,
   IUsers,
 } from "@/components/WfIcons";
@@ -33,13 +34,14 @@ import {
 const NAV = [
   { href: "/platform", label: "Dashboard", icon: IGrid },
   { href: "/platform/clients", label: "Clients", icon: IHardHat },
+  { href: "/platform/users", label: "People", icon: IUsers },
   { href: "/platform/subscriptions", label: "Subscriptions", icon: ICheckCircle },
   { href: "/platform/billing", label: "Billing", icon: IFile },
   { href: "/platform/usage", label: "Usage & Analytics", icon: IChart },
   { href: "/platform/features", label: "Feature Management", icon: IShield },
   { href: "/platform/support", label: "Support", icon: IBell },
   { href: "/platform/audit", label: "Audit Logs", icon: IAlert },
-  { href: "/platform/settings", label: "Settings", icon: IUsers },
+  { href: "/platform/settings", label: "Settings", icon: ISettings },
 ];
 
 /** Only the platform Super Admin may enter; everyone else goes to the gate. */

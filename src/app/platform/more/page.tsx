@@ -19,9 +19,16 @@ import {
   IChevronR,
   ISettings,
   IShield,
+  IUsers,
 } from "@/components/WfIcons";
 
 const ITEMS: Array<{ href: string; icon: React.ReactNode; label: string; sub: string }> = [
+  {
+    href: "/platform/users",
+    icon: <IUsers size={18} />,
+    label: "People",
+    sub: "Everyone across every client, searchable by address",
+  },
   {
     href: "/platform/subscriptions",
     icon: <ICheckCircle size={18} />,
