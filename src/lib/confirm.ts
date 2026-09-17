@@ -73,3 +73,7 @@ export const DISCARD_FENCE =
 export const DISCARD_NOTE =
   "Discard this note?\n\n" +
   "What has been written goes, and nothing is posted to the project.";
+
+export const DISCARD_TEAM =
+  "Discard this team?\n\n" +
+  "What has been filled in goes, and no team is created.";

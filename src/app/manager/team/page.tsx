@@ -14,8 +14,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
-import { TeamEditor } from "@/components/teams/TeamEditor";
-import { TeamUpdateForm } from "@/components/teams/TeamUpdateForm";
 import { EmployeePicker } from "@/components/EmployeePicker";
 import {
   Avatar,
@@ -62,11 +60,9 @@ export default function TeamPage() {
   const now = useNowTick(20);
 
   const [tab, setTab] = useState<Tab>("members");
-  const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [moving, setMoving] = useState<User | null>(null);
-  const [logging, setLogging] = useState(false);
 
   const team = state.labourTeams.find((t) => t.id === teamId);
   const mayManage = canManageTeams(state, state.session?.userId);
@@ -134,7 +130,7 @@ export default function TeamPage() {
         sub={`${team.code} · ${project?.name ?? ""}`}
         action={
           mayManage ? (
-            <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={() => setEditing(true)}>
+            <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={() => router.push(`/manager/teams/edit?id=${team.id}`)}>
               <IEdit size={15} /> Edit
             </button>
           ) : undefined
@@ -181,7 +177,7 @@ export default function TeamPage() {
             >
               <ICamera size={16} /> Group photo
             </Link>
-            <button className="wf-btn wf-btn-ghost w-full" onClick={() => setLogging(true)}>
+            <button className="wf-btn wf-btn-ghost w-full" onClick={() => router.push(`/manager/team/update?id=${team.id}`)}>
               <IClipboard size={16} /> Log update
             </button>
           </div>
@@ -368,20 +364,7 @@ export default function TeamPage() {
         ) : null}
       </div>
 
-      <TeamUpdateForm
-        key={logging ? "log-open" : "log-closed"}
-        open={logging}
-        team={team}
-        onClose={() => setLogging(false)}
-      />
 
-      <TeamEditor
-        key={editing ? "edit-open" : "edit-closed"}
-        open={editing}
-        projectId={team.projectId}
-        editing={team}
-        onClose={() => setEditing(false)}
-      />
 
       {/* add labour */}
       <BottomSheet open={adding} onClose={() => setAdding(false)} title="Add labour" tall fill>

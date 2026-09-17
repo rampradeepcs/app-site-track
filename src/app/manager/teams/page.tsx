@@ -10,9 +10,9 @@
  */
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
-import { TeamEditor } from "@/components/teams/TeamEditor";
 import { Avatar, Chip, useNowTick } from "@/components/ui";
 import { StatusPills, countByStatus } from "@/components/StatusPills";
 import { canManageTeams } from "@/lib/access";
@@ -22,6 +22,7 @@ import { useWorkforce } from "@/lib/store";
 import { IArrowR, ICamera, IPlus, ISearch, IUsers } from "@/components/WfIcons";
 
 export default function TeamsPage() {
+  const router = useRouter();
   const { state } = useWorkforce();
   const now = useNowTick(30);
   const [projectId, setProjectId] = useState(
@@ -29,7 +30,6 @@ export default function TeamsPage() {
   );
   const [query, setQuery] = useState("");
   const [type, setType] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
 
   const mayManage = canManageTeams(state, state.session?.userId);
   const teams = useMemo(
@@ -69,7 +69,7 @@ export default function TeamsPage() {
           mayManage ? (
             <button
               className="wf-btn wf-btn-primary wf-btn-sm"
-              onClick={() => setEditing(true)}
+              onClick={() => router.push(`/manager/teams/edit?project=${projectId}`)}
               disabled={!projectId}
             >
               <IPlus size={15} /> Team
@@ -127,7 +127,7 @@ export default function TeamsPage() {
               {mayManage && teams.length === 0 ? (
                 <button
                   className="wf-btn wf-btn-ghost wf-btn-sm"
-                  onClick={() => setEditing(true)}
+                  onClick={() => router.push(`/manager/teams/edit?project=${projectId}`)}
                 >
                   <IPlus size={14} /> Create the first team
                 </button>
@@ -219,14 +219,6 @@ export default function TeamsPage() {
         ) : null}
       </div>
 
-      {projectId ? (
-        <TeamEditor
-          key={editing ? "open" : "closed"}
-          open={editing}
-          projectId={projectId}
-          onClose={() => setEditing(false)}
-        />
-      ) : null}
     </div>
   );
 }
