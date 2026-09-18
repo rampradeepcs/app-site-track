@@ -5,11 +5,11 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PageHead } from "@/components/platform/PlatformShell";
-import { useNowTick } from "@/components/ui";
+import { SearchField, useNowTick } from "@/components/ui";
 import { fmtDateLong, fmtRelative, fmtTime } from "@/lib/format";
 import { usePlatform } from "@/lib/platform-store";
 import { downloadCSV, toCSV } from "@/lib/reports";
-import { IDownload, ISearch, IShield } from "@/components/WfIcons";
+import { IDownload, IShield } from "@/components/WfIcons";
 
 export default function AuditPage() {
   const { platform } = usePlatform();
@@ -68,16 +68,13 @@ export default function AuditPage() {
         </p>
 
         <div className="flex flex-wrap gap-2">
-          <div className="relative min-w-60 flex-1">
-            <ISearch size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]" />
-            <input
-              className="wf-input wf-input-search"
-              aria-label="Filter the platform audit trail"
+          <SearchField
+            className="min-w-60 flex-1"
+            value={q}
+            onChange={setQ}
             placeholder="Filter by action, client, value or actor…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </div>
+            label="Filter the platform audit trail"
+          />
           <select className="wf-input w-auto min-w-48" value={orgFilter} onChange={(e) => setOrgFilter(e.target.value)} aria-label="Client filter">
             <option value="all">All clients</option>
             {platform.organizations.map((o) => (

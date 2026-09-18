@@ -14,13 +14,13 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
 import { NoteAttachments } from "@/components/notes/NoteAttachments";
-import { Avatar, BottomSheet, Chip, EmptyState, Fact, Facts, Segmented } from "@/components/ui";
+import { Avatar, BottomSheet, Chip, EmptyState, Fact, Facts, SearchField, Segmented } from "@/components/ui";
 import { canCreateNote, canEditNote, canPinNote } from "@/lib/access";
 import { fmtDateLong, fmtTime } from "@/lib/format";
 import { noteTimeline, readableNotes, usedCategories } from "@/lib/notes";
 import { useWorkforce } from "@/lib/store";
 import type { NotePriority, ProjectNote } from "@/lib/types";
-import { IEdit, IPlus, ISearch, ITrash } from "@/components/WfIcons";
+import { IEdit, IPlus, ITrash } from "@/components/WfIcons";
 
 const PRIORITY_TONE: Record<NotePriority, "green" | "neutral" | "amber" | "red"> = {
   low: "neutral",
@@ -97,19 +97,12 @@ export default function NotesPage() {
           </select>
         )}
 
-        <div className="relative">
-          <ISearch
-            size={16}
-            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]"
-          />
-          <input
-            className="wf-input wf-input-search"
-            aria-label="Search notes"
-            placeholder="Search notes…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          placeholder="Search notes…"
+          label="Search notes"
+        />
 
         <div className="grid grid-cols-2 gap-2">
           <select

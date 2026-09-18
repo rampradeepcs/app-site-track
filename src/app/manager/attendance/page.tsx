@@ -9,7 +9,7 @@ import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ScreenHeader } from "@/components/shell";
-import { Avatar, KpiCard, StatusChip } from "@/components/ui";
+import { Avatar, KpiCard, SearchField, StatusChip } from "@/components/ui";
 import { StatusPills, countByStatus } from "@/components/StatusPills";
 import {
   fmtDateLong,
@@ -22,14 +22,8 @@ import {
 import { useWorkforce } from "@/lib/store";
 import type { AttendanceStatus } from "@/lib/types";
 import { attendanceCSV, downloadCSV, htmlEscape, printReport } from "@/lib/reports";
-import {
-  IChevronL,
-  IChevronR,
-  IDownload,
-  IFile,
-  IRoute,
-  ISearch,
-} from "@/components/WfIcons";
+import { matches } from "@/lib/search";
+import { IChevronL, IChevronR, IDownload, IFile, IRoute } from "@/components/WfIcons";
 
 export default function AttendanceModule() {
   return (
@@ -71,12 +65,7 @@ function AttendanceInner() {
       .filter((r) => department === "all" || r.user!.department === department)
       .filter(
         (r) =>
-          !search.trim() ||
-          [r.user!.name, r.user!.employeeCode, r.user!.designation]
-            .filter(Boolean)
-            .some((f) =>
-              String(f).toLowerCase().includes(search.trim().toLowerCase()),
-            ),
+          matches(search, r.user!.name, r.user!.employeeCode, r.user!.designation),
       )
       .sort((a, b) => (a.att.checkIn?.at ?? Infinity) - (b.att.checkIn?.at ?? Infinity));
   }, [state, date, projectId, department, search]);
@@ -212,18 +201,11 @@ function AttendanceInner() {
           </select>
         </div>
 
-        <div className="relative">
-          <ISearch
-            size={15}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]"
-          />
-          <input
-            className="wf-input wf-input-search"
-            placeholder="Search name, code, trade…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <SearchField
+          value={search}
+          onChange={setSearch}
+          placeholder="Search name, code, trade…"
+        />
 
         <StatusPills counts={statusCounts} value={status} onChange={setStatus} />
 

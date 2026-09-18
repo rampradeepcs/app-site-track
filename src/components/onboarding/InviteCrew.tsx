@@ -18,15 +18,7 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { Avatar } from "../ui";
-import {
-  ICheckCircle,
-  IPhone,
-  IPlus,
-  IRefresh,
-  ISearch,
-  ITrash,
-  IUsers,
-} from "../WfIcons";
+import { ICheckCircle, IPhone, IPlus, IRefresh, ITrash, IUsers } from "../WfIcons";
 import {
   canListContacts,
   contactSource,
@@ -37,6 +29,7 @@ import {
 } from "@/lib/contacts";
 import type { CrewInvite } from "@/lib/store";
 import { emailProblem, isUsableEmail } from "@/lib/email";
+import { SearchField } from "@/components/ui";
 
 /** Digits only, so "+91 90000 00001" and "9000000001" are the same person. */
 export function phoneKey(raw: string | undefined): string {
@@ -169,20 +162,12 @@ function ContactSheet({
           </span>
         </div>
 
-        <div className="relative">
-          <ISearch
-            size={15}
-            className="absolute top-1/2 left-3 -translate-y-1/2 text-[var(--wf-faint)]"
-          />
-          <input
-            className="wf-input wf-input-search"
-            type="search"
-            placeholder="Search name or email"
-            aria-label="Search contacts"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
-        </div>
+        <SearchField
+          value={filter}
+          onChange={setFilter}
+          placeholder="Search name or email"
+          label="Search contacts"
+        />
 
         <ul className="min-h-0 flex-1 overflow-y-auto">
           {shown.map((c, i) => {

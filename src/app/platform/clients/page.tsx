@@ -7,12 +7,12 @@ import { useMemo, useState } from "react";
 import { PageHead } from "@/components/platform/PlatformShell";
 import { HealthPill, StatusPill } from "@/components/platform/bits";
 import { OnboardWizard } from "@/components/platform/OnboardWizard";
-import { Segmented, useNowTick } from "@/components/ui";
+import { SearchField, Segmented, useNowTick } from "@/components/ui";
 import { entitlementsFor } from "@/lib/entitlements";
 import { fmtDateLong } from "@/lib/format";
 import { usePlatform } from "@/lib/platform-store";
 import { clientHealth, latestUsage, moneyCompact } from "@/lib/saas-metrics";
-import { IPlus, ISearch } from "@/components/WfIcons";
+import { IPlus } from "@/components/WfIcons";
 
 type Filter =
   | "all"
@@ -93,16 +93,12 @@ export default function ClientsPage() {
       />
 
       <div className="flex flex-col gap-4 px-5">
-        <div className="relative">
-          <ISearch size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]" />
-          <input
-            className="wf-input wf-input-search"
-            aria-label="Search client organisations"
-            placeholder="Search company, client ID, admin email, phone or subscription…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
+        <SearchField
+          value={q}
+          onChange={setQ}
+          placeholder="Search company, client ID, admin email, phone or subscription…"
+          label="Search client organisations"
+        />
 
         <Segmented<Filter>
           ariaLabel="Client filter"

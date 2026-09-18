@@ -11,9 +11,9 @@ import { useSearchParams } from "next/navigation";
 import { ScreenHeader } from "@/components/shell";
 import { FeatureGate, useFeature } from "@/components/FeatureGate";
 import { SiteMap, type MapMarker } from "@/components/SiteMap";
-import { Avatar, BottomSheet, Chip, Segmented, useNowTick } from "@/components/ui";
+import { Avatar, BottomSheet, Chip, SearchField, Segmented, useNowTick } from "@/components/ui";
 import { StatusPills, countByStatus } from "@/components/StatusPills";
-import { ISearch } from "@/components/WfIcons";
+
 import {
   fmtClock,
   fmtDistance,
@@ -25,6 +25,7 @@ import {
 import { liveBoard, trailFor, type LiveStatus } from "@/lib/metrics";
 import { useWorkforce } from "@/lib/store";
 import { IArrowR, ICrosshair, IRoute } from "@/components/WfIcons";
+import { matches } from "@/lib/search";
 
 export default function LiveMapPage() {
   return (
@@ -78,15 +79,10 @@ function LiveInner() {
   );
 
   const roster = useMemo(() => {
-    const q = query.trim().toLowerCase();
     return working
       .filter((b) => !dept || (b.user.department || "Unassigned") === dept)
       .filter(
-        (b) =>
-          !q ||
-          [b.user.name, b.user.employeeCode, b.user.designation]
-            .filter(Boolean)
-            .some((f) => String(f).toLowerCase().includes(q)),
+        (b) => matches(query, b.user.name, b.user.employeeCode, b.user.designation),
       )
       .sort(
         (a, b) =>
@@ -170,18 +166,11 @@ function LiveInner() {
           )}
         </SiteMap>
 
-        <div className="relative">
-          <ISearch
-            size={15}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]"
-          />
-          <input
-            className="wf-input wf-input-search"
-            placeholder="Search name, code, trade…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          placeholder="Search name, code, trade…"
+        />
 
         {/* Who is on site, by trade. The same counts-that-filter the
             attendance tables use — a supervisor asking "how many masons do

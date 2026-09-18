@@ -6,13 +6,13 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PageHead } from "@/components/platform/PlatformShell";
 import { InvoicePill, MetricCard } from "@/components/platform/bits";
-import { Segmented, useNowTick } from "@/components/ui";
+import { SearchField, Segmented, useNowTick } from "@/components/ui";
 import { fmtDateLong } from "@/lib/format";
 import { usePlatform } from "@/lib/platform-store";
 import { moneyCompact, platformStats } from "@/lib/saas-metrics";
 import { downloadCSV, toCSV } from "@/lib/reports";
 import type { InvoiceStatus } from "@/lib/saas-types";
-import { IDownload, ISearch } from "@/components/WfIcons";
+import { IDownload } from "@/components/WfIcons";
 
 type Filter = "all" | "unpaid" | InvoiceStatus;
 
@@ -83,16 +83,12 @@ export default function BillingPage() {
           <MetricCard label="Failed" value={stats.failedPayments} tone={stats.failedPayments ? "red" : "neutral"} />
         </div>
 
-        <div className="relative">
-          <ISearch size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]" />
-          <input
-            className="wf-input wf-input-search"
-            aria-label="Search invoices"
-            placeholder="Search invoice number, client or period…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
+        <SearchField
+          value={q}
+          onChange={setQ}
+          placeholder="Search invoice number, client or period…"
+          label="Search invoices"
+        />
 
         <div className="wf-scroll-x">
           <Segmented<Filter>

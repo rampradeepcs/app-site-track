@@ -16,17 +16,7 @@ import { SiteMap, type MapMarker } from "@/components/SiteMap";
 import { BarTrend } from "@/components/charts";
 import { EmployeePicker } from "@/components/EmployeePicker";
 import { STATUS_TEXT, StatusPills } from "@/components/StatusPills";
-import {
-  Avatar,
-  BottomSheet,
-  Chip,
-  KpiCard,
-  SectionTitle,
-  Segmented,
-  StatusChip,
-  Toggle,
-  useNowTick,
-} from "@/components/ui";
+import { Avatar, BottomSheet, Chip, KpiCard, SearchField, SectionTitle, Segmented, StatusChip, Toggle, useNowTick } from "@/components/ui";
 import {
   fmtClock,
   fmtDateLong,
@@ -43,18 +33,7 @@ import { ProjectHints } from "@/components/notes/ProjectHints";
 import { useWorkforce } from "@/lib/store";
 import { useUnsavedGuard } from "@/lib/unsaved";
 import { useRouter } from "next/navigation";
-import {
-  IArrowR,
-  ICheck,
-  IEdit,
-  ISearch,
-  IMapPin,
-  IPhone,
-  IPlus,
-  ITarget,
-  IUsers,
-  IX,
-} from "@/components/WfIcons";
+import { IArrowR, ICheck, IEdit, IMapPin, IPhone, IPlus, ITarget, IUsers, IX } from "@/components/WfIcons";
 
 type Tab = "overview" | "geofence" | "team" | "attendance" | "updates";
 
@@ -205,7 +184,6 @@ function ProjectInner() {
     }
     return by;
   }, [attendance, attDate, attQuery, state.users]);
-
 
   /** Only dates this project actually has records for. */
   const attDates = useMemo(
@@ -464,18 +442,12 @@ function ProjectInner() {
                 </select>
               </div>
 
-              <div className="relative">
-                <ISearch
-                  size={15}
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]"
-                />
-                <input
-                  className="wf-input wf-input-search"
-                  placeholder="Search name, code, trade…"
-                  value={attQuery}
-                  onChange={(e) => setAttQuery(e.target.value)}
-                />
-              </div>
+              <SearchField
+                value={attQuery}
+                onChange={setAttQuery}
+                placeholder="Search name, code, trade…"
+                label="Search this project's attendance"
+              />
 
               {/* Totals for the rows below, not for the project — see the
                   note where they are computed. */}

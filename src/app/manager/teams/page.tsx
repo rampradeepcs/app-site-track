@@ -13,13 +13,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
-import { Avatar, Chip, EmptyState, useNowTick } from "@/components/ui";
+import { Avatar, Chip, EmptyState, SearchField, useNowTick } from "@/components/ui";
 import { StatusPills, countByStatus } from "@/components/StatusPills";
 import { canManageTeams } from "@/lib/access";
 import { fmtClock } from "@/lib/format";
 import { teamStats, teamsForProject, activeMembers } from "@/lib/teams";
 import { useWorkforce } from "@/lib/store";
-import { IArrowR, ICamera, IPlus, ISearch, IUsers } from "@/components/WfIcons";
+import { IArrowR, ICamera, IPlus, IUsers } from "@/components/WfIcons";
+import { matches } from "@/lib/search";
 
 export default function TeamsPage() {
   const router = useRouter();
@@ -40,11 +41,9 @@ export default function TeamsPage() {
   const counts = useMemo(() => countByStatus(teams, (t) => t.type), [teams]);
 
   const rows = useMemo(() => {
-    const q = query.trim().toLowerCase();
     return teams.filter((t) => {
       if (type && t.type !== type) return false;
-      if (!q) return true;
-      return `${t.name} ${t.type} ${t.code}`.toLowerCase().includes(q);
+      return matches(query, t.name, t.type, t.code);
     });
   }, [teams, query, type]);
 
@@ -94,19 +93,12 @@ export default function TeamsPage() {
           </select>
         )}
 
-        <div className="relative">
-          <ISearch
-            size={16}
-            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]"
-          />
-          <input
-            className="wf-input wf-input-search"
-            aria-label="Search teams"
-            placeholder="Search team, trade or code…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          placeholder="Search team, trade or code…"
+          label="Search teams"
+        />
 
         <StatusPills
           counts={counts}

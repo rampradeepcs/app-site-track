@@ -10,17 +10,12 @@ import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
 import { GroupAttendanceButton } from "@/components/GroupAttendance";
 import { UpgradeNotice, useLimitGuard } from "@/components/FeatureGate";
-import {
-  Avatar,
-  Chip,
-  Segmented,
-  StatusChip,
-  useNowTick,
-} from "@/components/ui";
+import { Avatar, Chip, SearchField, Segmented, StatusChip, useNowTick } from "@/components/ui";
 import { fmtClock, pct } from "@/lib/format";
 import { liveBoard, performanceFor } from "@/lib/metrics";
 import { useWorkforce } from "@/lib/store";
-import { IArrowR, IPlus, ISearch } from "@/components/WfIcons";
+import { IArrowR, IPlus } from "@/components/WfIcons";
+import { matches } from "@/lib/search";
 
 export default function WorkforcePage() {
   const { state } = useWorkforce();
@@ -32,9 +27,16 @@ export default function WorkforcePage() {
   const seats = useLimitGuard("employees");
 
   const rows = useMemo(() => {
-    const q = query.trim().toLowerCase();
     return board.filter((b) => {
-      if (q && !`${b.user.name} ${b.user.employeeCode} ${b.user.designation} ${b.user.department}`.toLowerCase().includes(q))
+      if (
+        !matches(
+          query,
+          b.user.name,
+          b.user.employeeCode,
+          b.user.designation,
+          b.user.department,
+        )
+      )
         return false;
       if (filter === "working") return b.state === "working";
       if (filter === "out") return b.state === "checked-out";
@@ -82,16 +84,12 @@ export default function WorkforcePage() {
             compact
           />
         )}
-        <div className="relative">
-          <ISearch size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]" />
-          <input
-            className="wf-input wf-input-search"
-            aria-label="Search workforce by name, employee code or trade"
-            placeholder="Search name, code, trade…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          placeholder="Search name, code, trade…"
+          label="Search workforce by name, employee code or trade"
+        />
         <Segmented
           ariaLabel="Status filter"
           value={filter}

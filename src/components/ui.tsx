@@ -10,7 +10,7 @@ import { DECELERATION, VelocityTracker, project, rubberband, spring } from "@/li
 import { fmtClock, initialsOf } from "@/lib/format";
 import type { AttendanceStatus } from "@/lib/types";
 import { askDestructive, confirmDestructive } from "@/lib/confirm";
-import { IAlert, IX } from "./WfIcons";
+import { IAlert, ISearch, IX } from "./WfIcons";
 
 /* ------------------------------------------------------------- avatar */
 
@@ -274,6 +274,66 @@ export function FormError({
       <IAlert size={15} className="mt-0.5 shrink-0" />
       <span className="min-w-0">{children}</span>
     </p>
+  );
+}
+
+/**
+ * The box above a list.
+ *
+ * Fourteen screens drew their own, and they had drifted in the small ways: the
+ * magnifier was 15px on one screen and 16px on the next, sat 3px from the edge
+ * on one and 3.5px on another, and roughly half carried an aria-label — so for
+ * a screen reader the other half were an unlabelled text field above an
+ * unexplained list.
+ *
+ * None of them had a way to clear. On a phone that means backspacing a sentence
+ * out one character at a time, which is why people abandon a filter and wonder
+ * where their crew went. The button appears only once there is something to
+ * clear, so it never occupies the field when empty.
+ *
+ * type="search" is deliberate: it is what tells a mobile keyboard to offer a
+ * Search key instead of a newline.
+ */
+export function SearchField({
+  value,
+  onChange,
+  placeholder,
+  label,
+  className,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  placeholder: string;
+  /** What the field is for, read aloud. Defaults to the placeholder. */
+  label?: string;
+  /** Extra classes on the wrapper, for a field sharing a row with a filter. */
+  className?: string;
+}) {
+  return (
+    <div className={`relative ${className ?? ""}`}>
+      <ISearch
+        size={16}
+        className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]"
+      />
+      <input
+        type="search"
+        className="wf-input wf-input-search"
+        aria-label={label ?? placeholder}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      {value ? (
+        <button
+          type="button"
+          aria-label="Clear search"
+          onClick={() => onChange("")}
+          className="absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-lg text-[var(--wf-faint)] transition hover:text-[var(--wf-fg)]"
+        >
+          <IX size={15} />
+        </button>
+      ) : null}
+    </div>
   );
 }
 

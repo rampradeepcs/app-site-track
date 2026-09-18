@@ -18,13 +18,13 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PageHead } from "@/components/platform/PlatformShell";
 import { MemberStatusChip } from "@/components/MemberStatus";
-import { Fact, Facts, Modal, Segmented } from "@/components/ui";
+import { Fact, Facts, Modal, SearchField, Segmented } from "@/components/ui";
 import { fmtDateLong, fmtRelative, fmtShiftTime, roleLabel } from "@/lib/format";
 import { fmtINR } from "@/lib/payroll";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
 import type { User } from "@/lib/types";
-import { ISearch, IUsers } from "@/components/WfIcons";
+import { IUsers } from "@/components/WfIcons";
 
 type Filter = "all" | "admins" | "managers" | "employees" | "pending" | "inactive";
 
@@ -116,19 +116,12 @@ export default function PlatformUsersPage() {
       />
 
       <div className="flex flex-col gap-4 px-5">
-        <div className="relative">
-          <ISearch
-            size={16}
-            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]"
-          />
-          <input
-            className="wf-input wf-input-search"
-            aria-label="Search people across all companies"
-            placeholder="Search name, email, phone, employee code or company…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
+        <SearchField
+          value={q}
+          onChange={setQ}
+          placeholder="Search name, email, phone, employee code or company…"
+          label="Search people across all companies"
+        />
 
         <Segmented<Filter>
           ariaLabel="People filter"

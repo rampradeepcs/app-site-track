@@ -21,7 +21,7 @@ import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
 import { FeatureGate, UpgradeNotice, useFeature } from "@/components/FeatureGate";
 import { StatusPills, countByStatus } from "@/components/StatusPills";
-import { Avatar, BottomSheet, Chip, Segmented, useNowTick } from "@/components/ui";
+import { Avatar, BottomSheet, Chip, SearchField, Segmented, useNowTick } from "@/components/ui";
 import { fmtDateLong, fmtTime, todayISO } from "@/lib/format";
 import {
   downloadCSV,
@@ -306,12 +306,11 @@ function ManagerUpdatesInner() {
           />
         )}
 
-        <input
-          className="wf-input wf-input-search"
-          aria-label="Search work updates"
-          placeholder="Search person, project, zone or text…"
+        <SearchField
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={setQuery}
+          placeholder="Search person, project, zone or text…"
+          label="Search work updates"
         />
 
         <Segmented

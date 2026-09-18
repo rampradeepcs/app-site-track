@@ -22,8 +22,9 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { User } from "@/lib/types";
-import { Avatar } from "./ui";
-import { ISearch } from "./WfIcons";
+import { Avatar, SearchField } from "./ui";
+
+import { matches as matchesQuery } from "@/lib/search";
 
 /** The rail, plus a bucket for names that do not start with a letter. */
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ#".split("");
@@ -68,12 +69,9 @@ export function EmployeePicker({
   );
 
   const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return sorted;
+    // Aliased: this file already calls its filtered list `matches`.
     return sorted.filter((u) =>
-      [u.name, u.employeeCode, u.designation, u.department]
-        .filter(Boolean)
-        .some((f) => String(f).toLowerCase().includes(q)),
+      matchesQuery(query, u.name, u.employeeCode, u.designation, u.department),
     );
   }, [sorted, query]);
 
@@ -105,18 +103,12 @@ export function EmployeePicker({
 
   return (
     <div className={`flex min-h-0 flex-col gap-3 ${fill ? "flex-1" : ""}`}>
-      <div className="relative">
-        <ISearch
-          size={15}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]"
-        />
-        <input
-          className="wf-input wf-input-search"
-          placeholder="Search name, code, trade…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
+      <SearchField
+        value={query}
+        onChange={setQuery}
+        placeholder="Search name, code, trade…"
+        label="Search people by name, code or trade"
+      />
 
       <div className={`flex gap-1 ${fill ? "min-h-0 flex-1" : ""}`}>
         {/* The rail is as tall as the list, never taller. Twenty-seven

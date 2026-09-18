@@ -22,28 +22,14 @@ import {
 import { describeError } from "@/lib/errors";
 import { showToast } from "@/lib/toast";
 import { ScreenHeader } from "@/components/shell";
-import {
-  Avatar,
-  Chip,
-  EmptyState,
-  Segmented,
-  StatusChip,
-  useNowTick,
-} from "@/components/ui";
+import { Avatar, Chip, EmptyState, SearchField, Segmented, StatusChip, useNowTick } from "@/components/ui";
 import { fmtClock, fmtDateShort, pct, roleTone } from "@/lib/format";
 import { liveBoard, performanceFor } from "@/lib/metrics";
 import { useWorkforce } from "@/lib/store";
 import { isLiveBackend } from "@/lib/supabase/client";
 import { demoActive } from "@/lib/demo/mode";
 import type { Role, User } from "@/lib/types";
-import {
-  IArrowR,
-  IEdit,
-  IPlus,
-  ISearch,
-  IShield,
-  IUsers,
-} from "@/components/WfIcons";
+import { IArrowR, IEdit, IPlus, IShield, IUsers } from "@/components/WfIcons";
 
 /**
  * Whether this person has ever signed in, and how.
@@ -177,16 +163,12 @@ export default function AdminTeam() {
         onRemoved={() => void reloadFromBackend()}
       />
       <div className="flex flex-col gap-3.5 px-4">
-        <div className="relative">
-          <ISearch size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--wf-faint)]" />
-          <input
-            className="wf-input wf-input-search"
-            aria-label="Search team by name, employee code or trade"
-            placeholder="Search name, code, trade…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          placeholder="Search name, code, trade…"
+          label="Search team by name, employee code or trade"
+        />
         <Segmented<Role | "all" | "invited">
           ariaLabel="Role filter"
           value={roleFilter}
