@@ -41,6 +41,11 @@ had stopped doing that. `replay_diff.py` compares function bodies, policy
 expressions, constraints, indexes, columns, enums, RLS, triggers and sequences,
 and distinguishes a genuine difference from one that is only comments.
 
+`project_assignment_notice_test.py` covers being put on a site and being
+told about it: that the people added are notified and nobody else is, that
+each is notified once, that the notice is addressed to their own role, and
+that re-saving an unchanged roster is not an event.
+
 `provision_client_test.py` covers onboarding a client from the platform
 console: who may call the RPC, that the client comes out whole — organisation,
 subscription and an administrator row waiting to be claimed — that the

@@ -799,7 +799,10 @@ export type NotificationKind =
   | "member-restored"
   | "invitation-declined"
   | "company-renamed"
-  | "company-updated";
+  | "company-updated"
+  /* Raised by set_project_members, in the transaction that changes the
+     roster — so being put on a site cannot happen without being told. */
+  | "project-assigned";
 
 export interface AppNotification {
   id: string;
