@@ -1,78 +1,39 @@
 "use client";
 
 /**
- * More — reports & exports, the performance dashboard, the all-projects
- * work-update feed, manager notifications, and app settings/audit log.
+ * More — the way to everything that does not earn a permanent tab.
+ *
+ * This was once a multi-tab screen carrying reports, performance, the update
+ * feed, alerts and settings. Each of those became its own route and the tabs
+ * went, but the machinery stayed behind: a Tab type, a ?tab= reader, a setTab
+ * that marked notifications read, and the memos that fed two report builders
+ * nothing called. Removed here, along with the three links elsewhere that were
+ * still pointing at tabs that no longer render — one of which was the manager's
+ * notification bell.
+ *
+ * What is left is a list of links, and the plan and role decide which appear.
  */
 
 import Link from "next/link";
-import { Suspense, useMemo } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 
 import { useFeature } from "@/components/FeatureGate";
 import { ScreenHeader } from "@/components/shell";
 
 import { MyCompaniesPanel } from "@/components/MyCompaniesPanel";
 
-import { useNowTick } from "@/components/ui";
-
-import {
-  attendanceTrend,
-  dashboardStats,
-  needsAttention,
-  performanceFor,
-} from "@/lib/metrics";
-
 import { useWorkforce } from "@/lib/store";
 
 import { IBell, ICamera, IChart, IChevronR, IClipboard, IClock, IFile, IMapPin, INav, ISettings, IUsers, IWallet } from "@/components/WfIcons";
 
-type Tab = "updates" | "alerts" | "settings";
-
 export default function MorePage() {
-  return (
-    <Suspense fallback={<div className="px-4 pt-6 text-sm text-[var(--wf-muted)]">Loading…</div>}>
-      <MoreInner />
-    </Suspense>
-  );
-}
+  const { state } = useWorkforce();
 
-function MoreInner() {
-  const wf = useWorkforce();
-  const { state, updateSettings, markNotificationsRead, eraseLocalData } = wf;
-  const router = useRouter();
-  const params = useSearchParams();
-  const tab = (params.get("tab") as Tab) ?? "updates";
-  const now = useNowTick(30);
-
-  const employees = useMemo(
-    () => state.users.filter((u) => u.role === "employee" && u.status === "active"),
-    [state.users],
-  );
-  const perfs = useMemo(
-    () =>
-      employees
-        .map((u) => ({ user: u, perf: performanceFor(state, u, 14, now) }))
-        .sort((a, b) => b.perf.overall - a.perf.overall),
-    [employees, state, now],
-  );
-  const attention = useMemo(() => needsAttention(state, now), [state, now]);
-  const stats = useMemo(() => dashboardStats(state, now), [state, now]);
-  const trend = useMemo(() => attendanceTrend(state, 14, undefined, now), [state, now]);
   const alerts = state.notifications.filter((n) => n.audience === "manager");
   const unread = alerts.filter((n) => !n.read).length;
-  const canExport = useFeature("dataExport");
   const shiftsOn = useFeature("shifts");
   const payrollOn = useFeature("payroll");
   const petrolOn = useFeature("petrolAllowance");
-  const canAdvancedReports = useFeature("advancedReports");
 
-  const setTab = (t: Tab) => {
-    router.replace(`/manager/more${t === "updates" ? "" : `?tab=${t}`}`);
-    if (t === "alerts") markNotificationsRead("manager");
-  };
-
-  /* ------------------------------------------------------ report builders */
   return (
     <div>
       <ScreenHeader title="More" sub="Modules · work updates · alerts · settings" />

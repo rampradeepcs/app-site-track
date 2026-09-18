@@ -817,10 +817,17 @@ export function NotificationBell({ role }: { role: Role; }) {
       !n.read &&
       (!n.userId || n.userId === state.session?.userId),
   ).length;
+  /*
+   * The employee half is a real tab and stays a query string; the manager half
+   * is a route. /manager/more used to carry an alerts tab and no longer does,
+   * so this sent a manager who tapped the bell to a menu — and the badge never
+   * cleared, because marking them read was the tab switch's job. /manager/alerts
+   * marks them read on mount.
+   */
   const href =
     role === "employee"
       ? "/employee/profile?tab=alerts"
-      : "/manager/more?tab=alerts";
+      : "/manager/alerts";
   return (
     <Link
       href={href}

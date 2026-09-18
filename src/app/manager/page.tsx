@@ -253,7 +253,7 @@ export default function ManagerDashboard() {
           <div>
             <SectionTitle
               action={
-                <Link href="/manager/more?tab=performance" className="wf-btn wf-btn-quiet wf-btn-sm">
+                <Link href="/manager/performance" className="wf-btn wf-btn-quiet wf-btn-sm">
                   <IChart size={14} /> All
                 </Link>
               }
@@ -287,7 +287,7 @@ export default function ManagerDashboard() {
           <div>
             <SectionTitle
               action={
-                <Link href="/manager/more?tab=updates" className="wf-btn wf-btn-quiet wf-btn-sm">
+                <Link href="/manager/updates" className="wf-btn wf-btn-quiet wf-btn-sm">
                   All <IArrowR size={13} />
                 </Link>
               }
