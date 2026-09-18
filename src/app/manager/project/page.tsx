@@ -41,6 +41,8 @@ import { activeMembers, groupCaptures, teamsForProject } from "@/lib/teams";
 import { noteSummary } from "@/lib/notes";
 import { ProjectHints } from "@/components/notes/ProjectHints";
 import { useWorkforce } from "@/lib/store";
+import { useUnsavedGuard } from "@/lib/unsaved";
+import { useRouter } from "next/navigation";
 import {
   IArrowR,
   ICheck,
@@ -83,6 +85,13 @@ function ProjectInner() {
    */
   const [fenceDirty, setFenceDirty] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const router = useRouter();
+  // Above the not-found branch below: a hook cannot be conditional.
+  const confirmBack = useUnsavedGuard({
+    dirty: fenceDirty,
+    message: DISCARD_FENCE,
+    onLeave: () => router.back(),
+  });
   const now = useNowTick(15);
 
   const board = useMemo(
@@ -220,7 +229,7 @@ function ProjectInner() {
     <div>
       <ScreenHeader
         back
-        confirmBack={fenceDirty ? DISCARD_FENCE : undefined}
+        confirmBack={confirmBack}
         title={project.name}
         sub={`${project.code} · ${project.client} · ${
           project.status[0].toUpperCase() + project.status.slice(1)

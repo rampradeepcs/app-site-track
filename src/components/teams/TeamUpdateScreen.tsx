@@ -9,15 +9,16 @@
  * answering a question, not completing a form.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useWorkforce } from "@/lib/store";
 import { WORK_CATEGORIES, type LabourTeam, type WorkCategory } from "@/lib/types";
 import { Field } from "../ui";
 import { useRouter } from "next/navigation";
 import { ScreenHeader } from "../shell";
-import { DISCARD_UPDATE, confirmDestructive } from "@/lib/confirm";
+import { DISCARD_UPDATE } from "@/lib/confirm";
 import { ICamera, IX } from "../WfIcons";
 import { FormError } from "@/components/ui";
+import { useUnsavedGuard } from "@/lib/unsaved";
 
 export function TeamUpdateScreen({
   team,
@@ -71,41 +72,17 @@ export function TeamUpdateScreen({
     router.replace(backTo);
   };
 
-
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
-
-  useEffect(() => {
-    if (!dirty) return;
-    let off: (() => void) | undefined;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const { App } = await import("@capacitor/app");
-        const handle = await App.addListener("backButton", () => {
-          confirmDestructive(DISCARD_UPDATE, () => router.replace(backTo));
-        });
-        if (cancelled) void handle.remove();
-        else off = () => void handle.remove();
-      } catch {
-        /* not a device */
-      }
-    })();
-    return () => {
-      cancelled = true;
-      off?.();
-    };
-  }, [dirty, router, backTo]);
+  const confirmBack = useUnsavedGuard({
+    dirty: dirty,
+    message: DISCARD_UPDATE,
+    onLeave: () => router.replace(backTo),
+  });
 
   return (
     <div>
       <ScreenHeader
         back={backTo}
-        confirmBack={dirty ? DISCARD_UPDATE : undefined}
+        confirmBack={confirmBack}
         title={`${team.name} update`}
         sub="What the gang did, and what it looked like"
         action={

@@ -13,15 +13,16 @@
  * have no parent to pass callbacks down.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkforce } from "@/lib/store";
 import { usePlatform } from "@/lib/platform-store";
 import type { User } from "@/lib/types";
 import { ScreenHeader } from "./shell";
 import { Field, FormError, Segmented, Toggle } from "./ui";
-import { DISCARD_EDITS, DISCARD_PERSON, confirmDestructive } from "@/lib/confirm";
+import { DISCARD_EDITS, DISCARD_PERSON } from "@/lib/confirm";
 import { phoneKey } from "./onboarding/InviteCrew";
+import { useUnsavedGuard } from "@/lib/unsaved";
 
 const DEPARTMENTS = ["Civil", "MEP", "EHS", "Plant", "Quality"];
 
@@ -95,37 +96,13 @@ export function EmployeeForm({
       designation !== "Worker" ||
       department !== "Civil";
 
-
   const leaving = base ? DISCARD_EDITS : DISCARD_PERSON;
 
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
-
-  useEffect(() => {
-    if (!dirty) return;
-    let off: (() => void) | undefined;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const { App } = await import("@capacitor/app");
-        const handle = await App.addListener("backButton", () => {
-          confirmDestructive(leaving, () => router.replace(backTo));
-        });
-        if (cancelled) void handle.remove();
-        else off = () => void handle.remove();
-      } catch {
-        /* not a device */
-      }
-    })();
-    return () => {
-      cancelled = true;
-      off?.();
-    };
-  }, [dirty, router, backTo, leaving]);
+  const confirmBack = useUnsavedGuard({
+    dirty: dirty,
+    message: leaving,
+    onLeave: () => router.replace(backTo),
+  });
 
   const save = () => {
           if (name.trim().length < 3) {
@@ -203,7 +180,7 @@ export function EmployeeForm({
     <div>
       <ScreenHeader
         back={backTo}
-        confirmBack={dirty ? leaving : undefined}
+        confirmBack={confirmBack}
         title={base ? `Edit — ${base.name}` : "Add employee"}
         sub={base ? base.employeeCode : "They appear on the roster straight away"}
         action={

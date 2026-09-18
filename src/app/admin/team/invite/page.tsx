@@ -16,10 +16,10 @@
  */
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ScreenHeader } from "@/components/shell";
 import { Field, FormError } from "@/components/ui";
-import { DISCARD_INVITE, confirmDestructive } from "@/lib/confirm";
+import { DISCARD_INVITE } from "@/lib/confirm";
 import { useWorkforce } from "@/lib/store";
 import { inviteCrewRemote, inviteMemberRemote } from "@/lib/supabase/repository";
 import { activeCompanyId } from "@/lib/company";
@@ -27,6 +27,7 @@ import { describeError } from "@/lib/errors";
 import { showToast } from "@/lib/toast";
 import type { Role } from "@/lib/types";
 import { ICheck } from "@/components/WfIcons";
+import { useUnsavedGuard } from "@/lib/unsaved";
 
 export default function InviteMemberPage() {
   const router = useRouter();
@@ -74,39 +75,15 @@ export default function InviteMemberPage() {
     setError("");
   };
 
-
   /*
    * The ways out that are not the back control. Same condition, because a
    * browser only honours the prompt when something would be lost.
    */
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
-
-  useEffect(() => {
-    if (!dirty) return;
-    let off: (() => void) | undefined;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const { App } = await import("@capacitor/app");
-        const handle = await App.addListener("backButton", () => {
-          confirmDestructive(DISCARD_INVITE, () => router.replace("/admin/team"));
-        });
-        if (cancelled) void handle.remove();
-        else off = () => void handle.remove();
-      } catch {
-        /* not a device */
-      }
-    })();
-    return () => {
-      cancelled = true;
-      off?.();
-    };
-  }, [dirty, router]);
+  const confirmBack = useUnsavedGuard({
+    dirty: dirty,
+    message: DISCARD_INVITE,
+    onLeave: () => router.replace("/admin/team"),
+  });
 
   const send = async () => {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
@@ -167,12 +144,11 @@ export default function InviteMemberPage() {
     }
   };
 
-
   return (
     <div>
       <ScreenHeader
         back="/admin/team"
-        confirmBack={dirty ? DISCARD_INVITE : undefined}
+        confirmBack={confirmBack}
         title="Invite to this company"
         sub="They choose whether to join"
         /* Just the send. The bar's back control returns to Team & Roles,

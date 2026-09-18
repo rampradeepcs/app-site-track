@@ -28,6 +28,7 @@ import { describeError } from "@/lib/errors";
 import { showToast } from "@/lib/toast";
 import { ICheck } from "@/components/WfIcons";
 import { useViewingOrgId } from "@/components/FeatureGate";
+import { useUnsavedGuard } from "@/lib/unsaved";
 
 export default function EditCompanyPage() {
   const { platform, updateOrg } = usePlatform();
@@ -84,6 +85,12 @@ export default function EditCompanyPage() {
     contactPhone, addressLine, city, stateName, postcode, country, timezone,
     taxIdLabel, taxId,
   ].some((v, i) => v !== loaded[i]);
+  // Above the not-an-admin branch below: a hook cannot be conditional.
+  const confirmBack = useUnsavedGuard({
+    dirty,
+    message: DISCARD_EDITS,
+    onLeave: () => router.replace("/admin/company"),
+  });
 
   if (!org || currentUser?.role !== "admin") {
     return (
@@ -146,7 +153,7 @@ export default function EditCompanyPage() {
     <div>
       <ScreenHeader
         back="/admin/company"
-        confirmBack={dirty ? DISCARD_EDITS : undefined}
+        confirmBack={confirmBack}
         title="Edit company"
         sub={org.code}
         /* Just Save. The bar's own back control already returns to the

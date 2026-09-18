@@ -12,14 +12,15 @@
  * board and read out on a radio, so it is not something to edit casually.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ScreenHeader } from "../shell";
-import { DISCARD_EDITS, DISCARD_TEAM, confirmDestructive } from "@/lib/confirm";
+import { DISCARD_EDITS, DISCARD_TEAM } from "@/lib/confirm";
 import { useWorkforce } from "@/lib/store";
 import { nextTeamCode } from "@/lib/teams";
 import { LABOUR_TEAM_TYPES, type LabourTeam } from "@/lib/types";
 import { Field, Segmented } from "../ui";
+import { useUnsavedGuard } from "@/lib/unsaved";
 
 const CUSTOM = "__custom__";
 
@@ -113,43 +114,19 @@ export function TeamForm({
     router.replace(backTo);
   };
 
-
   const leaving = editing ? DISCARD_EDITS : DISCARD_TEAM;
 
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
-
-  useEffect(() => {
-    if (!dirty) return;
-    let off: (() => void) | undefined;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const { App } = await import("@capacitor/app");
-        const handle = await App.addListener("backButton", () => {
-          confirmDestructive(leaving, () => router.replace(backTo));
-        });
-        if (cancelled) void handle.remove();
-        else off = () => void handle.remove();
-      } catch {
-        /* not a device */
-      }
-    })();
-    return () => {
-      cancelled = true;
-      off?.();
-    };
-  }, [dirty, router, backTo, leaving]);
+  const confirmBack = useUnsavedGuard({
+    dirty: dirty,
+    message: leaving,
+    onLeave: () => router.replace(backTo),
+  });
 
   return (
     <div>
       <ScreenHeader
         back={backTo}
-        confirmBack={dirty ? leaving : undefined}
+        confirmBack={confirmBack}
         title={editing ? "Edit team" : "New labour team"}
         sub={editing ? editing.name : "A gang, its leader and where it works"}
         action={

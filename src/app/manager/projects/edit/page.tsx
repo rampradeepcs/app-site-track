@@ -14,13 +14,14 @@
  */
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
 import { Field, FormError } from "@/components/ui";
-import { DISCARD_EDITS, confirmDestructive } from "@/lib/confirm";
+import { DISCARD_EDITS } from "@/lib/confirm";
 import { useWorkforce } from "@/lib/store";
 import type { PremiseKind, Project, ProjectStatus } from "@/lib/types";
 import { ICheck } from "@/components/WfIcons";
+import { useUnsavedGuard } from "@/lib/unsaved";
 
 export default function EditProjectPage() {
   return (
@@ -132,40 +133,17 @@ function EditProjectForm({ project }: { project: Project }) {
   /* Where the back control goes, and where a save lands. */
   const backTo = `/manager/project?id=${project.id}`;
 
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
-
-  useEffect(() => {
-    if (!dirty) return;
-    let off: (() => void) | undefined;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const { App } = await import("@capacitor/app");
-        const handle = await App.addListener("backButton", () => {
-          confirmDestructive(DISCARD_EDITS, () => router.replace(backTo));
-        });
-        if (cancelled) void handle.remove();
-        else off = () => void handle.remove();
-      } catch {
-        /* not a device */
-      }
-    })();
-    return () => {
-      cancelled = true;
-      off?.();
-    };
-  }, [dirty, router, backTo]);
+  const confirmBack = useUnsavedGuard({
+    dirty: dirty,
+    message: DISCARD_EDITS,
+    onLeave: () => router.replace(backTo),
+  });
 
   return (
     <div>
       <ScreenHeader
         back={backTo}
-        confirmBack={dirty ? DISCARD_EDITS : undefined}
+        confirmBack={confirmBack}
         title="Edit project"
         sub={project.name}
         /* Just Save. The bar's back control returns to the project, which is

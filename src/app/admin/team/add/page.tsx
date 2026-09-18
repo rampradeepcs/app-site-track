@@ -33,6 +33,7 @@ import { describeError } from "@/lib/errors";
 import { showToast } from "@/lib/toast";
 import type { Role } from "@/lib/types";
 import { IArrowR, ICheck } from "@/components/WfIcons";
+import { useUnsavedGuard } from "@/lib/unsaved";
 
 export default function AddPeoplePage() {
   const { state, currentUser, saveEmployee, reloadFromBackend } = useWorkforce();
@@ -56,6 +57,11 @@ export default function AddPeoplePage() {
    * invitations did not go.
    */
   const dirty = crew.length > 0;
+  const confirmBack = useUnsavedGuard({
+    dirty,
+    message: DISCARD_CREW,
+    onLeave: () => router.replace("/admin/team"),
+  });
 
   const live = isLiveBackend && !demoActive();
   const isOwner = currentUser?.role === "admin";
@@ -159,7 +165,7 @@ export default function AddPeoplePage() {
       <ScreenHeader
         back="/admin/team"
         /* A list of people typed in one at a time and not yet sent. */
-        confirmBack={dirty ? DISCARD_CREW : undefined}
+        confirmBack={confirmBack}
         title="Add people"
         sub={live ? "They are invited to join this company" : "Added to this company"}
         /* Just the send. The bar's back control returns to Team & Roles,

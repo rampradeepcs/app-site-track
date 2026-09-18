@@ -17,12 +17,13 @@ import { Field, FormError, Toggle } from "@/components/ui";
 import { LocationSearch } from "@/components/LocationSearch";
 import { reverseGeocode, type PlaceAddress } from "@/lib/geocode";
 import { UseMyLocation } from "@/components/UseMyLocation";
-import { DISCARD_PROJECT, confirmDestructive } from "@/lib/confirm";
+import { DISCARD_PROJECT } from "@/lib/confirm";
 import { offsetMeters } from "@/lib/geo";
 import { todayISO } from "@/lib/format";
 import { useWorkforce } from "@/lib/store";
 import type { LatLng, PremiseKind, Project } from "@/lib/types";
 import { IAlert, IArrowR, IMapPin } from "@/components/WfIcons";
+import { useUnsavedGuard } from "@/lib/unsaved";
 
 export default function NewProjectPage() {
   const { state, saveProject, currentUser } = useWorkforce();
@@ -125,43 +126,11 @@ export default function NewProjectPage() {
    * honours the prompt when something has been typed — which is the same
    * condition as ours.
    */
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
-
-  /*
-   * Android's hardware back and the system back gesture never reach a
-   * button, so they are caught where they arrive. Nothing else in the app
-   * listens for this, which is why it is set up and torn down here rather
-   * than centrally — a global handler would change every screen's behaviour
-   * at once, and that is a bigger decision than this screen gets to make.
-   */
-  useEffect(() => {
-    if (!dirty) return;
-    let off: (() => void) | undefined;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const { App } = await import("@capacitor/app");
-        const handle = await App.addListener("backButton", () => {
-          // Same two meanings as the button above it.
-          if (step === 1) return setStep(0);
-          confirmDestructive(DISCARD_PROJECT, () => router.replace("/manager/projects"));
-        });
-        if (cancelled) void handle.remove();
-        else off = () => void handle.remove();
-      } catch {
-        /* not a device: the browser's own back is handled by the button */
-      }
-    })();
-    return () => {
-      cancelled = true;
-      off?.();
-    };
-  }, [dirty, router, step]);
+  const confirmBack = useUnsavedGuard({
+    dirty: dirty,
+    message: DISCARD_PROJECT,
+    onLeave: () => router.replace("/manager/projects"),
+  });
 
   const reset = () => {
     setStep(0);
@@ -239,7 +208,7 @@ export default function NewProjectPage() {
            dragged a pin expects — and leaving from there would discard the
            name they typed a moment ago. */
         onBack={step === 1 ? () => setStep(0) : undefined}
-        confirmBack={step === 0 && dirty ? DISCARD_PROJECT : undefined}
+        confirmBack={step === 0 ? confirmBack : undefined}
         /* The step's own action, in the bar: on a form this long the button
            that finishes it was below the fold on every phone. */
         action={
