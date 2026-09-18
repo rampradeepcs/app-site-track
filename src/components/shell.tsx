@@ -10,8 +10,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
-import { useEntitlements } from "./FeatureGate";
+import { useEntitlements, useServiceBlock } from "./FeatureGate";
 import type { FeatureSet } from "@/lib/saas-types";
+import { PlanExpired } from "./PlanExpired";
 import { confirmDestructive } from "@/lib/confirm";
 import { homeFor } from "@/lib/routes";
 import type { Role } from "@/lib/types";
@@ -59,6 +60,8 @@ export function RoleGuard({
   const router = useRouter();
   const pathname = usePathname();
   const ok = canEnter(state.session?.role, role);
+  // Above the redirect branch: a hook cannot be called conditionally.
+  const lapse = useServiceBlock();
   useEffect(() => {
     if (ok) return;
     // Park where they were going before sending them to sign in, so the gate
@@ -73,6 +76,18 @@ export function RoleGuard({
       </div>
     );
   }
+  /*
+   * A stopped plan replaces the app rather than covering it.
+   *
+   * Every authenticated surface passes through here, so this is the only place
+   * the block has to be applied — and applying it by returning instead of
+   * `children` is what makes it a wall rather than a dialog. There is no
+   * overlay to dismiss, no Escape to press and nothing rendered behind it, so
+   * "close the popup" is not a thing that can be done. Deep links land here
+   * too, because the route still resolves through this guard.
+   */
+  if (lapse) return <PlanExpired lapse={lapse} />;
+
   // Every authenticated surface passes through here, which makes it the one
   // place a failed write has to be announced from.
   return (

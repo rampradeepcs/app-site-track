@@ -14,6 +14,7 @@ import { useWorkforce } from "@/lib/store";
 import type { FeatureSet } from "@/lib/saas-types";
 import { FEATURE_LABELS } from "@/lib/saas-types";
 import { ILock, IShield } from "./WfIcons";
+import { useNowTick } from "./ui";
 
 /**
  * Which client's plan is on screen.
@@ -33,6 +34,74 @@ export function useViewingOrgId(): string {
   const { platform } = usePlatform();
   const { currentUser } = useWorkforce();
   return platform.impersonating?.orgId ?? currentUser?.orgId ?? "";
+}
+
+/** Why the app is closed to this company right now. */
+export interface ServiceLapse {
+  status: "suspended" | "cancelled" | "paused" | "trial-ended";
+  orgName: string;
+  planName: string;
+  /** When it lapsed, where the record says. */
+  since?: number;
+  /** The operator's own note, for a suspension. */
+  reason?: string;
+}
+
+/**
+ * Has this company's plan stopped?
+ *
+ * Deliberately narrower than `entitlements.serviceable`, which is also false
+ * when there is simply no subscription row to read. That state is not proof of
+ * anything: it is what a platform store that has not loaded yet looks like, and
+ * it is exactly the bug that had founders and freshly-invited workers staring at
+ * a product with every feature switched off. Walling the app on "we cannot see a
+ * subscription" would turn a slow network into an expired account. So this
+ * answers only when a row exists and that row says, in as many words, that the
+ * plan has stopped.
+ *
+ * Two people are never stopped. A super admin has to be able to reach the
+ * console to lift the suspension, and one who is impersonating the client is
+ * looking at the problem on purpose — locking them out of the screens would
+ * remove the only view of what the client is seeing.
+ */
+export function useServiceBlock(): ServiceLapse | null {
+  const { platform } = usePlatform();
+  const { currentUser } = useWorkforce();
+  const orgId = useViewingOrgId();
+  // Not Date.now() in the body: reading the clock during render is impure, and
+  // a trial that lapses while somebody is looking at the screen should take
+  // effect on the next tick rather than never. A minute is fine for a date.
+  const now = useNowTick(60);
+
+  if (currentUser?.role === "superadmin") return null;
+  if (platform.impersonating) return null;
+  if (!orgId) return null;
+
+  const sub = platform.subscriptions.find((x) => x.orgId === orgId);
+  if (!sub) return null; // unknown, not expired — see above
+
+  const org = platform.organizations.find((o) => o.id === orgId);
+  const orgName = org?.name ?? "this company";
+  const planName = platform.plans.find((pl) => pl.id === sub.planId)?.name ?? "";
+
+  if (sub.status === "suspended" || sub.status === "cancelled" || sub.status === "paused") {
+    return {
+      status: sub.status,
+      orgName,
+      planName,
+      since: sub.cancelledAt,
+      reason: org?.suspendedReason || undefined,
+    };
+  }
+
+  // A trial whose end date has passed while the status was never flipped. The
+  // status is normally authoritative, but "still trialling four months later"
+  // is a backend that did not run, not a customer who is entitled to the app.
+  if (sub.status === "trial" && sub.trialEndsAt && sub.trialEndsAt < now) {
+    return { status: "trial-ended", orgName, planName, since: sub.trialEndsAt };
+  }
+
+  return null;
 }
 
 /** Effective entitlements for the client whose screens are open. */
