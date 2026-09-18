@@ -18,7 +18,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PageHead } from "@/components/platform/PlatformShell";
 import { MemberStatusChip } from "@/components/MemberStatus";
-import { Modal, Segmented } from "@/components/ui";
+import { Fact, Facts, Modal, Segmented } from "@/components/ui";
 import { fmtDateLong, fmtRelative, fmtShiftTime } from "@/lib/format";
 import { fmtINR } from "@/lib/payroll";
 import { usePlatform } from "@/lib/platform-store";
@@ -28,25 +28,15 @@ import { ISearch, IUsers } from "@/components/WfIcons";
 
 type Filter = "all" | "admins" | "managers" | "employees" | "pending" | "inactive";
 
-/** One labelled fact. The whole record is made of these. */
-function Fact({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-[var(--wf-line)] py-2 last:border-0">
-      <span className="shrink-0 text-[0.72rem] uppercase tracking-wide text-[var(--wf-faint)]">
-        {label}
-      </span>
-      <span className="min-w-0 break-words text-right text-[0.85rem]">{value || "—"}</span>
-    </div>
-  );
-}
-
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mb-5 last:mb-0">
       <h3 className="mb-1 text-[0.7rem] font-bold uppercase tracking-wider text-[var(--wf-muted)]">
         {title}
       </h3>
-      <div className="wf-inset px-3 py-1">{children}</div>
+      <Facts separated caps wrap>
+        <div className="wf-inset px-3 py-1 contents">{children}</div>
+      </Facts>
     </section>
   );
 }

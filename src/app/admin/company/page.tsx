@@ -15,7 +15,7 @@
 
 import Link from "next/link";
 import { ScreenHeader } from "@/components/shell";
-import { Chip, SectionTitle } from "@/components/ui";
+import { Chip, Fact, Facts, SectionTitle } from "@/components/ui";
 import { useEntitlements } from "@/components/FeatureGate";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
@@ -23,21 +23,6 @@ import { fmtDateLong } from "@/lib/format";
 import { TENANT_BASE_DOMAIN, tenantUrl } from "@/lib/tenant";
 import { IArrowR, IEdit } from "@/components/WfIcons";
 
-/** A value, or a visible gap. An empty line reads as a rendering fault. */
-function Line({ label, value }: { label: string; value?: string | null }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 py-1.5">
-      <span className="shrink-0 text-[0.74rem] text-[var(--wf-muted)]">{label}</span>
-      <span
-        className={`min-w-0 truncate text-right text-[0.84rem] ${
-          value ? "font-semibold" : "text-[var(--wf-faint)]"
-        }`}
-      >
-        {value || "Not set"}
-      </span>
-    </div>
-  );
-}
 
 export default function CompanyPage() {
   const { platform } = usePlatform();
@@ -86,12 +71,14 @@ export default function CompanyPage() {
               {org.status[0].toUpperCase() + org.status.slice(1)}
             </Chip>
           </div>
-          <Line label="Company name" value={org.name} />
-          <Line label="Legal name" value={b.legalName} />
-          <Line label="Company ID" value={org.code} />
-          <Line label="Industry" value={org.industry} />
-          <Line label="Website" value={org.website} />
-          <Line label="On Workfence since" value={fmtDateLong(new Date(org.createdAt).toISOString().slice(0, 10))} />
+          <Facts>
+  <Fact label="Company name" value={org.name} />
+            <Fact label="Legal name" value={b.legalName} />
+            <Fact label="Company ID" value={org.code} />
+            <Fact label="Industry" value={org.industry} />
+            <Fact label="Website" value={org.website} />
+            <Fact label="On Workfence since" value={fmtDateLong(new Date(org.createdAt).toISOString().slice(0, 10))} />
+          </Facts>
           {org.suspendedReason ? (
             <p className="mt-1 rounded-xl bg-[var(--wf-red-soft)] p-3 text-[0.8rem] leading-relaxed">
               Suspended: {org.suspendedReason}
@@ -101,26 +88,32 @@ export default function CompanyPage() {
 
         <div className="wf-card flex flex-col gap-1 p-4">
           <SectionTitle>Primary contact</SectionTitle>
-          <Line label="Name" value={org.contactName} />
-          <Line label="Email" value={org.contactEmail} />
-          <Line label="Phone" value={org.contactPhone} />
+          <Facts>
+  <Fact label="Name" value={org.contactName} />
+            <Fact label="Email" value={org.contactEmail} />
+            <Fact label="Phone" value={org.contactPhone} />
+          </Facts>
         </div>
 
         <div className="wf-card flex flex-col gap-1 p-4">
           <SectionTitle>Registered address &amp; tax</SectionTitle>
-          <Line label="Address" value={address} />
-          <Line label={b.taxIdLabel || "Tax ID"} value={b.taxId} />
-          <Line label="Currency" value={b.currency} />
-          <Line label="Time zone" value={org.timezone} />
+          <Facts>
+  <Fact label="Address" value={address} />
+            <Fact label={b.taxIdLabel || "Tax ID"} value={b.taxId} />
+            <Fact label="Currency" value={b.currency} />
+            <Fact label="Time zone" value={org.timezone} />
+          </Facts>
         </div>
 
         <div className="wf-card flex flex-col gap-1 p-4">
           <SectionTitle>How your crew sees it</SectionTitle>
-          <Line label="App name" value={org.branding.appName} />
-          <Line
-            label="Sign-in address"
-            value={org.slug ? tenantUrl(org.slug) : undefined}
-          />
+          <Facts>
+  <Fact label="App name" value={org.branding.appName} />
+            <Fact
+              label="Sign-in address"
+              value={org.slug ? tenantUrl(org.slug) : undefined}
+            />
+          </Facts>
           {!TENANT_BASE_DOMAIN && org.slug ? (
             <p className="pt-1 text-[0.72rem] leading-relaxed text-[var(--wf-faint)]">
               Workers can reach a sign-in page branded for {org.name} at this

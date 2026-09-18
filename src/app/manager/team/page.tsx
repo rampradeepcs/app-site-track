@@ -15,15 +15,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
 import { EmployeePicker } from "@/components/EmployeePicker";
-import {
-  Avatar,
-  BottomSheet,
-  Chip,
-  SectionTitle,
-  Segmented,
-  StatusChip,
-  useNowTick,
-} from "@/components/ui";
+import { Avatar, BottomSheet, Chip, Fact, Facts, SectionTitle, Segmented, StatusChip, useNowTick } from "@/components/ui";
 import { canManageTeams, canCaptureGroupAttendance } from "@/lib/access";
 import { fmtClock, fmtDateLong, fmtTime } from "@/lib/format";
 import {
@@ -153,12 +145,14 @@ export default function TeamPage() {
 
         {/* who runs it */}
         <div className="wf-card2 flex flex-col gap-2 px-3.5 py-3">
-          <Row label="Trade" value={team.type} />
-          <Row label="Leader" value={leader?.name ?? "Not set"} />
-          <Row label="Site engineer" value={engineer?.name ?? "Not set"} />
-          {zone ? <Row label="Work zone" value={zone.name} /> : null}
-          {shift ? <Row label="Shift" value={shift.name} /> : null}
-          <Row label="Status" value={team.status} />
+          <Facts>
+  <Fact label="Trade" value={team.type} />
+            <Fact label="Leader" value={leader?.name ?? "Not set"} />
+            <Fact label="Site engineer" value={engineer?.name ?? "Not set"} />
+            {zone ? <Fact label="Work zone" value={zone.name} /> : null}
+            {shift ? <Fact label="Shift" value={shift.name} /> : null}
+            <Fact label="Status" value={team.status} />
+          </Facts>
           {team.description ? (
             <p className="mt-1 text-[0.78rem] leading-relaxed text-[var(--wf-muted)]">
               {team.description}
@@ -537,11 +531,3 @@ function Stat({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <span className="text-[0.74rem] text-[var(--wf-muted)]">{label}</span>
-      <span className="truncate text-[0.82rem] font-semibold">{value}</span>
-    </div>
-  );
-}

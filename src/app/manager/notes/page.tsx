@@ -14,7 +14,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
 import { NoteAttachments } from "@/components/notes/NoteAttachments";
-import { Avatar, BottomSheet, Chip, Segmented } from "@/components/ui";
+import { Avatar, BottomSheet, Chip, Fact, Facts, Segmented } from "@/components/ui";
 import { canCreateNote, canEditNote, canPinNote } from "@/lib/access";
 import { fmtDateLong, fmtTime } from "@/lib/format";
 import { noteTimeline, readableNotes, usedCategories } from "@/lib/notes";
@@ -214,14 +214,19 @@ export default function NotesPage() {
 
             <p className="whitespace-pre-wrap text-[0.88rem] leading-relaxed">{open.body}</p>
 
-            <div className="wf-inset flex flex-col gap-1.5 px-3.5 py-3 text-[0.74rem]">
-              <Detail label="Written by" value={state.users.find((u) => u.id === open.authorId)?.name ?? "—"} />
-              <Detail label="When" value={`${fmtDateLong(open.createdAt)} · ${fmtTime(open.createdAt)}`} />
-              <Detail label="Visible to" value={visibilityLabel(open.visibility)} />
-              {open.dueDate ? <Detail label="Due" value={fmtDateLong(open.dueDate)} /> : null}
-              {open.remindAt ? (
-                <Detail label="Reminder" value={`${fmtDateLong(open.remindAt)} · ${fmtTime(open.remindAt)}`} />
-              ) : null}
+            <div className="wf-inset px-3.5 py-3 text-[0.74rem]">
+              <Facts>
+                <Fact
+                  label="Written by"
+                  value={state.users.find((u) => u.id === open.authorId)?.name}
+                />
+                <Fact label="When" value={`${fmtDateLong(open.createdAt)} · ${fmtTime(open.createdAt)}`} />
+                <Fact label="Visible to" value={visibilityLabel(open.visibility)} />
+                {open.dueDate ? <Fact label="Due" value={fmtDateLong(open.dueDate)} /> : null}
+                {open.remindAt ? (
+                  <Fact label="Reminder" value={`${fmtDateLong(open.remindAt)} · ${fmtTime(open.remindAt)}`} />
+                ) : null}
+              </Facts>
             </div>
 
             <NoteAttachments noteId={open.id} canEdit={canEditNote(state, open, me)} />
@@ -313,15 +318,6 @@ export default function NotesPage() {
       </button>
     );
   }
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <span className="text-[var(--wf-muted)]">{label}</span>
-      <span className="truncate font-semibold">{value}</span>
-    </div>
-  );
 }
 
 function visibilityLabel(v: ProjectNote["visibility"]): string {

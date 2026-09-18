@@ -227,6 +227,89 @@ export function KpiCard({
 
 /* --------------------------------------------------------- list pieces */
 
+/**
+ * A labelled fact, and the list it lives in.
+ *
+ * Four screens had written this themselves — the platform user record, the
+ * company profile, a note's details, a team's summary — and the four had drifted
+ * apart in the ways that are easy to get wrong rather than the ways that are
+ * interesting. One truncated a long value, one wrapped it; one showed "—" for an
+ * empty value, one "Not set", and two showed nothing at all, so an absent value
+ * was indistinguishable from a rendering fault. None of them were a description
+ * list, so a screen reader met four loose spans instead of a label and its value.
+ *
+ * A real <dl> fixes the last one for free, and a `<div>` wrapping each dt/dd pair
+ * is valid inside it, so a Fact is still one JSX element per row and stays
+ * conditional-friendly at the call sites.
+ *
+ * The differences that survive as props are the ones with a reason: `wrap` for a
+ * value that must not be clipped (an email address in a full record), and
+ * `placeholder` for screens that have already chosen their own word for nothing.
+ */
+export function Facts({
+  children,
+  separated,
+  caps,
+  wrap,
+}: {
+  children: React.ReactNode;
+  /** Hairlines between rows — for a dense record, not a short summary. */
+  separated?: boolean;
+  /** Small-caps labels, for a full record where the labels are scannable. */
+  caps?: boolean;
+  /**
+   * Let long values take a second line rather than be clipped. A whole-record
+   * decision, not a per-row one: it is the difference between a summary, where a
+   * clipped value is a hint to tap through, and a record, which is the place you
+   * tapped through to — and where a truncated email address is useless.
+   */
+  wrap?: boolean;
+}) {
+  return (
+    <dl
+      className={[
+        "min-w-0",
+        separated
+          ? "[&>div]:border-b [&>div]:border-[var(--wf-line)] [&>div]:py-2 [&>div:last-child]:border-0"
+          : "[&>div]:py-1.5",
+        caps
+          ? "[&_dt]:uppercase [&_dt]:tracking-wide [&_dt]:text-[var(--wf-faint)]"
+          : "",
+        wrap ? "[&_dd]:whitespace-normal [&_dd]:overflow-visible [&_dd]:break-words" : "",
+      ].join(" ")}
+    >
+      {children}
+    </dl>
+  );
+}
+
+export function Fact({
+  label,
+  value,
+  placeholder = "Not set",
+}: {
+  label: string;
+  value?: React.ReactNode;
+  /** What an absent value says. An empty row reads as a bug. */
+  placeholder?: string;
+}) {
+  // A value of 0 is a value; only null, undefined and "" are absent.
+  const empty = value === null || value === undefined || value === "";
+  return (
+    <div className="flex items-baseline justify-between gap-4">
+      <dt className="shrink-0 text-[0.74rem] text-[var(--wf-muted)]">{label}</dt>
+      <dd
+        className={[
+          "min-w-0 truncate text-right text-[0.84rem]",
+          empty ? "text-[var(--wf-faint)]" : "font-semibold",
+        ].join(" ")}
+      >
+        {empty ? placeholder : value}
+      </dd>
+    </div>
+  );
+}
+
 export function SectionTitle({
   children,
   action,
