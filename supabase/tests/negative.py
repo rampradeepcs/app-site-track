@@ -28,13 +28,22 @@ def unact():
     except Exception: pass
 
 def case(module, name, fn, expect):
-    """expect: 'refused' (must raise) or 'hidden' (must return 0 rows)."""
+    """expect: 'refused' (must raise), 'hidden' (must return 0 rows), or
+    'allowed' (must NOT raise).
+
+    'allowed' exists because a couple of these cases are now assertions that
+    something IS permitted — founding a second company, for one. They belong in
+    this file rather than elsewhere: the value of a suite of refusals is that it
+    fails when a rule changes, and a rule that was deliberately removed should
+    be recorded as removed rather than deleted and forgotten."""
     cur.execute("begin")
     try:
         outcome = fn()
         unact()
         if expect == "refused":
             ok, detail = False, f"ALLOWED — returned {outcome!r}"
+        elif expect == "allowed":
+            ok, detail = True, f"allowed: {outcome!r}"
         else:
             ok = (outcome == 0)
             detail = "0 rows" if ok else f"LEAKED {outcome} row(s)"
@@ -52,9 +61,9 @@ def case(module, name, fn, expect):
 
 def rival():
     """A second tenant, inside the current transaction."""
-    cur.execute("""insert into organizations (name, code, industry, contact_name,
+    cur.execute("""insert into organizations (name, code, slug, industry, contact_name,
                      contact_email, contact_phone, country, timezone, status, billing, branding)
-                   values ('Rival Co','RIV-TEST','Construction','R','r@rival.test','',
+                   values ('Rival Co','RIV-TEST','rival-co-test','Construction','R','r@rival.test','',
                            'IN','Asia/Kolkata','active','{}','{}') returning id""")
     rorg = cur.fetchall()[0][0]
     cur.execute("""insert into public.users (auth_id, org_id, name, email, role, status, joined_at)
@@ -142,10 +151,19 @@ GOOD = {"company":"X Co","admin":{"name":"A","email":"a@x.test"},
                 "trackingMode":"full-shift"},"crew":[]}
 
 def provision_twice():
+    """Not a refusal any more.
+
+    This asserted 'this account already belongs to an organisation', which was
+    right when an identity could hold exactly one membership. Multi-company is
+    the whole point now: founding a second company from an account that already
+    has one is a supported thing to do, and the test was asserting the old
+    world. Kept, inverted, so that a regression back to the single-company rule
+    would fail here rather than silently."""
     act_as(ADMIN_AUTH)   # already has a users row
     cur.execute("select public.provision_company(%s::jsonb)", (json.dumps(GOOD),))
     return "second company created"
-case("provisioning", "caller already in an organisation", provision_twice, "refused")
+case("provisioning", "an account with a company may found another",
+     provision_twice, "allowed")
 
 def provision_anon():
     cur.execute("set local role authenticated")

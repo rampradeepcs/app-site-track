@@ -22,7 +22,10 @@
 -- carrying their own copy of the unordered `limit 1` lookup. Pointing them at
 -- the private implementations leaves one definition of who an admin is.
 --
--- Captured from live with pg_get_functiondef. Idempotent.
+-- Captured from live with pg_get_functiondef, with ONE deliberate departure,
+-- which is the only place in this whole catch-up where the repository was right
+-- and production was wrong: provision_company's site-location check. Everything
+-- else here takes live as authoritative. See the comment at the check itself.
 --
 -- Two functions are deliberately NOT captured here, although their text also
 -- differs from live: set_project_members and private.auth_email. Compared with
@@ -61,8 +64,23 @@ begin
   if caller is null then
     raise exception 'sign in before creating a company' using errcode = '28000';
   end if;
-  if company = '' or admin_name = '' or site is null or site->'location' is null then
-    raise exception 'company, your name and a first site are all required' using errcode = '22023';
+  -- jsonb_typeof, not "is null": the wizard sends the whole payload as JSON, and
+  -- a missing location arrives as the jsonb value null, which is not SQL NULL and
+  -- passes an "is null" test. A company created that way gets a site with no
+  -- centre to its geofence — attendance happens inside a boundary, so nobody on
+  -- it can ever check in, and the founder has no way to tell.
+  --
+  -- The committed version of this function had exactly that check, with exactly
+  -- that comment. Production had drifted back to the weaker test, so capturing
+  -- live verbatim would have re-enshrined the bug the comment was written about.
+  -- Restored here, and applied to production along with it.
+  if company = '' or admin_name = ''
+     or site is null or jsonb_typeof(site) <> 'object'
+     or jsonb_typeof(site->'location') <> 'object'
+     or (site#>>'{location,lat}') is null
+     or (site#>>'{location,lng}') is null then
+    raise exception 'company, your name and a first site with a location are all required'
+      using errcode = '22023';
   end if;
 
   select ps.settings into settings from platform_settings ps where ps.id = 1;
