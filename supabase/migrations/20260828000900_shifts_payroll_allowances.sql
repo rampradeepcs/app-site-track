@@ -21,6 +21,20 @@
 -- ============================================================================
 
 -- ---------------------------------------------------------------- enums ----
+-- ----------------------------------------------------------------------------
+-- Dependency, re-stated: 20260824000500_rls_hardening.sql:260 drops auth_user()
+-- when it moves the helpers into the private schema, and the policies below
+-- still call it — so on a database replayed from this tree, this file failed
+-- at shift_assign_read and everything after it was never created. The next
+-- migration, 20260829001000, already re-states the same helpers for the same
+-- reason; this is that fix applied one file earlier, where it was first needed.
+-- CREATE OR REPLACE, identical to the original definition, so it is a no-op
+-- wherever the function already exists.
+create or replace function auth_user()
+returns users
+language sql stable security definer set search_path = public
+as $$ select * from users where auth_id = auth.uid() limit 1 $$;
+
 create type shift_kind        as enum ('fixed','flexible','overnight','custom');
 create type salary_type       as enum ('monthly','daily','hourly');
 create type payroll_status    as enum ('draft','calculated','review','approved','locked');

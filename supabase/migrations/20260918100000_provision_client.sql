@@ -83,6 +83,19 @@ end $$;
 
 alter table organizations alter column slug set not null;
 
+-- A slug becomes a hostname, so the database states the rule rather than
+-- trusting every writer to. Same pattern and same reserved list that
+-- provision_client checks, enforced for anything that writes the column.
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'organizations_slug_format') then
+    alter table organizations add constraint organizations_slug_format
+      check (slug ~ '^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])?$'
+             and slug <> all (array['www','app','api','admin','platform','mail',
+                                    'static','assets','cdn','auth','login']));
+  end if;
+end $$;
+
 -- ------------------------------------------------------ provision_client ----
 -- The platform owner creates a client whole: organisation, subscription, and an
 -- administrator row with auth_id null, which the person named claims by email
