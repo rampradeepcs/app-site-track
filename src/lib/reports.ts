@@ -94,11 +94,21 @@ export function downloadExcel(
   }));
 }
 
-/** Open a print window with a styled report; user saves as PDF natively. */
+/**
+ * Open a print window with a styled report; user saves as PDF natively.
+ *
+ * `bodyHtml` is HTML by contract and goes in raw — that is what the callers
+ * build. `title` and `subtitle` are plain strings, so they are escaped here
+ * rather than trusted. No caller passes user text into them today (they are
+ * dates and fixed labels), but this window is opened with window.open("") and
+ * written into with document.write, so it inherits this origin — and the
+ * company's data lives in localStorage on that origin. The boundary is the
+ * right place to hold that line, not each caller's memory.
+ */
 export function printReport(title: string, bodyHtml: string, subtitle?: string) {
   const w = window.open("", "_blank", "width=900,height=700");
   if (!w) return;
-  w.document.write(`<!doctype html><html><head><title>${title}</title><style>
+  w.document.write(`<!doctype html><html><head><title>${htmlEscape(title)}</title><style>
     body{font-family:system-ui,-apple-system,sans-serif;color:#111827;margin:32px;}
     .letterhead{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;
       border-bottom:2px solid #111827;padding-bottom:14px;margin-bottom:22px;}
@@ -125,7 +135,7 @@ export function printReport(title: string, bodyHtml: string, subtitle?: string) 
       <div class="who">${BRAND_LINE}<br />${generatedAt()}</div>
     </div>
     <h1>${title}</h1>
-    <div class="sub">${subtitle ?? BRAND_LINE}</div>
+    <div class="sub">${subtitle ? htmlEscape(subtitle) : BRAND_LINE}</div>
     ${bodyHtml}
   </body></html>`);
   w.document.close();

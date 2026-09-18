@@ -21,7 +21,7 @@ import {
 } from "@/lib/format";
 import { useWorkforce } from "@/lib/store";
 import type { AttendanceStatus } from "@/lib/types";
-import { attendanceCSV, downloadCSV, printReport } from "@/lib/reports";
+import { attendanceCSV, downloadCSV, htmlEscape, printReport } from "@/lib/reports";
 import {
   IChevronL,
   IChevronR,
@@ -111,7 +111,7 @@ function AttendanceInner() {
   const exportPdf = () => {
     const rowsHtml = rows
       .map(
-        (r) => `<tr><td>${r.user!.name}</td><td>${r.project?.name ?? ""}</td>
+        (r) => `<tr><td>${htmlEscape(r.user!.name)}</td><td>${htmlEscape(r.project?.name ?? "")}</td>
         <td>${r.att.checkIn ? fmtTime(r.att.checkIn.at) : "—"}</td>
         <td>${r.att.checkOut ? fmtTime(r.att.checkOut.at) : "—"}</td>
         <td>${r.att.workedMinutes != null ? fmtDuration(r.att.workedMinutes) : "—"}</td>

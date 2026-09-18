@@ -31,7 +31,7 @@ import {
   shiftFor,
   type MonthSummary,
 } from "@/lib/payroll";
-import { downloadCSV, downloadExcel, printReport } from "@/lib/reports";
+import { downloadCSV, downloadExcel, htmlEscape, printReport } from "@/lib/reports";
 import { useWorkforce } from "@/lib/store";
 import type { Attendance, PayrollStatus, User } from "@/lib/types";
 import {
@@ -252,7 +252,7 @@ export default function ManagerPayroll() {
               .map(
                 (c, i) =>
                   `<td style="${typeof c === "number" ? "text-align:right;font-variant-numeric:tabular-nums" : ""}">${
-                    typeof c === "number" && i >= 12 ? fmtINR(c) : String(c)
+                    typeof c === "number" && i >= 12 ? fmtINR(c) : htmlEscape(String(c))
                   }</td>`,
               )
               .join("")}</tr>`,

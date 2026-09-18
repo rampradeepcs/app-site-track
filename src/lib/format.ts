@@ -32,10 +32,22 @@ export function fmtWeekday(date: string): string {
   });
 }
 
-/** 575 → "09h 35m" */
+/**
+ * 575 → "09h 35m"
+ *
+ * Round to whole minutes BEFORE splitting into hours and minutes, not after.
+ * Taking the hours from the unrounded value and the minutes from its remainder
+ * lets the rounding happen twice: fmtDuration(479.6) floored to 7 hours and
+ * rounded the 59.6-minute remainder to 60, and printed "07h 60m". Fractional
+ * minutes are not a corner case here — payroll.ts:250 computes grossMinutes as
+ * (outAt - inAt) / 60000 straight from milliseconds, and every average in
+ * metrics.ts is fractional by construction, so this reached the shift review,
+ * the payroll table and the reports.
+ */
 export function fmtDuration(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = Math.round(minutes % 60);
+  const total = Math.round(minutes);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
   if (h <= 0) return `${m}m`;
   return `${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m`;
 }

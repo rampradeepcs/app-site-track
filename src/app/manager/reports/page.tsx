@@ -18,7 +18,7 @@ import { BarTrend } from "@/components/charts";
 import { IArrowR, IDownload, IFile } from "@/components/WfIcons";
 import { fmtDateLong, fmtDuration, todayISO } from "@/lib/format";
 import { attendanceTrend, dashboardStats, performanceFor } from "@/lib/metrics";
-import { attendanceCSV, downloadCSV, printReport, toCSV } from "@/lib/reports";
+import { attendanceCSV, downloadCSV, htmlEscape, printReport, toCSV } from "@/lib/reports";
 import { useWorkforce } from "@/lib/store";
 
 export default function ManagerReports() {
@@ -76,7 +76,7 @@ export default function ManagerReports() {
           const present = state.attendance.filter(
             (a) => a.projectId === p.id && a.date === todayISO(now) && a.checkIn,
           ).length;
-          return `<tr><td>${p.name}</td><td><span class="chip">${p.status}</span></td><td>${p.employeeIds.length}</td><td>${present}</td></tr>`;
+          return `<tr><td>${htmlEscape(p.name)}</td><td><span class="chip">${p.status}</span></td><td>${p.employeeIds.length}</td><td>${present}</td></tr>`;
         })
         .join("")}
       </tbody></table>`,
