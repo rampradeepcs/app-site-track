@@ -6,7 +6,7 @@
 -- bootstrap, after handing the project to someone else.
 --
 -- Read-only: no writes, no rows created. Every row of output says PASS or
--- FAIL and what that check protects. Expected output is 18 rows of PASS;
+-- FAIL and what that check protects. Expected output is 25 rows of PASS;
 -- rows 11-12 fail until `bootstrap.sql` has been run once.
 -- ============================================================================
 
@@ -71,7 +71,35 @@ with checks(ord, name, pass, detail) as (
       not has_table_privilege('anon', 'users', 'select')
         or (select count(*) = 0 from pg_policies
               where tablename = 'users' and 'anon' = any(string_to_array(array_to_string(roles, ','), ','))),
-      'tenant data is invisible without a session')
+      'tenant data is invisible without a session'),
+  (19, 'provision_client exists',
+      (select count(*) = 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where p.proname = 'provision_client' and n.nspname = 'public'),
+      'the console''s Onboard client RPC — the wizard called it for months before it existed'),
+  (20, 'provision_client is SECURITY DEFINER',
+      (select bool_and(p.prosecdef) from pg_proc p where p.proname = 'provision_client'),
+      'it writes rows for a tenant the caller does not belong to'),
+  (21, 'authenticated may call provision_client',
+      has_function_privilege('authenticated', 'public.provision_client(jsonb)', 'execute'),
+      'the function itself refuses everyone who is not the platform owner'),
+  (22, 'anon may NOT call provision_client',
+      not has_function_privilege('anon', 'public.provision_client(jsonb)', 'execute'),
+      'there is no anonymous client creation'),
+  (23, 'organizations.slug exists and is unique',
+      (select count(*) = 1 from information_schema.columns
+        where table_name = 'organizations' and column_name = 'slug')
+      and (select count(*) >= 1 from pg_indexes
+            where schemaname = 'public' and tablename = 'organizations'
+              and indexdef ilike 'CREATE UNIQUE%' and indexdef ilike '%(slug)%'),
+      'a client is routed to by slug, so two clients cannot share one'),
+  (24, 'slugify exists',
+      (select count(*) = 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where p.proname = 'slugify' and n.nspname = 'public'),
+      'provision_client builds a subdomain with it'),
+  (25, 'private.is_superadmin exists',
+      (select count(*) = 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where p.proname = 'is_superadmin' and n.nspname = 'private'),
+      'the guard provision_client and the commercial policies call')
 )
 select ord,
        case when pass then 'PASS' else 'FAIL' end as result,

@@ -22,6 +22,13 @@ re-joining, and founding a second company. It asserts refusals as often as it
 asserts successes, because the interesting half of a tenancy model is what it
 will not do.
 
+`provision_client_test.py` covers onboarding a client from the platform
+console: who may call the RPC, that the client comes out whole — organisation,
+subscription and an administrator row waiting to be claimed — that the
+negotiated plan and overrides survive, and the subdomain rules, which matter
+because a slug becomes a hostname and an operator can type one in. It applies
+its own migration first, so it also proves that file replays.
+
 `project_roster_test.py` covers `set_project_members`: adding somebody to a
 site leaves everyone already on it alone, removing one removes only that one,
 saying the same thing twice changes nothing, and neither a plain employee nor
