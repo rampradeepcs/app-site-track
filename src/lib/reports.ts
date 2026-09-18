@@ -9,8 +9,9 @@
  */
 
 import { BRAND_LINE, BRAND_NAME, markSVG } from "./brand";
-import { fmtDateLong, fmtDistance, fmtDuration, fmtTime } from "./format";
-import type { WorkforceState } from "./types";
+import { fmtDateLong, fmtDistance, fmtDuration, fmtTime, todayISO } from "./format";
+import type { User, WorkforceState } from "./types";
+import type { DashboardStats, PerformanceBreakdown } from "./metrics";
 import { buildXlsx, type Cell } from "./xlsx";
 
 /** For report bodies built as HTML strings — descriptions are user text. */
@@ -192,4 +193,83 @@ export function movementCSV(s: WorkforceState, attendanceId: string): string {
       Math.round(p.heading),
     ]);
   return toCSV(["Timestamp", "Latitude", "Longitude", "Accuracy (m)", "Speed (m/s)", "Heading"], rows);
+}
+
+/* ------------------------------------------------ shared report bodies --- */
+
+/**
+ * The strip of figures at the top of a printed report.
+ *
+ * printReport's stylesheet has owned `.kpis` and `.kpi` since it was written,
+ * and five screens hand-built the markup against it anyway — one of them had
+ * already extracted a local `kpi()` and was a promotion away from this. Values
+ * are escaped because a caller will eventually pass a name.
+ */
+export function reportKpis(pairs: Array<[string, string | number]>): string {
+  return `<div class="kpis">${pairs
+    .map(
+      ([label, value]) =>
+        `<div class="kpi"><b>${htmlEscape(String(value))}</b><span>${htmlEscape(label)}</span></div>`,
+    )
+    .join("")}</div>`;
+}
+
+/**
+ * Projects, who is assigned to each and who turned up.
+ *
+ * Lived twice, byte for byte, in manager/more and manager/reports — 1,119
+ * characters each. Two copies of an export is a document that quietly stops
+ * matching itself: add a column on one screen and the same client gets a
+ * different file depending on which button they pressed.
+ */
+export function workforceReport(
+  s: WorkforceState,
+  stats: DashboardStats,
+  now: number,
+): void {
+  const rows = s.projects
+    .map((p) => {
+      const present = s.attendance.filter(
+        (a) => a.projectId === p.id && a.date === todayISO(now) && a.checkIn,
+      ).length;
+      return `<tr><td>${htmlEscape(p.name)}</td><td><span class="chip">${p.status}</span></td><td>${p.employeeIds.length}</td><td>${present}</td></tr>`;
+    })
+    .join("");
+  printReport(
+    `Project Workforce Report — ${fmtDateLong(now)}`,
+    `${reportKpis([
+      ["Workforce", stats.workforce],
+      ["On site now", stats.currentlyWorking],
+      ["Present today", stats.presentToday],
+      ["Attendance", `${Math.round(stats.attendancePct)}%`],
+      ["Avg hours", fmtDuration(stats.avgWorkedMinutes)],
+    ])}
+      <table><thead><tr><th>Project</th><th>Status</th><th>Assigned</th><th>Present today</th></tr></thead><tbody>
+      ${rows}
+      </tbody></table>`,
+  );
+}
+
+/** Scores per person. The other half of the pair that lived in two files. */
+export function performanceReport(
+  perfs: Array<{ user: User; perf: PerformanceBreakdown }>,
+  now: number,
+): void {
+  downloadCSV(
+    `performance-${todayISO(now)}.csv`,
+    toCSV(
+      ["Employee", "Code", "Attendance %", "Punctuality", "Avg hours", "Updates", "Supervisor", "Overall"],
+      perfs.map(({ user, perf }) => [
+        user.name,
+        user.employeeCode,
+        Math.round(perf.attendancePct),
+        Math.round(perf.punctuality),
+        fmtDuration(perf.avgWorkedMinutes),
+        perf.updateCount,
+        Math.round(perf.supervisor),
+        Math.round(perf.overall),
+      ]),
+    ),
+    "Performance report",
+  );
 }

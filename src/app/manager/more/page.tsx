@@ -8,58 +8,24 @@
 import Link from "next/link";
 import { Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BarTrend, ScoreBars } from "@/components/charts";
-import { FeatureGate, UpgradeNotice, useFeature } from "@/components/FeatureGate";
-import { AccountPanel, ScreenHeader } from "@/components/shell";
-import { PersonaMenuEntry } from "@/components/demo/PersonaMenuEntry";
+
+import { useFeature } from "@/components/FeatureGate";
+import { ScreenHeader } from "@/components/shell";
+
 import { MyCompaniesPanel } from "@/components/MyCompaniesPanel";
-import { ThemeControl } from "@/components/ThemeControl";
-import {
-  Avatar,
-  Chip,
-  Field,
-  SectionTitle,
-  Segmented,
-  useNowTick,
-} from "@/components/ui";
-import {
-  fmtDateLong,
-  fmtDuration,
-  fmtRelative,
-  fmtTime,
-  pct,
-  todayISO,
-} from "@/lib/format";
+
+import { useNowTick } from "@/components/ui";
+
 import {
   attendanceTrend,
   dashboardStats,
   needsAttention,
   performanceFor,
 } from "@/lib/metrics";
-import { attendanceCSV, downloadCSV, htmlEscape, printReport, toCSV } from "@/lib/reports";
+
 import { useWorkforce } from "@/lib/store";
-import { ERASE_DEVICE, confirmDestructive } from "@/lib/confirm";
-import {
-  IAlert,
-  IArrowR,
-  IBell,
-  ICamera,
-  IChart,
-  ICheckCircle,
-  IChevronR,
-  IClipboard,
-  IClock,
-  IDownload,
-  IFile,
-  IInfo,
-  IMapPin,
-  INav,
-  IRefresh,
-  ISettings,
-  IShield,
-  IUsers,
-  IWallet,
-} from "@/components/WfIcons";
+
+import { IBell, ICamera, IChart, IChevronR, IClipboard, IClock, IFile, IMapPin, INav, ISettings, IUsers, IWallet } from "@/components/WfIcons";
 
 type Tab = "updates" | "alerts" | "settings";
 
@@ -107,47 +73,6 @@ function MoreInner() {
   };
 
   /* ------------------------------------------------------ report builders */
-  const performanceCSVExport = () =>
-    downloadCSV(
-      `performance-${todayISO(now)}.csv`,
-      toCSV(
-        ["Employee", "Code", "Attendance %", "Punctuality", "Avg hours", "Updates", "Supervisor", "Overall"],
-        perfs.map(({ user, perf }) => [
-          user.name,
-          user.employeeCode,
-          Math.round(perf.attendancePct),
-          Math.round(perf.punctuality),
-          fmtDuration(perf.avgWorkedMinutes),
-          perf.updateCount,
-          Math.round(perf.supervisor),
-          Math.round(perf.overall),
-        ]),
-      ),
-      "Performance report",
-    );
-
-  const workforcePdf = () =>
-    printReport(
-      `Project Workforce Report — ${fmtDateLong(now)}`,
-      `<div class="kpis">
-        <div class="kpi"><b>${stats.workforce}</b><span>Workforce</span></div>
-        <div class="kpi"><b>${stats.currentlyWorking}</b><span>On site now</span></div>
-        <div class="kpi"><b>${stats.presentToday}</b><span>Present today</span></div>
-        <div class="kpi"><b>${Math.round(stats.attendancePct)}%</b><span>Attendance</span></div>
-        <div class="kpi"><b>${fmtDuration(stats.avgWorkedMinutes)}</b><span>Avg hours</span></div>
-      </div>
-      <table><thead><tr><th>Project</th><th>Status</th><th>Assigned</th><th>Present today</th></tr></thead><tbody>
-      ${state.projects
-        .map((p) => {
-          const present = state.attendance.filter(
-            (a) => a.projectId === p.id && a.date === todayISO(now) && a.checkIn,
-          ).length;
-          return `<tr><td>${htmlEscape(p.name)}</td><td><span class="chip">${p.status}</span></td><td>${p.employeeIds.length}</td><td>${present}</td></tr>`;
-        })
-        .join("")}
-      </tbody></table>`,
-    );
-
   return (
     <div>
       <ScreenHeader title="More" sub="Modules · work updates · alerts · settings" />
