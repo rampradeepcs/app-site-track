@@ -13,15 +13,18 @@ import { Chip, SectionTitle } from "./ui";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
 import { IArrowR } from "./WfIcons";
+import { useViewingOrgId } from "@/components/FeatureGate";
 
 export function CompanyProfileCard() {
   const { platform } = usePlatform();
   const { currentUser } = useWorkforce();
+  // Above the early return: a hook cannot be called conditionally.
+  const viewingOrgId = useViewingOrgId();
 
   // Managers and employees see the company's details too; only an owner may
   // change them, which the page itself enforces.
   if (!currentUser) return null;
-  const org = platform.organizations.find((o) => o.id === currentUser.orgId);
+  const org = platform.organizations.find((o) => o.id === viewingOrgId);
   if (!org) return null;
 
   return (

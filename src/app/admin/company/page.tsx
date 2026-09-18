@@ -16,7 +16,7 @@
 import Link from "next/link";
 import { ScreenHeader } from "@/components/shell";
 import { Chip, Fact, Facts, SectionTitle } from "@/components/ui";
-import { useEntitlements } from "@/components/FeatureGate";
+import { useEntitlements, useViewingOrgId } from "@/components/FeatureGate";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
 import { fmtDateLong } from "@/lib/format";
@@ -28,8 +28,9 @@ export default function CompanyPage() {
   const { platform } = usePlatform();
   const { state, currentUser } = useWorkforce();
   const ent = useEntitlements();
+  const viewingOrgId = useViewingOrgId();
 
-  const org = platform.organizations.find((o) => o.id === currentUser?.orgId);
+  const org = platform.organizations.find((o) => o.id === viewingOrgId);
   const canEdit = currentUser?.role === "admin";
 
   if (!org) {

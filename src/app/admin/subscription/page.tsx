@@ -20,7 +20,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
 import { Chip, Field } from "@/components/ui";
-import { useEntitlements } from "@/components/FeatureGate";
+import { useEntitlements, useViewingOrgId } from "@/components/FeatureGate";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
 import { FEATURE_LABELS, type FeatureSet } from "@/lib/saas-types";
@@ -89,7 +89,7 @@ export default function SubscriptionPage() {
   const { platform, raiseTicket } = usePlatform();
   const { state, currentUser } = useWorkforce();
   const ent = useEntitlements();
-  const orgId = currentUser?.orgId ?? "";
+  const orgId = useViewingOrgId();
 
   const [asking, setAsking] = useState<string | null>(null);
   const [note, setNote] = useState("");

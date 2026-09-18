@@ -27,12 +27,14 @@ import { demoActive } from "@/lib/demo/mode";
 import { describeError } from "@/lib/errors";
 import { showToast } from "@/lib/toast";
 import { ICheck } from "@/components/WfIcons";
+import { useViewingOrgId } from "@/components/FeatureGate";
 
 export default function EditCompanyPage() {
   const { platform, updateOrg } = usePlatform();
   const { currentUser } = useWorkforce();
   const router = useRouter();
-  const org = platform.organizations.find((o) => o.id === currentUser?.orgId);
+  const viewingOrgId = useViewingOrgId();
+  const org = platform.organizations.find((o) => o.id === viewingOrgId);
 
   const [name, setName] = useState(org?.name ?? "");
   const [legalName, setLegalName] = useState(org?.billing.legalName ?? "");

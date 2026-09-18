@@ -16,6 +16,7 @@ import { fmtDuration, fmtRelative, pct, roleLabel, todayISO } from "@/lib/format
 import { attendanceTrend, dashboardStats, liveBoard, needsAttention } from "@/lib/metrics";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
+import { useViewingOrgId } from "@/components/FeatureGate";
 import {
   IAlert,
   IArrowR,
@@ -28,7 +29,8 @@ import {
 export default function AdminOverview() {
   const { state, currentUser } = useWorkforce();
   const { platform } = usePlatform();
-  const org = platform.organizations.find((o) => o.id === currentUser?.orgId);
+  const viewingOrgId = useViewingOrgId();
+  const org = platform.organizations.find((o) => o.id === viewingOrgId);
   const now = useNowTick(15);
   const stats = useMemo(() => dashboardStats(state, now), [state, now]);
   const board = useMemo(() => liveBoard(state, undefined, now), [state, now]);
