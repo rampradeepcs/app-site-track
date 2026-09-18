@@ -21,6 +21,7 @@ export default function SubscriptionsPage() {
   return (
     <div className="pb-10">
       <PageHead
+        back={{ href: "/platform/more", label: "More" }}
         title="Subscriptions"
         sub={`${platform.plans.filter((p) => !p.archived).length} plans on sale · ${platform.subscriptions.length} active subscriptions`}
         action={

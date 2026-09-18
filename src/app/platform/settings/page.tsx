@@ -17,7 +17,11 @@ export default function PlatformSettingsPage() {
 
   return (
     <div className="pb-10">
-      <PageHead title="Platform Settings" sub="Defaults applied to new clients, and platform-wide controls" />
+      <PageHead
+        title="Platform Settings"
+        sub="Defaults applied to new clients, and platform-wide controls"
+        back={{ href: "/platform/more", label: "More" }}
+      />
       <div className="grid grid-cols-1 gap-4 px-5 lg:grid-cols-2">
         <PersonaMenuEntry />
         <div className="wf-card p-4">

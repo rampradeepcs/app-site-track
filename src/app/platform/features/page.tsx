@@ -29,6 +29,7 @@ export default function FeaturesPage() {
   return (
     <div className="pb-10">
       <PageHead
+        back={{ href: "/platform/more", label: "More" }}
         title="Feature Management"
         sub="What each plan grants, and what each client actually has"
       />

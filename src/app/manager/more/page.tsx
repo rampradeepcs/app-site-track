@@ -319,22 +319,3 @@ function MoreInner() {
   );
 }
 
-function ReportRow({
-  title,
-  body,
-  actions,
-}: {
-  title: string;
-  body: string;
-  actions: React.ReactNode;
-}) {
-  return (
-    <div className="wf-card flex flex-wrap items-center gap-3 p-4">
-      <div className="min-w-0 flex-1">
-        <p className="font-semibold">{title}</p>
-        <p className="text-[0.76rem] text-[var(--wf-muted)]">{body}</p>
-      </div>
-      <div className="flex shrink-0 gap-2">{actions}</div>
-    </div>
-  );
-}

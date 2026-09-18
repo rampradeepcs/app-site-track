@@ -50,6 +50,7 @@ export default function AuditPage() {
   return (
     <div className="pb-10">
       <PageHead
+        back={{ href: "/platform/more", label: "More" }}
         title="Audit Logs"
         sub={`${platform.platformAudit.length} recorded actions`}
         action={

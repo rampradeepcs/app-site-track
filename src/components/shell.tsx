@@ -210,6 +210,7 @@ const PLATFORM_TABS = [
     icon: ILayers,
     iconActive: ILayersFill,
     alsoActive: [
+      "/platform/users",
       "/platform/subscriptions",
       "/platform/usage",
       "/platform/features",

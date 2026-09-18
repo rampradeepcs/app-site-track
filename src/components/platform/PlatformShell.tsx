@@ -12,11 +12,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
 import { Avatar } from "@/components/ui";
-import { TabBar } from "@/components/shell";
+import { ImpersonationBanner, RoleGuard, TabBar } from "@/components/shell";
 import {
   IAlert,
   IBell,
@@ -45,50 +44,33 @@ const NAV = [
 ];
 
 /** Only the platform Super Admin may enter; everyone else goes to the gate. */
+/*
+ * The console used to carry its own copy of the gate, and the copy had drifted.
+ * RoleGuard does two things it never did: it parks where you were going before
+ * sending you to sign in, and it renders SyncBanner — the one place in the app
+ * a failed write is announced. So the console, where a super admin suspends a
+ * client or flips a feature switch, was the single authenticated surface that
+ * could not tell anybody a write had not landed. Re-exported rather than
+ * deleted outright so the layout's import keeps working.
+ */
 export function PlatformGuard({ children }: { children: React.ReactNode }) {
-  const { state } = useWorkforce();
-  const router = useRouter();
-  const ok = state.session?.role === "superadmin";
-  useEffect(() => {
-    if (!ok) router.replace("/");
-  }, [ok, router]);
-  if (!ok) {
-    return (
-      <div className="grid min-h-[calc(100dvh-var(--wf-safe-top))] place-items-center">
-        <p className="text-sm text-[var(--wf-muted)]">Redirecting to sign in…</p>
-      </div>
-    );
-  }
-  return <>{children}</>;
+  return <RoleGuard role="superadmin">{children}</RoleGuard>;
 }
 
 export function PlatformShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { currentUser, logout } = useWorkforce();
-  const { platform, stopImpersonation } = usePlatform();
+  const { platform } = usePlatform();
   const router = useRouter();
 
   const openTickets = platform.tickets.filter((t) => t.status !== "resolved").length;
 
   return (
     <div className="min-h-[calc(100dvh-var(--wf-safe-top))] md:flex">
-      {/* impersonation is a privileged action — never let it be invisible */}
-      {platform.impersonating && (
-        <div className="fixed inset-x-0 top-[var(--wf-safe-top)] z-50 flex items-center justify-center gap-3 bg-[var(--wf-violet)] px-4 py-2 text-[0.8rem] font-bold text-[var(--wf-on-violet)]">
-          Viewing{" "}
-          {platform.organizations.find((o) => o.id === platform.impersonating!.orgId)?.name}
-          {" "}as their admin — all actions are audited
-          <button
-            className="cursor-pointer rounded-md bg-black/20 px-2 py-0.5 text-[0.72rem] hover:bg-black/30"
-            onClick={() => {
-              stopImpersonation();
-              router.push("/platform/clients");
-            }}
-          >
-            Exit
-          </button>
-        </div>
-      )}
+      {/* Impersonation is a privileged action, so it is never invisible. The
+          shared banner is sticky where this one was fixed, which is why the
+          compensating pt-9 below goes with it. */}
+      <ImpersonationBanner />
 
       {/* sidebar — the desk's navigation; the phone has the bar below */}
       <aside className="hidden border-[var(--wf-line)] bg-[var(--wf-surface)] md:sticky md:top-[var(--wf-safe-top)] md:block md:h-[calc(100dvh-var(--wf-safe-top))] md:w-60 md:shrink-0 md:border-r">
@@ -156,7 +138,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
           the foot of a short page and sticks under a long one — the same
           arrangement the admin, manager and employee shells use. */}
       <div className="flex min-h-[calc(100dvh-var(--wf-safe-top))] min-w-0 flex-1 flex-col md:min-h-0">
-        <main className={`min-h-0 min-w-0 flex-1 pb-4 ${platform.impersonating ? "pt-9" : ""}`}>
+        <main className="min-h-0 min-w-0 flex-1 pb-4">
           {children}
         </main>
         {/* `contents`, not a box: a sticky bar can only travel within its

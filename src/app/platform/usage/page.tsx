@@ -48,6 +48,7 @@ export default function UsagePage() {
   return (
     <div className="pb-10">
       <PageHead
+        back={{ href: "/platform/more", label: "More" }}
         title="Usage & Analytics"
         sub="Is the platform actually being used, and by whom?"
         action={

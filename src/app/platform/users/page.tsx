@@ -118,6 +118,7 @@ export default function PlatformUsersPage() {
   return (
     <div className="pb-10">
       <PageHead
+        back={{ href: "/platform/more", label: "More" }}
         title="People"
         sub={`${counts.all} ${counts.all === 1 ? "person" : "people"} across ${counts.companies} ${
           counts.companies === 1 ? "company" : "companies"
