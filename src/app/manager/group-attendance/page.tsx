@@ -22,7 +22,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
-import { Avatar, BottomSheet, Chip, useNowTick } from "@/components/ui";
+import { Avatar, BottomSheet, Chip, FormError, useNowTick} from "@/components/ui";
 import { canCaptureGroupAttendance } from "@/lib/access";
 import { checkGeofence } from "@/lib/geo";
 import { likelySupported } from "@/lib/face/engine";
@@ -552,7 +552,7 @@ export default function GroupAttendancePage() {
 
 
             {error ? (
-              <p className="wf-inset px-3.5 py-3 text-[0.78rem] text-[var(--wf-red)]">{error}</p>
+              <FormError>{error}</FormError>
             ) : null}
           </>
         ) : null}

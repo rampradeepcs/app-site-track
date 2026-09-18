@@ -50,6 +50,7 @@ import {
   markHighlightsSeen,
 } from "@/components/onboarding/Highlights";
 import { IAlert, IArrowR, IChevronL, ILock, IShield } from "@/components/WfIcons";
+import { FormError } from "./ui";
 
 /*
  * The code length is a project setting, not ours: Supabase's "Email OTP
@@ -400,9 +401,9 @@ export default function LiveGate() {
             * own typo.
             */}
           {touchedEmail && emailProblem(identifier) ? (
-            <ErrorNote>{emailProblem(identifier)}</ErrorNote>
+            <FormError>{emailProblem(identifier)}</FormError>
           ) : shownError ? (
-            <ErrorNote>{shownError}</ErrorNote>
+            <FormError>{shownError}</FormError>
           ) : null}
 
           <button
@@ -462,7 +463,7 @@ export default function LiveGate() {
             }}
           />
 
-          {shownError ? <ErrorNote>{shownError}</ErrorNote> : null}
+          {shownError ? <FormError>{shownError}</FormError> : null}
 
           <button
             className="wf-btn wf-btn-primary wf-btn-lg"
@@ -482,18 +483,6 @@ export default function LiveGate() {
         </div>
       )}
     </main>
-  );
-}
-
-function ErrorNote({ children }: { children: React.ReactNode }) {
-  return (
-    <p
-      role="alert"
-      className="flex items-start gap-2 rounded-xl bg-[var(--wf-red-soft)] px-3 py-2 text-[0.8rem] text-[var(--wf-red)]"
-    >
-      <IAlert size={15} className="mt-0.5 shrink-0" />
-      <span className="min-w-0">{children}</span>
-    </p>
   );
 }
 

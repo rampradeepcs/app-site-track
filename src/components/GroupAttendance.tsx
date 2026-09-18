@@ -25,7 +25,7 @@ import {
   type GroupFace,
 } from "@/lib/face/engine";
 import type { User } from "@/lib/types";
-import { Avatar, BottomSheet, Field } from "./ui";
+import { Avatar, BottomSheet, Field, FormError} from "./ui";
 import { ICamera, ICheck, IRefresh, IUsers, IX } from "./WfIcons";
 
 interface Candidate {
@@ -299,7 +299,7 @@ export function GroupAttendance({
       ) : null}
 
       {error ? (
-        <p className="text-[0.82rem] font-semibold text-[var(--wf-red)]">{error}</p>
+        <FormError>{error}</FormError>
       ) : null}
 
       {/* Nothing found is one message and one way forward — not a message,

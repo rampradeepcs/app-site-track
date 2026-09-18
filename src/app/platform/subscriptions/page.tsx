@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import { PageHead } from "@/components/platform/PlatformShell";
-import { BottomSheet, Field, Toggle } from "@/components/ui";
+import { BottomSheet, Field, FormError, Toggle } from "@/components/ui";
 import { usePlatform } from "@/lib/platform-store";
 import { money } from "@/lib/saas-metrics";
 import type { FeatureSet, Plan, PlanLimits, SupportLevel } from "@/lib/saas-types";
@@ -173,7 +173,7 @@ function PlanEditor({
         <Field label="Plan name" required>
           <input className="wf-input" value={name} onChange={(e) => { setName(e.target.value); setErr(""); }} />
         </Field>
-        {err ? <p className="-mt-2 text-[0.78rem] font-semibold text-[var(--wf-red)]">{err}</p> : null}
+        {err ? <FormError tight>{err}</FormError> : null}
         <Field label="Description">
           <textarea className="wf-input" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
         </Field>

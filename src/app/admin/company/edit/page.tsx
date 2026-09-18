@@ -17,7 +17,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ScreenHeader } from "@/components/shell";
 import { DISCARD_EDITS } from "@/lib/confirm";
-import { Field, SectionTitle } from "@/components/ui";
+import { Field, FormError, SectionTitle } from "@/components/ui";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
 import { refreshMyCompanies } from "@/lib/companies";
@@ -298,7 +298,7 @@ export default function EditCompanyPage() {
         </div>
 
         {error ? (
-          <p className="text-[0.8rem] font-semibold text-[var(--wf-red)]">{error}</p>
+          <FormError>{error}</FormError>
         ) : null}
 
         <p className="text-center text-[0.72rem] leading-relaxed text-[var(--wf-faint)]">

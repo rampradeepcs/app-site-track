@@ -16,7 +16,7 @@ import { describeError } from "@/lib/errors";
 import { isValidSlug, slugify, tenantUrl } from "@/lib/tenant";
 import type { FeatureSet, PlanLimits } from "@/lib/saas-types";
 import { FEATURE_LABELS } from "@/lib/saas-types";
-import { BottomSheet, Field, Segmented, Toggle } from "@/components/ui";
+import { BottomSheet, Field, FormError, Segmented, Toggle } from "@/components/ui";
 import { DISCARD_CLIENT } from "@/lib/confirm";
 import { money } from "@/lib/saas-metrics";
 import { ICheck, ICheckCircle } from "@/components/WfIcons";
@@ -293,7 +293,7 @@ export function OnboardWizard({
         </ol>
 
         {err ? (
-          <p className="text-[0.8rem] font-semibold text-[var(--wf-red)]">{err}</p>
+          <FormError>{err}</FormError>
         ) : null}
 
         {step === 0 && (

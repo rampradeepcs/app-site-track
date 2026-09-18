@@ -10,7 +10,7 @@ import { DECELERATION, VelocityTracker, project, rubberband, spring } from "@/li
 import { fmtClock, initialsOf } from "@/lib/format";
 import type { AttendanceStatus } from "@/lib/types";
 import { askDestructive, confirmDestructive } from "@/lib/confirm";
-import { IX } from "./WfIcons";
+import { IAlert, IX } from "./WfIcons";
 
 /* ------------------------------------------------------------- avatar */
 
@@ -246,6 +246,37 @@ export function KpiCard({
  * value that must not be clipped (an email address in a full record), and
  * `placeholder` for screens that have already chosen their own word for nothing.
  */
+/**
+ * A failure, announced rather than merely coloured.
+ *
+ * Thirteen forms wrote their own version of this as a red <p>, and none of them
+ * carried role="alert" — so the whole product had five live regions, none on a
+ * form, and every failed save was silent to a screen reader. The sign-in screen
+ * had the right one all along (LiveGate's ErrorNote); this is that, moved.
+ *
+ * `tight` keeps the negative top margin the form bodies use to pull the message
+ * against the field above it, rather than making every caller pass a class.
+ */
+export function FormError({
+  children,
+  tight,
+}: {
+  children: React.ReactNode;
+  tight?: boolean;
+}) {
+  return (
+    <p
+      role="alert"
+      className={`flex items-start gap-2 rounded-xl bg-[var(--wf-red-soft)] px-3 py-2 text-[0.8rem] text-[var(--wf-red)] ${
+        tight ? "-mt-1" : ""
+      }`}
+    >
+      <IAlert size={15} className="mt-0.5 shrink-0" />
+      <span className="min-w-0">{children}</span>
+    </p>
+  );
+}
+
 export function Facts({
   children,
   separated,

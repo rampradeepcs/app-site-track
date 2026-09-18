@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { ScreenHeader } from "../shell";
 import { DISCARD_UPDATE, confirmDestructive } from "@/lib/confirm";
 import { ICamera, IX } from "../WfIcons";
+import { FormError } from "@/components/ui";
 
 export function TeamUpdateScreen({
   team,
@@ -183,7 +184,7 @@ export function TeamUpdateScreen({
       </div>
 
       {error ? (
-        <p className="wf-inset px-3.5 py-2.5 text-[0.78rem] text-[var(--wf-red)]">{error}</p>
+        <FormError>{error}</FormError>
       ) : null}
       </div>
     </div>

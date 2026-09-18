@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
 import { SitePlacer } from "@/components/SitePlacer";
-import { Field, Toggle } from "@/components/ui";
+import { Field, FormError, Toggle } from "@/components/ui";
 import { LocationSearch } from "@/components/LocationSearch";
 import { reverseGeocode, type PlaceAddress } from "@/lib/geocode";
 import { UseMyLocation } from "@/components/UseMyLocation";
@@ -260,7 +260,7 @@ export default function NewProjectPage() {
           <Field label="Project name" required>
             <input className="wf-input" value={name} onChange={(e) => { setName(e.target.value); setError(""); }} placeholder="e.g. Riverside Mall — Phase 1" />
           </Field>
-          {error ? <p className="-mt-2 text-[0.78rem] font-semibold text-[var(--wf-red)]">{error}</p> : null}
+          {error ? <FormError tight>{error}</FormError> : null}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Project ID">
               <input className="wf-input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="auto" />

@@ -16,7 +16,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
-import { Field } from "@/components/ui";
+import { Field, FormError } from "@/components/ui";
 import { DISCARD_EDITS, confirmDestructive } from "@/lib/confirm";
 import { useWorkforce } from "@/lib/store";
 import type { PremiseKind, Project, ProjectStatus } from "@/lib/types";
@@ -188,7 +188,7 @@ function EditProjectForm({ project }: { project: Project }) {
         />
       </Field>
       {error ? (
-        <p className="-mt-2 text-[0.78rem] font-semibold text-[var(--wf-red)]">{error}</p>
+        <FormError tight>{error}</FormError>
       ) : null}
 
       <div className="grid grid-cols-2 gap-3">

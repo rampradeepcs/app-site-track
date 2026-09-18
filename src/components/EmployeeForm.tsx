@@ -19,7 +19,7 @@ import { useWorkforce } from "@/lib/store";
 import { usePlatform } from "@/lib/platform-store";
 import type { User } from "@/lib/types";
 import { ScreenHeader } from "./shell";
-import { Field, Segmented, Toggle } from "./ui";
+import { Field, FormError, Segmented, Toggle } from "./ui";
 import { DISCARD_EDITS, DISCARD_PERSON, confirmDestructive } from "@/lib/confirm";
 import { phoneKey } from "./onboarding/InviteCrew";
 
@@ -216,7 +216,7 @@ export function EmployeeForm({
       <Field label="Full name" required>
         <input className="wf-input" value={name} onChange={(e) => { setName(e.target.value); setError(""); }} />
       </Field>
-      {error ? <p className="-mt-2 text-[0.78rem] font-semibold text-[var(--wf-red)]">{error}</p> : null}
+      {error ? <FormError tight>{error}</FormError> : null}
       <div className="grid grid-cols-2 gap-3">
         <Field label="Employee ID">
           <input className="wf-input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="auto" />

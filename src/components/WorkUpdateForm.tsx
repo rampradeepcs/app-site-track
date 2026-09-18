@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { useWorkforce } from "@/lib/store";
 import { WORK_CATEGORIES, type WorkCategory } from "@/lib/types";
-import { Field } from "./ui";
+import { Field, FormError } from "./ui";
 import { ICamera, ICheck, IMapPin, IMic } from "./WfIcons";
 
 export function WorkUpdateForm({
@@ -94,7 +94,7 @@ export function WorkUpdateForm({
         />
       </Field>
       {error ? (
-        <p className="-mt-2 text-[0.78rem] font-semibold text-[var(--wf-red)]">{error}</p>
+        <FormError tight>{error}</FormError>
       ) : null}
 
       {kind === "daily" && (
