@@ -25,16 +25,8 @@ import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
 import { FEATURE_LABELS, type FeatureSet } from "@/lib/saas-types";
 import { IAlert, IArrowR, ICheck, ILock } from "@/components/WfIcons";
-
-const money = (n: number) =>
-  `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-
-const day = (ms: number) =>
-  new Date(ms).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+import { fmtDateLong } from "@/lib/format";
+import { fmtINR } from "@/lib/payroll";
 
 /** Whole days from now, floored at zero — a trial cannot expire twice. */
 function daysUntil(ms: number): number {
@@ -187,7 +179,7 @@ export default function SubscriptionPage() {
     <div>
       <ScreenHeader
         title="Subscription"
-        sub={`${plan.name} · ${money(plan.monthlyPrice)} a month`}
+        sub={`${plan.name} · ${fmtINR(plan.monthlyPrice)} a month`}
         back="/admin/more"
       />
 
@@ -210,7 +202,7 @@ export default function SubscriptionPage() {
             <p className="text-[0.82rem] text-[var(--wf-muted)]">
               {onTrial ? (
                 <>
-                  Trial ends {day(ends)}
+                  Trial ends {fmtDateLong(ends)}
                   {left !== null ? (
                     <>
                       {" — "}
@@ -224,7 +216,7 @@ export default function SubscriptionPage() {
                   ) : null}
                 </>
               ) : (
-                <>Renews {day(ends)} · billed {sub.cycle === "annual" ? "annually" : "monthly"}</>
+                <>Renews {fmtDateLong(ends)} · billed {sub.cycle === "annual" ? "annually" : "monthly"}</>
               )}
             </p>
           ) : null}
@@ -328,7 +320,7 @@ export default function SubscriptionPage() {
                     <span className="min-w-0">
                       <span className="block font-semibold">{p.name}</span>
                       <span className="block text-[0.76rem] text-[var(--wf-muted)]">
-                        {money(p.monthlyPrice)} a month
+                        {fmtINR(p.monthlyPrice)} a month
                         {p.limits.employees === null
                           ? " · unlimited people"
                           : ` · up to ${p.limits.employees} people`}
@@ -392,10 +384,10 @@ export default function SubscriptionPage() {
                 >
                   <span className="min-w-0">
                     <span className="block text-[0.84rem] font-semibold tabular-nums">
-                      {money(inv.amount + inv.taxAmount)}
+                      {fmtINR(inv.amount + inv.taxAmount)}
                     </span>
                     <span className="block text-[0.74rem] text-[var(--wf-muted)]">
-                      {day(inv.issuedAt)} · {inv.number}
+                      {fmtDateLong(inv.issuedAt)} · {inv.number}
                     </span>
                   </span>
                   <Chip

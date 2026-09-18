@@ -29,7 +29,7 @@ import {
   useNowTick,
 } from "@/components/ui";
 import { entitlementsFor } from "@/lib/entitlements";
-import { fmtDateLong, fmtRelative } from "@/lib/format";
+import { fmtDateLong, fmtRelative, roleLabel, roleTone } from "@/lib/format";
 import { usePlatform } from "@/lib/platform-store";
 import { isValidSlug, slugify, tenantUrl } from "@/lib/tenant";
 import { refreshMyCompanies } from "@/lib/companies";
@@ -38,7 +38,7 @@ import {
   clientHealth,
   invoicesFor,
   latestUsage,
-  money,
+  moneyCompact,
   usageHistory,
   utilisationFor,
 } from "@/lib/saas-metrics";
@@ -378,7 +378,7 @@ function ClientInner() {
                             <span className="font-semibold">{u.name}</span>
                           </span>
                         </td>
-                        <td><Chip tone={u.role === "manager" ? "amber" : "blue"}>{u.role}</Chip></td>
+                        <td><Chip tone={roleTone(u.role)}>{roleLabel(u.role)}</Chip></td>
                         {/* How to reach them, as links: on a phone a tap
                             opens mail or the dialler, which is the whole
                             reason an owner looks a person up. */}
@@ -464,10 +464,10 @@ function ClientInner() {
               <MetricCard label="Invoices" value={invoices.length} />
               <MetricCard
                 label="Outstanding"
-                value={money(invoices.filter((i) => i.status !== "paid" && i.status !== "cancelled" && i.status !== "refunded").reduce((t, i) => t + i.amount + i.taxAmount, 0), org.billing.currency)}
+                value={moneyCompact(invoices.filter((i) => i.status !== "paid" && i.status !== "cancelled" && i.status !== "refunded").reduce((t, i) => t + i.amount + i.taxAmount, 0), org.billing.currency)}
                 tone="amber"
               />
-              <MetricCard label="Credit balance" value={money(sub?.creditBalance ?? 0, org.billing.currency)} tone={sub?.creditBalance ? "green" : "neutral"} />
+              <MetricCard label="Credit balance" value={moneyCompact(sub?.creditBalance ?? 0, org.billing.currency)} tone={sub?.creditBalance ? "green" : "neutral"} />
               <MetricCard label="Next billing" value={sub ? fmtDateLong(sub.renewsAt) : "—"} />
             </div>
             <div className="wf-card overflow-hidden">
@@ -482,8 +482,8 @@ function ClientInner() {
                         <td className="font-semibold">{inv.number}</td>
                         <td className="text-[var(--wf-muted)]">{inv.periodLabel}</td>
                         <td className="text-right tabular-nums">
-                          {money(inv.amount + inv.taxAmount, inv.currency)}
-                          <span className="block text-[0.62rem] text-[var(--wf-faint)]">incl. tax {money(inv.taxAmount, inv.currency)}</span>
+                          {moneyCompact(inv.amount + inv.taxAmount, inv.currency)}
+                          <span className="block text-[0.62rem] text-[var(--wf-faint)]">incl. tax {moneyCompact(inv.taxAmount, inv.currency)}</span>
                         </td>
                         <td className="whitespace-nowrap text-[0.76rem]">{fmtDateLong(inv.issuedAt)}</td>
                         <td className="whitespace-nowrap text-[0.76rem]">{fmtDateLong(inv.dueAt)}</td>

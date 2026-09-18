@@ -18,7 +18,7 @@ import {
   clientGrowth,
   clientHealth,
   latestUsage,
-  money,
+  moneyCompact,
   platformStats,
   revenueByPlan,
 } from "@/lib/saas-metrics";
@@ -120,9 +120,9 @@ export default function PlatformDashboard() {
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           <MetricCard label="Clients" value={stats.totalClients} sub={`${stats.activeClients} active`} tone="blue" />
           <MetricCard label="Active subscriptions" value={stats.paidClients} sub={`${stats.trialClients} on trial`} tone="green" />
-          <MetricCard label="MRR" value={money(stats.mrr)} sub="recurring monthly" tone="violet" />
-          <MetricCard label="ARR" value={money(stats.arr)} sub="annualised" tone="violet" />
-          <MetricCard label="Outstanding" value={money(stats.outstanding)} sub={`${stats.failedPayments} failed`} tone={stats.outstanding > 0 ? "amber" : "neutral"} />
+          <MetricCard label="MRR" value={moneyCompact(stats.mrr)} sub="recurring monthly" tone="violet" />
+          <MetricCard label="ARR" value={moneyCompact(stats.arr)} sub="annualised" tone="violet" />
+          <MetricCard label="Outstanding" value={moneyCompact(stats.outstanding)} sub={`${stats.failedPayments} failed`} tone={stats.outstanding > 0 ? "amber" : "neutral"} />
         </div>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
           <MetricCard label="Trials expiring" value={stats.expiringTrials} sub="next 14 days" tone={stats.expiringTrials ? "amber" : "neutral"} />
@@ -168,7 +168,7 @@ export default function PlatformDashboard() {
             <div className="flex flex-col items-center gap-4 sm:flex-row">
               <Donut
                 size={148}
-                centerLabel={money(stats.mrr)}
+                centerLabel={moneyCompact(stats.mrr)}
                 centerSub="MRR"
                 segments={byPlan.map((r, i) => ({
                   value: r.mrr,
@@ -185,7 +185,7 @@ export default function PlatformDashboard() {
                     />
                     <span className="min-w-0 flex-1 truncate font-semibold">{r.plan.name}</span>
                     <span className="tabular-nums text-[var(--wf-muted)]">{r.clients}</span>
-                    <span className="w-16 text-right tabular-nums">{money(r.mrr)}</span>
+                    <span className="w-16 text-right tabular-nums">{moneyCompact(r.mrr)}</span>
                   </div>
                 ))}
               </div>
@@ -341,7 +341,7 @@ export default function PlatformDashboard() {
                       <td><StatusPill status={o.status} /></td>
                       <td><HealthPill score={h.score} /></td>
                       <td className="text-right tabular-nums">
-                        {sub && plan ? money(
+                        {sub && plan ? moneyCompact(
                           sub.status === "trial" ? 0 : sub.customPrice ?? (sub.cycle === "annual" ? Math.round(plan.annualPrice / 12) : plan.monthlyPrice),
                         ) : "—"}
                       </td>

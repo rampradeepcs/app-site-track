@@ -12,7 +12,7 @@ import { Field, SectionTitle, Segmented, Toggle } from "@/components/ui";
 import { entitlementsFor } from "@/lib/entitlements";
 import { fmtDateLong } from "@/lib/format";
 import { usePlatform } from "@/lib/platform-store";
-import { money } from "@/lib/saas-metrics";
+import { moneyCompact } from "@/lib/saas-metrics";
 import type { FeatureSet, PlanLimits, SubscriptionStatus } from "@/lib/saas-types";
 import { FEATURE_LABELS } from "@/lib/saas-types";
 import { IArrowR, IRefresh } from "@/components/WfIcons";
@@ -76,7 +76,7 @@ export function SubscriptionPanel({ orgId }: { orgId: string }) {
           </p>
           <p className="text-[0.78rem] text-[var(--wf-muted)]">
             {sub.cycle} ·{" "}
-            {money(sub.customPrice ?? (sub.cycle === "annual" ? plan.annualPrice : plan.monthlyPrice), plan.currency)}
+            {moneyCompact(sub.customPrice ?? (sub.cycle === "annual" ? plan.annualPrice : plan.monthlyPrice), plan.currency)}
             {sub.discountPercent ? ` less ${sub.discountPercent}%` : ""} ·{" "}
             {sub.status === "trial" && sub.trialEndsAt
               ? `trial ends ${fmtDateLong(sub.trialEndsAt)}`

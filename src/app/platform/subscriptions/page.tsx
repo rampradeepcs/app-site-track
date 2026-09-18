@@ -6,7 +6,7 @@ import { useState } from "react";
 import { PageHead } from "@/components/platform/PlatformShell";
 import { BottomSheet, Field, FormError, Toggle } from "@/components/ui";
 import { usePlatform } from "@/lib/platform-store";
-import { money } from "@/lib/saas-metrics";
+import { moneyCompact } from "@/lib/saas-metrics";
 import type { FeatureSet, Plan, PlanLimits, SupportLevel } from "@/lib/saas-types";
 import { FEATURE_LABELS } from "@/lib/saas-types";
 import { IPlus } from "@/components/WfIcons";
@@ -46,11 +46,11 @@ export default function SubscriptionsPage() {
             </div>
 
             <p className="wf-display mt-3 text-2xl">
-              {money(p.monthlyPrice, p.currency)}
+              {moneyCompact(p.monthlyPrice, p.currency)}
               <span className="text-[0.8rem] font-normal text-[var(--wf-muted)]">/mo</span>
             </p>
             <p className="text-[0.72rem] text-[var(--wf-faint)]">
-              or {money(p.annualPrice, p.currency)}/yr · {p.trialDays}-day trial · {p.supportLevel} support
+              or {moneyCompact(p.annualPrice, p.currency)}/yr · {p.trialDays}-day trial · {p.supportLevel} support
             </p>
 
             <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 border-y border-[var(--wf-line)] py-2.5 text-[0.74rem]">

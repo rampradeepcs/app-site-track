@@ -23,7 +23,7 @@ import {
 import { refreshMyCompanies } from "@/lib/companies";
 import { useWorkforce } from "@/lib/store";
 import { describeError } from "@/lib/errors";
-import { fmtDateLong } from "@/lib/format";
+import { fmtDateLong, roleTone } from "@/lib/format";
 import { homeFor } from "@/lib/routes";
 import { showToast } from "@/lib/toast";
 import { IArrowR, IBell } from "@/components/WfIcons";
@@ -112,7 +112,7 @@ export default function InvitationsPage() {
                     {inv.project ? ` · ${inv.project}` : ""}
                   </p>
                 </div>
-                <Chip tone={inv.role === "admin" ? "violet" : inv.role === "manager" ? "amber" : "blue"}>
+                <Chip tone={roleTone(inv.role)}>
                   {ROLE_WORD[inv.role] ?? inv.role}
                 </Chip>
               </div>

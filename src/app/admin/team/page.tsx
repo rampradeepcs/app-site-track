@@ -30,7 +30,7 @@ import {
   StatusChip,
   useNowTick,
 } from "@/components/ui";
-import { fmtClock, fmtDateShort, pct } from "@/lib/format";
+import { fmtClock, fmtDateShort, pct, roleTone } from "@/lib/format";
 import { liveBoard, performanceFor } from "@/lib/metrics";
 import { useWorkforce } from "@/lib/store";
 import { isLiveBackend } from "@/lib/supabase/client";
@@ -305,7 +305,7 @@ export default function AdminTeam() {
                 <span className="flex shrink-0 items-center gap-1.5">
                   {u.status !== "active" && <StatusChip status="not-in" label={u.status} />}
                   <Chip
-                    tone={u.role === "admin" ? "violet" : u.role === "manager" ? "amber" : "blue"}
+                    tone={roleTone(u.role)}
                   >
                     {u.role === "admin" ? (
                       <>

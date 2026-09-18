@@ -11,7 +11,7 @@ import { Segmented, useNowTick } from "@/components/ui";
 import { entitlementsFor } from "@/lib/entitlements";
 import { fmtDateLong } from "@/lib/format";
 import { usePlatform } from "@/lib/platform-store";
-import { clientHealth, latestUsage, money } from "@/lib/saas-metrics";
+import { clientHealth, latestUsage, moneyCompact } from "@/lib/saas-metrics";
 import { IPlus, ISearch } from "@/components/WfIcons";
 
 type Filter =
@@ -190,7 +190,7 @@ export default function ClientsPage() {
                       </span>
                       {sub ? (
                         <span className="block text-[0.64rem] text-[var(--wf-faint)]">
-                          {money(sub.customPrice ?? 0) !== "₹0" ? "custom price" : sub.cycle}
+                          {moneyCompact(sub.customPrice ?? 0) !== "₹0" ? "custom price" : sub.cycle}
                         </span>
                       ) : null}
                     </td>

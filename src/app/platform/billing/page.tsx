@@ -9,7 +9,7 @@ import { InvoicePill, MetricCard } from "@/components/platform/bits";
 import { Segmented, useNowTick } from "@/components/ui";
 import { fmtDateLong } from "@/lib/format";
 import { usePlatform } from "@/lib/platform-store";
-import { money, platformStats } from "@/lib/saas-metrics";
+import { moneyCompact, platformStats } from "@/lib/saas-metrics";
 import { downloadCSV, toCSV } from "@/lib/reports";
 import type { InvoiceStatus } from "@/lib/saas-types";
 import { IDownload, ISearch } from "@/components/WfIcons";
@@ -66,7 +66,7 @@ export default function BillingPage() {
     <div className="pb-10">
       <PageHead
         title="Billing"
-        sub={`${platform.invoices.length} invoices · ${money(totalRevenue)} collected all-time`}
+        sub={`${platform.invoices.length} invoices · ${moneyCompact(totalRevenue)} collected all-time`}
         action={
           <button className="wf-btn wf-btn-ghost wf-btn-sm" onClick={exportCsv}>
             <IDownload size={14} /> Export CSV
@@ -75,10 +75,10 @@ export default function BillingPage() {
       />
       <div className="flex flex-col gap-4 px-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-6">
-          <MetricCard label="Total revenue" value={money(totalRevenue)} tone="green" sub="collected" />
-          <MetricCard label="MRR" value={money(stats.mrr)} tone="violet" />
-          <MetricCard label="ARR" value={money(stats.arr)} tone="violet" />
-          <MetricCard label="Outstanding" value={money(stats.outstanding)} tone={stats.outstanding ? "amber" : "neutral"} />
+          <MetricCard label="Total revenue" value={moneyCompact(totalRevenue)} tone="green" sub="collected" />
+          <MetricCard label="MRR" value={moneyCompact(stats.mrr)} tone="violet" />
+          <MetricCard label="ARR" value={moneyCompact(stats.arr)} tone="violet" />
+          <MetricCard label="Outstanding" value={moneyCompact(stats.outstanding)} tone={stats.outstanding ? "amber" : "neutral"} />
           <MetricCard label="Overdue" value={platform.invoices.filter((i) => i.status === "overdue").length} tone="orange" />
           <MetricCard label="Failed" value={stats.failedPayments} tone={stats.failedPayments ? "red" : "neutral"} />
         </div>
@@ -140,8 +140,8 @@ export default function BillingPage() {
                       </Link>
                     </td>
                     <td className="text-right tabular-nums">
-                      {money(inv.amount + inv.taxAmount, inv.currency)}
-                      <span className="block text-[0.62rem] text-[var(--wf-faint)]">tax {money(inv.taxAmount, inv.currency)}</span>
+                      {moneyCompact(inv.amount + inv.taxAmount, inv.currency)}
+                      <span className="block text-[0.62rem] text-[var(--wf-faint)]">tax {moneyCompact(inv.taxAmount, inv.currency)}</span>
                     </td>
                     <td className="whitespace-nowrap text-[0.76rem]">{fmtDateLong(inv.issuedAt)}</td>
                     <td className="whitespace-nowrap text-[0.76rem]">{fmtDateLong(inv.dueAt)}</td>

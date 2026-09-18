@@ -18,7 +18,7 @@ import type { FeatureSet, PlanLimits } from "@/lib/saas-types";
 import { FEATURE_LABELS } from "@/lib/saas-types";
 import { BottomSheet, Field, FormError, Segmented, Toggle } from "@/components/ui";
 import { DISCARD_CLIENT } from "@/lib/confirm";
-import { money } from "@/lib/saas-metrics";
+import { moneyCompact } from "@/lib/saas-metrics";
 import { ICheck, ICheckCircle } from "@/components/WfIcons";
 
 const STEPS = ["Company", "Admin", "Subscription", "Branding", "Review"] as const;
@@ -387,7 +387,7 @@ export function OnboardWizard({
                     <span className="flex items-baseline justify-between gap-2">
                       <span className="font-bold">{p.name}</span>
                       <span className="text-[0.8rem] font-bold tabular-nums">
-                        {money(cycle === "annual" ? p.annualPrice : p.monthlyPrice, p.currency)}
+                        {moneyCompact(cycle === "annual" ? p.annualPrice : p.monthlyPrice, p.currency)}
                         <span className="text-[0.68rem] font-normal text-[var(--wf-muted)]">/{cycle === "annual" ? "yr" : "mo"}</span>
                       </span>
                     </span>
@@ -516,7 +516,7 @@ export function OnboardWizard({
               ["Primary contact", `${contactName || adminName || "—"} · ${contactEmail || "—"}`],
               ["Location", `${city || "—"}, ${country} · ${timezone}`],
               ["Primary admin", `${adminName || "—"} (${adminRole})${invite ? " · invite email" : ""}`],
-              ["Plan", `${plan?.name ?? "—"} · ${cycle} · ${money(cycle === "annual" ? plan?.annualPrice ?? 0 : plan?.monthlyPrice ?? 0, plan?.currency)}`],
+              ["Plan", `${plan?.name ?? "—"} · ${cycle} · ${moneyCompact(cycle === "annual" ? plan?.annualPrice ?? 0 : plan?.monthlyPrice ?? 0, plan?.currency)}`],
               ["Trial", trialDays > 0 ? `${trialDays} days` : "No trial — bills immediately"],
               ["Limit overrides", Object.keys(limits).length ? Object.entries(limits).map(([k, v]) => `${k}: ${v}`).join(", ") : "None — plan defaults"],
               ["Feature overrides", Object.keys(features).length ? Object.keys(features).map((k) => FEATURE_LABELS[k as keyof FeatureSet]).join(", ") : "None — plan defaults"],

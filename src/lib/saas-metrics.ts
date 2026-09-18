@@ -286,7 +286,15 @@ export function orgOf(p: PlatformState, orgId: string): Organization | undefined
 }
 
 /** Money formatter that respects the client's billing currency. */
-export function money(amount: number, currency: "INR" | "USD" = "INR"): string {
+/**
+ * A large figure, shortened — ₹4.20Cr rather than ₹4,20,00,000.
+ *
+ * Named for the shortening because that is the decision. It is right on a
+ * console dashboard totalling 128 clients and wrong on a client's own invoice,
+ * and the previous name (`money`) made the first person who needed to print a
+ * price reach for it. Use fmtINR when the reader is being told what they owe.
+ */
+export function moneyCompact(amount: number, currency: "INR" | "USD" = "INR"): string {
   if (currency === "INR") {
     if (amount >= 10_000_000) return `₹${(amount / 10_000_000).toFixed(2)}Cr`;
     if (amount >= 100_000) return `₹${(amount / 100_000).toFixed(2)}L`;

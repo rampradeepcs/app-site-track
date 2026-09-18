@@ -127,3 +127,31 @@ export function roleLabel(role: Role): string {
       return "Employee";
   }
 }
+
+/**
+ * The colour that goes with roleLabel.
+ *
+ * Written out by hand in three places, and the three disagreed: an admin was
+ * violet on the team screen and on an invitation, and blue in the platform
+ * console's member table. Whoever looked at both saw the same person in two
+ * colours. The label half of this decision already lived in one place; the
+ * colour half now does too.
+ *
+ * Typed as the union Chip takes rather than importing it, so this module stays
+ * free of component imports — the two are checked against each other at every
+ * call site.
+ */
+export function roleTone(
+  role: Role,
+): "neutral" | "amber" | "green" | "red" | "blue" | "violet" {
+  switch (role) {
+    case "superadmin":
+      return "red";
+    case "admin":
+      return "violet";
+    case "manager":
+      return "amber";
+    default:
+      return "blue";
+  }
+}

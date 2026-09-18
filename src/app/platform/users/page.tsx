@@ -19,7 +19,7 @@ import { useMemo, useState } from "react";
 import { PageHead } from "@/components/platform/PlatformShell";
 import { MemberStatusChip } from "@/components/MemberStatus";
 import { Fact, Facts, Modal, Segmented } from "@/components/ui";
-import { fmtDateLong, fmtRelative, fmtShiftTime } from "@/lib/format";
+import { fmtDateLong, fmtRelative, fmtShiftTime, roleLabel } from "@/lib/format";
 import { fmtINR } from "@/lib/payroll";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
@@ -197,7 +197,7 @@ export default function PlatformUsersPage() {
                         <span className="text-[var(--wf-muted)]">{company}</span>
                       )}
                     </td>
-                    <td className="whitespace-nowrap capitalize">{user.role}</td>
+                    <td className="whitespace-nowrap">{roleLabel(user.role)}</td>
                     <td className="whitespace-nowrap text-[var(--wf-muted)]">
                       {user.designation || "—"}
                     </td>
@@ -289,7 +289,7 @@ function PersonRecord({
 
       <Group title="Place in the company">
         <Fact label="Company" value={company} />
-        <Fact label="Role" value={<span className="capitalize">{user.role}</span>} />
+        <Fact label="Role" value={roleLabel(user.role)} />
         <Fact label="Designation" value={user.designation} />
         <Fact label="Department" value={user.department} />
         <Fact label="Status" value={<MemberStatusChip user={user} />} />
