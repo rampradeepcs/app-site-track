@@ -14,7 +14,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
 import { NoteAttachments } from "@/components/notes/NoteAttachments";
-import { Avatar, BottomSheet, Chip, Fact, Facts, Segmented } from "@/components/ui";
+import { Avatar, BottomSheet, Chip, EmptyState, Fact, Facts, Segmented } from "@/components/ui";
 import { canCreateNote, canEditNote, canPinNote } from "@/lib/access";
 import { fmtDateLong, fmtTime } from "@/lib/format";
 import { noteTimeline, readableNotes, usedCategories } from "@/lib/notes";
@@ -165,20 +165,18 @@ export default function NotesPage() {
         </div>
 
         {notes.length === 0 ? (
-          <div className="wf-card2 flex flex-col items-center gap-2.5 px-4 py-8 text-center">
-            <p className="text-sm text-[var(--wf-muted)]">
-              Nothing here yet. Notes are how a site keeps its instructions in
-              one place.
-            </p>
-            {mayCreate ? (
+          <EmptyState
+            surface="inset"
+            title="Nothing here yet. Notes are how a site keeps its instructions in one place."
+            action={mayCreate ? (
               <Link
-                className="wf-btn wf-btn-ghost wf-btn-sm"
-                href={`/manager/notes/edit?project=${projectId}`}
-              >
-                <IPlus size={14} /> Write the first note
-              </Link>
+                  className="wf-btn wf-btn-ghost wf-btn-sm"
+                  href={`/manager/notes/edit?project=${projectId}`}
+                >
+                  <IPlus size={14} /> Write the first note
+                </Link>
             ) : null}
-          </div>
+          />
         ) : view === "list" ? (
           <div className="flex flex-col gap-2">
             {notes.map((n) => (

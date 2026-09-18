@@ -13,7 +13,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
-import { Avatar, Chip, useNowTick } from "@/components/ui";
+import { Avatar, Chip, EmptyState, useNowTick } from "@/components/ui";
 import { StatusPills, countByStatus } from "@/components/StatusPills";
 import { canManageTeams } from "@/lib/access";
 import { fmtClock } from "@/lib/format";
@@ -117,22 +117,27 @@ export default function TeamsPage() {
 
         <div className="flex flex-col gap-2">
           {rows.length === 0 && (
-            <div className="wf-card2 flex flex-col items-center gap-2.5 px-4 py-8 text-center">
-              <IUsers size={22} className="text-[var(--wf-faint)]" />
-              <p className="text-sm text-[var(--wf-muted)]">
-                {teams.length === 0
+            <EmptyState
+              surface="inset"
+              icon={<IUsers size={22} />}
+              title={
+                teams.length === 0
                   ? "No labour teams on this project yet."
-                  : "No teams match."}
-              </p>
-              {mayManage && teams.length === 0 ? (
-                <button
-                  className="wf-btn wf-btn-ghost wf-btn-sm"
-                  onClick={() => router.push(`/manager/teams/edit?project=${projectId}`)}
-                >
-                  <IPlus size={14} /> Create the first team
-                </button>
-              ) : null}
-            </div>
+                  : "No teams match."
+              }
+              /* Only when there are none at all: offering "create the first"
+                 to somebody whose filter is hiding nine of them is nonsense. */
+              action={
+                mayManage && teams.length === 0 ? (
+                  <button
+                    className="wf-btn wf-btn-ghost wf-btn-sm"
+                    onClick={() => router.push(`/manager/teams/edit?project=${projectId}`)}
+                  >
+                    <IPlus size={14} /> Create the first team
+                  </button>
+                ) : null
+              }
+            />
           )}
 
           {rows.map((t) => {

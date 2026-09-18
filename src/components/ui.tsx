@@ -363,23 +363,49 @@ export function SectionTitle({
   );
 }
 
+/**
+ * There is nothing here.
+ *
+ * Several screens wrote their own rather than use this one, and the reason was
+ * always the surface: this rendered a full wf-card with generous padding, which
+ * is right when the screen itself is empty and wrong when it is one section
+ * inside a card that has nothing in it. So they reached for wf-card2 and a
+ * smaller title, and each arrived at slightly different words and spacing.
+ * `surface` is that choice made explicit.
+ *
+ * What stays at the call site is the distinction between "none exist" and "none
+ * match the filter", because the words differ per screen and only the first
+ * should offer the button that creates one. manager/teams is the model: it
+ * offers "Create the first team" when there are no teams, and says "No teams
+ * match" when a filter is hiding them. A component cannot guess which, and one
+ * that took both titles and both actions would be harder to read than the
+ * ternary it replaced.
+ */
 export function EmptyState({
   icon,
   title,
   body,
   action,
+  surface = "card",
 }: {
   icon?: React.ReactNode;
   title: string;
   body?: string;
   action?: React.ReactNode;
+  /** "card" when the screen is empty; "inset" for a section within one. */
+  surface?: "card" | "inset";
 }) {
+  const inset = surface === "inset";
   return (
-    <div className="wf-card flex flex-col items-center gap-2 px-6 py-10 text-center">
-      {icon ? <div className="mb-1 text-[var(--wf-faint)]">{icon}</div> : null}
-      <p className="font-semibold">{title}</p>
+    <div
+      className={`flex flex-col items-center text-center ${
+        inset ? "wf-card2 gap-2.5 px-4 py-8" : "wf-card gap-2 px-6 py-10"
+      }`}
+    >
+      {icon ? <div className={inset ? "text-[var(--wf-faint)]" : "mb-1 text-[var(--wf-faint)]"}>{icon}</div> : null}
+      <p className={inset ? "text-sm text-[var(--wf-muted)]" : "font-semibold"}>{title}</p>
       {body ? <p className="max-w-xs text-sm text-[var(--wf-muted)]">{body}</p> : null}
-      {action ? <div className="mt-3">{action}</div> : null}
+      {action ? <div className={inset ? "" : "mt-3"}>{action}</div> : null}
     </div>
   );
 }
