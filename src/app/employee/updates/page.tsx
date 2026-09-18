@@ -7,6 +7,7 @@
 
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
+import { FeatureGate, useFeature } from "@/components/FeatureGate";
 import { WorkUpdateForm } from "@/components/WorkUpdateForm";
 import { BottomSheet, Chip, EmptyState, StatusChip } from "@/components/ui";
 import { fmtDateLong, fmtTime } from "@/lib/format";
@@ -20,6 +21,20 @@ import {
 } from "@/components/WfIcons";
 
 export default function EmployeeUpdates() {
+  // EmployeeUpdatesInner draws its own header, so the blocked branch supplies
+  // one and the allowed branch does not — otherwise the upgrade notice would
+  // be a screen with no way back off it.
+  const allowed = useFeature("workUpdates");
+  if (allowed) return <EmployeeUpdatesInner />;
+  return (
+    <div>
+      <ScreenHeader title="Work updates" />
+      <FeatureGate feature="workUpdates">{null}</FeatureGate>
+    </div>
+  );
+}
+
+function EmployeeUpdatesInner() {
   const { state, currentUser, openShift } = useWorkforce();
   const [adding, setAdding] = useState(false);
 

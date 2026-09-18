@@ -10,6 +10,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
+import { useEntitlements } from "./FeatureGate";
+import type { FeatureSet } from "@/lib/saas-types";
 import { confirmDestructive } from "@/lib/confirm";
 import { homeFor } from "@/lib/routes";
 import type { Role } from "@/lib/types";
@@ -96,6 +98,7 @@ const EMPLOYEE_TABS = [
     label: "Updates",
     icon: IClipboard,
     iconActive: IClipboardFill,
+    feature: "workUpdates" as const,
   },
   {
     href: "/employee/history",
@@ -242,7 +245,7 @@ export function TabBar({ role }: { role: Role }) {
       : state.session?.role === "admin" || state.session?.role === "superadmin"
         ? "admin"
         : role;
-  const tabs =
+  const allTabs =
     effective === "employee"
       ? EMPLOYEE_TABS
       : effective === "admin"
@@ -250,6 +253,21 @@ export function TabBar({ role }: { role: Role }) {
         : effective === "superadmin"
           ? PLATFORM_TABS
           : MANAGER_TABS;
+  /*
+   * A tab for a capability the client has not bought is not a tab.
+   *
+   * The upgrade notice is the right answer inside a screen somebody chose to
+   * open; it is the wrong answer in a navigation bar, where it would be a
+   * permanent advertisement occupying one of five slots a worker uses all
+   * day. The screens themselves still gate — a bookmark or a deep link lands
+   * on the notice — so this hides the door without unlocking it.
+   */
+  const ent = useEntitlements();
+  const tabs = allTabs.filter((t) => {
+    // Only some tabs name a capability, so the arrays have different shapes.
+    const f = (t as { feature?: keyof FeatureSet }).feature;
+    return !f || effective === "superadmin" || ent.features[f];
+  });
   const base =
     effective === "employee"
       ? "/employee"

@@ -11,6 +11,7 @@ import { useSearchParams } from "next/navigation";
 import { GeofenceEditor } from "@/components/GeofenceEditor";
 import { DISCARD_FENCE, confirmDestructive } from "@/lib/confirm";
 import { ScreenHeader } from "@/components/shell";
+import { useFeature } from "@/components/FeatureGate";
 import { SiteMap, type MapMarker } from "@/components/SiteMap";
 import { BarTrend } from "@/components/charts";
 import { EmployeePicker } from "@/components/EmployeePicker";
@@ -70,6 +71,8 @@ function ProjectInner() {
   const id = params.get("id");
   const project = state.projects.find((p) => p.id === id) ?? null;
   const [tab, setTab] = useState<Tab>("overview");
+  const canGeofence = useFeature("geofencing");
+  const canUpdates = useFeature("workUpdates");
 
   /*
    * A redrawn boundary lives in the editor below and dies with the tab.
@@ -247,12 +250,16 @@ function ProjectInner() {
             });
           }}
           size="sm"
+          /* A tab per capability the client actually has. Drawing a site
+             boundary and reading work updates are both plan features, and a
+             tab strip is the wrong place to advertise one: it would sit on
+             this screen for the life of the subscription. */
           options={[
-            { value: "overview", label: "Overview" },
-            { value: "geofence", label: "Geofence" },
-            { value: "team", label: `Team (${team.length})` },
-            { value: "attendance", label: "Attendance" },
-            { value: "updates", label: "Updates" },
+            { value: "overview" as const, label: "Overview" },
+            ...(canGeofence ? [{ value: "geofence" as const, label: "Geofence" }] : []),
+            { value: "team" as const, label: `Team (${team.length})` },
+            { value: "attendance" as const, label: "Attendance" },
+            ...(canUpdates ? [{ value: "updates" as const, label: "Updates" }] : []),
           ]}
         />
 
@@ -332,7 +339,7 @@ function ProjectInner() {
           </>
         )}
 
-        {tab === "geofence" && (
+        {tab === "geofence" && canGeofence && (
           <>
             <GeofenceEditor
               key={project.id}
@@ -526,7 +533,7 @@ function ProjectInner() {
           </>
         )}
 
-        {tab === "updates" && (
+        {tab === "updates" && canUpdates && (
           <div className="flex flex-col gap-2.5">
             {updates.length === 0 && (
               <p className="wf-card2 px-4 py-6 text-center text-sm text-[var(--wf-muted)]">

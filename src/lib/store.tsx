@@ -1464,8 +1464,23 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         setActiveCompany(null);
         throw new Error("You are not a member of that company any more.");
       }
+      // Put the membership in state alongside the session, the way loginAs
+      // does. clearCompanyData() has just emptied users, and currentUser is
+      // resolved by looking the session id up in that list — so setting the
+      // session alone leaves currentUser null until the reload lands, and
+      // permanently null if the reload throws or comes back empty. A null
+      // user resolves entitlements against an empty orgId, which presents as
+      // a company with no plan rather than as a failed switch.
       setState((s) =>
-        s ? { ...s, session: { userId: me.id, role: me.role, at: Date.now() } } : s,
+        s
+          ? {
+              ...s,
+              users: s.users.some((u) => u.id === me.id)
+                ? s.users.map((u) => (u.id === me.id ? me : u))
+                : [...s.users, me],
+              session: { userId: me.id, role: me.role, at: Date.now() },
+            }
+          : s,
       );
       await reloadFromBackend();
       void refreshMyCompanies().catch(() => {});

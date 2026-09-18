@@ -15,11 +15,30 @@ import type { FeatureSet } from "@/lib/saas-types";
 import { FEATURE_LABELS } from "@/lib/saas-types";
 import { ILock, IShield } from "./WfIcons";
 
-/** Effective entitlements for the signed-in user's tenant. */
-export function useEntitlements() {
+/**
+ * Which client's plan is on screen.
+ *
+ * Not "which user is signed in". A plan belongs to a construction company,
+ * so every gate has to resolve the company being *looked at* — which is the
+ * signed-in person's own company almost always, and the impersonated tenant
+ * when a super admin is standing inside a client's screens. Reading it from
+ * the user meant the super admin saw "no subscription" on the very screens
+ * that client's own admin saw a plan on, which is the clearest possible way
+ * to make a per-company plan look per-person.
+ *
+ * Every entitlement check goes through here so no future screen re-derives
+ * the org from the viewer.
+ */
+export function useViewingOrgId(): string {
   const { platform } = usePlatform();
   const { currentUser } = useWorkforce();
-  const orgId = currentUser?.orgId ?? "";
+  return platform.impersonating?.orgId ?? currentUser?.orgId ?? "";
+}
+
+/** Effective entitlements for the client whose screens are open. */
+export function useEntitlements() {
+  const { platform } = usePlatform();
+  const orgId = useViewingOrgId();
   return entitlementsFor(platform, orgId);
 }
 
@@ -87,7 +106,7 @@ export function UpgradeNotice({
 export function useLimitGuard(kind: "employees" | "projects" | "managers") {
   const { platform } = usePlatform();
   const { state, currentUser } = useWorkforce();
-  const orgId = currentUser?.orgId ?? "";
+  const orgId = useViewingOrgId();
   const ent = entitlementsFor(platform, orgId);
   const sub = platform.subscriptions.find((s) => s.orgId === orgId);
 

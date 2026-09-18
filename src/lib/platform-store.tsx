@@ -21,6 +21,7 @@ import {
   useState,
 } from "react";
 import { currentActor } from "./actor";
+import { subscribeActiveCompany } from "./company";
 import { seedPlatform } from "./saas-seed";
 import { BootMark } from "@/components/Brand";
 import { demoActive, platformKey } from "./demo/mode";
@@ -236,16 +237,43 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
 
     // Re-read on sign-in as well as on mount, because RLS answers an
     // unauthenticated caller with nothing.
+    //
+    // And re-read whenever the active company changes, which is the whole
+    // reason a plan ever looked like it belonged to a person. Subscriptions
+    // live in this store; the org they belong to is chosen elsewhere — by
+    // founding a company at /start, by accepting an invitation, by the
+    // switcher in the header. Every one of those set the company and reloaded
+    // the *workforce*, leaving the commercial state describing the previous
+    // tenant or no tenant at all. entitlementsFor() then found no row for a
+    // perfectly valid orgId and returned no features, so two colleagues in
+    // one company saw different products depending on how each of them
+    // arrived. The company is the unit a plan belongs to, so the company
+    // changing is what this read has to follow.
     if (isLiveBackend && !demoActive()) {
       // The first render has to have happened before there is a state to
       // lay the server's rows over; a macrotask is enough.
       const t = window.setTimeout(() => void hydrateFromBackend(), 0);
       const off = onAuthChange((event) => {
-        if (event === "signed-in") void hydrateFromBackend();
+        if (event === "signed-in") {
+          void hydrateFromBackend();
+          return;
+        }
+        // Signed out: drop the cached book. It is one tenant's commercial
+        // data sitting in a browser that another person may sign into next.
+        try {
+          localStorage.removeItem(platformKey());
+        } catch {
+          /* nothing cached, or storage unavailable */
+        }
+        baselineRef.current = null;
+        lastSeenRef.current = null;
+        setPlatform(seedPlatform());
       });
+      const offCompany = subscribeActiveCompany(() => void hydrateFromBackend());
       return () => {
         window.clearTimeout(t);
         off();
+        offCompany();
       };
     }
     // Mount-only; hydrateFromBackend is stable.

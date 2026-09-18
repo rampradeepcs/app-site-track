@@ -19,7 +19,7 @@
 
 import { useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
-import { UpgradeNotice, useFeature } from "@/components/FeatureGate";
+import { FeatureGate, UpgradeNotice, useFeature } from "@/components/FeatureGate";
 import { StatusPills, countByStatus } from "@/components/StatusPills";
 import { Avatar, BottomSheet, Chip, Segmented, useNowTick } from "@/components/ui";
 import { fmtDateLong, fmtTime, todayISO } from "@/lib/format";
@@ -56,6 +56,21 @@ const DAILY_FIELDS: Array<[keyof WorkUpdate, string]> = [
 ];
 
 export default function ManagerUpdates() {
+  // Same shape as the employee side: the inner screen draws its own header,
+  // so the blocked branch supplies one rather than stranding the reader.
+  const allowed = useFeature("workUpdates");
+  if (!allowed) {
+    return (
+      <div>
+        <ScreenHeader title="Work updates" />
+        <FeatureGate feature="workUpdates">{null}</FeatureGate>
+      </div>
+    );
+  }
+  return <ManagerUpdatesInner />;
+}
+
+function ManagerUpdatesInner() {
   const { state } = useWorkforce();
   const now = useNowTick(60);
   const canExport = useFeature("dataExport");

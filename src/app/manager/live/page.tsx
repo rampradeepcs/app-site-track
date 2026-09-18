@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ScreenHeader } from "@/components/shell";
+import { FeatureGate, useFeature } from "@/components/FeatureGate";
 import { SiteMap, type MapMarker } from "@/components/SiteMap";
 import { Avatar, BottomSheet, Chip, Segmented, useNowTick } from "@/components/ui";
 import { StatusPills, countByStatus } from "@/components/StatusPills";
@@ -28,8 +29,27 @@ import { IArrowR, ICrosshair, IRoute } from "@/components/WfIcons";
 export default function LiveMapPage() {
   return (
     <Suspense fallback={<div className="px-4 pt-6 text-sm text-[var(--wf-muted)]">Loading…</div>}>
-      <LiveInner />
+      <LiveGated />
     </Suspense>
+  );
+}
+
+/*
+ * The map is the feature, so the gate covers the screen rather than a panel
+ * inside it — it is reached by deep link as well as from the dashboard, so
+ * hiding the entry points is not enough on its own.
+ *
+ * The header is rendered here only when the gate closes, because LiveInner
+ * draws its own. One screen, one header, one way back, whichever branch runs.
+ */
+function LiveGated() {
+  const allowed = useFeature("liveTracking");
+  if (allowed) return <LiveInner />;
+  return (
+    <div>
+      <ScreenHeader title="Live" />
+      <FeatureGate feature="liveTracking">{null}</FeatureGate>
+    </div>
   );
 }
 
