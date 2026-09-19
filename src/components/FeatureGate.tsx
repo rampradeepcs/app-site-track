@@ -10,6 +10,7 @@
 
 import { entitlementsFor } from "@/lib/entitlements";
 import { usePlatform } from "@/lib/platform-store";
+import type { EntryBlock } from "./EntryRequired";
 import { useWorkforce } from "@/lib/store";
 import type { FeatureSet } from "@/lib/saas-types";
 import { FEATURE_LABELS } from "@/lib/saas-types";
@@ -201,4 +202,66 @@ export function useLimitGuard(kind: "employees" | "projects" | "managers") {
         ? ""
         : `You've reached your ${kind} limit of ${limit}.`,
   };
+}
+
+/* ------------------------------------------------------ entering at all ----
+ *
+ * "Without project or company, we will not enter into the app."
+ *
+ * Every rule below that lets somebody in is a `return null`, and there are
+ * more of those than there are ways to be blocked. That asymmetry is the
+ * design: a worker wrongly held at this wall is standing at a gate unable to
+ * start their shift, while somebody wrongly let past sees a quiet screen
+ * telling them to ask their manager. Those are not comparable costs, so
+ * every uncertainty resolves towards letting them in.
+ */
+export function useEntryBlock(): EntryBlock | null {
+  const { platform } = usePlatform();
+  const { state, currentUser, rosterAt } = useWorkforce();
+
+  const role = state.session?.role;
+
+  // 1. The platform owner has no company by design — org_id is null — and
+  //    /platform passes through this same guard. Walling them would take
+  //    away the console used to fix everybody else.
+  if (role === "superadmin") return null;
+  // 2. Impersonation does not swap the workforce session, so the owner
+  //    looking at a tenant is still the owner, with no company and no site.
+  if (platform.impersonating) return null;
+  // 3. No session at all is the sign-in gate's business, not this one.
+  if (!role || !currentUser) return null;
+
+  // 4. No company, whoever they are. Read from the store rather than the
+  //    companies list: loadMyCompanies short-circuits to [] whenever there
+  //    is no live backend, which would wall every demo persona and every
+  //    local build.
+  if (!currentUser.orgId) return { kind: "no-company" };
+
+  // 5. The site half is for employees only. Managers and administrators run
+  //    a company rather than stand on one — and blocking an administrator
+  //    would be a deadlock, because the only screen that creates the first
+  //    project is behind this very guard.
+  if (role !== "employee") return null;
+
+  // 6. Wait for the roster to have actually arrived for THIS session.
+  //    Without this the wall fires on every sign-in: loginAs seeds the
+  //    person with an empty projectIds and the app navigates as soon as the
+  //    cheap companies read resolves, while the roster is still in flight.
+  //    Offline, and on a read that failed, rosterAt never advances and this
+  //    returns null for good — which is the right way to be wrong.
+  if (rosterAt <= (state.session?.at ?? 0)) return null;
+
+  // 7. On a site. Status is not consulted: a crew mobilised onto a project
+  //    that has not opened yet, or kept on one just finished, are both on a
+  //    site as far as this question goes.
+  if (currentUser.projectIds.length > 0) return null;
+
+  // 8. Mid-shift always passes. Somebody who is checked in must be able to
+  //    check out, whatever the roster says about them now.
+  if (state.attendance.some((a) => a.employeeId === currentUser.id && a.checkIn && !a.checkOut)) {
+    return null;
+  }
+
+  const org = platform.organizations.find((o) => o.id === currentUser.orgId);
+  return { kind: "no-project", orgName: org?.name ?? "" };
 }

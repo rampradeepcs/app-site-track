@@ -11,9 +11,10 @@ import { useEffect, useState } from "react";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
 import { isForMe } from "@/lib/notify";
-import { useEntitlements, useServiceBlock } from "./FeatureGate";
+import { useEntitlements, useServiceBlock, useEntryBlock } from "./FeatureGate";
 import type { FeatureSet } from "@/lib/saas-types";
 import { PlanExpired } from "./PlanExpired";
+import { EntryRequired } from "./EntryRequired";
 import { confirmDestructive } from "@/lib/confirm";
 import { homeFor } from "@/lib/routes";
 import type { Role } from "@/lib/types";
@@ -50,6 +51,18 @@ import {
  * Redirects to the gate when the required role isn't signed in.
  * The super admin (product owner) may also browse manager surfaces.
  */
+/**
+ * Employee routes that survive having no site: a person's own record and
+ * their own settings. Everything else on /employee needs a boundary to
+ * mean anything.
+ */
+const OWN_RECORD_ROUTES = [
+  "/employee/history",
+  "/employee/attendance",
+  "/employee/profile",
+  "/employee/more",
+];
+
 export function RoleGuard({
   role,
   children,
@@ -63,6 +76,7 @@ export function RoleGuard({
   const ok = canEnter(state.session?.role, role);
   // Above the redirect branch: a hook cannot be called conditionally.
   const lapse = useServiceBlock();
+  const entry = useEntryBlock();
   useEffect(() => {
     if (ok) return;
     // Park where they were going before sending them to sign in, so the gate
@@ -88,6 +102,29 @@ export function RoleGuard({
    * too, because the route still resolves through this guard.
    */
   if (lapse) return <PlanExpired lapse={lapse} />;
+
+  /*
+   * A company and a site are the price of entry — but a worker's own record
+   * is not part of the app they are being kept out of.
+   *
+   * This guard wraps the whole /employee subtree, and only the home screen
+   * ever needed a project: attendance, history, profile and the settings
+   * under More all work perfectly well for somebody between sites, and they
+   * are the person's own timesheet and privacy controls. Returning the wall
+   * for all of them would confiscate the evidence in a pay dispute from
+   * exactly the people this rule is meant to help. So the wall stands in
+   * front of the working part of the app and those four stay open, with the
+   * wall linking to them.
+   *
+   * The no-company wall has no such carve-out, because with no company
+   * there is genuinely nothing on any of those screens.
+   */
+  if (entry) {
+    const ownRecords =
+      entry.kind === "no-project" &&
+      OWN_RECORD_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`));
+    if (!ownRecords) return <EntryRequired block={entry} />;
+  }
 
   // Every authenticated surface passes through here, which makes it the one
   // place a failed write has to be announced from.

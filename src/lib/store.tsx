@@ -369,6 +369,27 @@ export interface ProvisionedCompany {
 interface StoreApi {
   state: WorkforceState;
   hydrated: boolean;
+  /**
+   * When the roster last arrived from Postgres, or 0 if it has not.
+   *
+   * `hydrated` is not this. It means localStorage has been read, and it is
+   * the literal `true` — it says nothing about whether the server answered.
+   * Nothing else could stand in for this either: the whole state blob is
+   * persisted under one device-wide key, so a previous session's users and
+   * projects are sitting in memory from the moment the app boots, and any
+   * rule of the form "we have some projects, so the read must have landed"
+   * is reading last week's data and calling it proof.
+   *
+   * Compared against session.at, it answers the only question worth asking
+   * before acting on an empty roster: is this emptiness a fact about the
+   * person, or just a read that has not come back? Anything that would
+   * penalise somebody for having no projects has to wait for this, because
+   * the alternative is holding a worker at a site gate over a slow network.
+   *
+   * Deliberately NOT part of WorkforceState: it must not survive a reload,
+   * or it would vouch for a read that happened on some other day.
+   */
+  rosterAt: number;
   online: boolean;
 
   /* session */
@@ -592,6 +613,8 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
   const [fix, setFix] = useState<LiveFix | null>(null);
   const [simScenario, setSimScenarioRaw] = useState<SimScenario>("approach");
 
+  // Provider state rather than store state: see the note on StoreApi.rosterAt.
+  const [rosterAt, setRosterAt] = useState(0);
   const stateRef = useRef<WorkforceState | null>(null);
   const fixRef = useRef<LiveFix | null>(null);
   const simRef = useRef<SimScenario>("approach");
@@ -672,6 +695,11 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           }
         : prev,
     );
+    // Only here, after the users and projects are in. Both early returns
+    // above — a thrown read and a read that came back with no visible rows —
+    // deliberately leave it alone, so a failure reads as "we do not know"
+    // rather than as "they have nothing".
+    setRosterAt(Date.now());
     // Shifts, salary, payroll, travel and allowance rules follow in their own
     // round: RLS may legitimately answer parts of it with nothing (a manager
     // who may not read salary), and that must not void the workforce read
@@ -4384,6 +4412,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     // Consumers only ever see their own tenant's slice.
     state: scopeToTenant(state),
     hydrated: true,
+    rosterAt,
     online,
     login,
     loginAs,
