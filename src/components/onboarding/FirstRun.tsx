@@ -9,9 +9,9 @@
  * way to tell which of the two it is.
  *
  * So the empty dashboard says what is missing and what closes it. It clears
- * itself the moment the first shift is recorded — the point at which the real
- * screens have something to show — rather than waiting to be dismissed, which
- * is a decision nobody should have to make about their own onboarding.
+ * itself — on the last item being ticked, or on the first shift being
+ * recorded, whichever comes first — rather than waiting to be dismissed,
+ * which is a decision nobody should have to make about their own onboarding.
  */
 
 import Link from "next/link";
@@ -25,6 +25,8 @@ interface Item {
   hint: string;
   href?: string;
   cta?: string;
+  /** Shown, but does not hold the panel open. See the note on allDone. */
+  optional?: boolean;
 }
 
 /** Absolute URL of the app root, honouring the sub-path a Pages build uses. */
@@ -79,8 +81,26 @@ export function FirstRun({
       hint: "Optional — you can run the site yourself until you'd rather not.",
       href: "/admin/team",
       cta: "Team",
+      optional: true,
     },
   ];
+
+  /*
+   * Finished, so it goes.
+   *
+   * The panel used to wait for the first check-in, which is a different event
+   * and often a much later one: a company can be fully set up on Friday and
+   * record nothing until Monday morning. For that weekend the dashboard led
+   * with four struck-through lines and a heading asking them to get started —
+   * a to-do list with nothing to do, sitting above the real screen.
+   *
+   * Optional items do not count. Promoting a manager is genuinely optional —
+   * its own hint says so — and a one-person company is the commonest shape a
+   * new tenant has, so counting it would mean the panel never cleared for the
+   * people most likely to be looking at it.
+   */
+  const allDone = items.every((it) => it.done || it.optional);
+  if (allDone) return null;
 
   const share = async () => {
     const url = appUrl();
@@ -112,7 +132,7 @@ export function FirstRun({
           </h2>
           <p className="text-[0.8rem] leading-relaxed text-[var(--wf-muted)]">
             No shifts have been recorded yet — that&apos;s why every number
-            below is zero. This panel goes away on the first check-in.
+            below is zero. This panel goes as soon as the list is done.
           </p>
         </div>
       </header>

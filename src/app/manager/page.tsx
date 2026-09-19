@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { BarTrend, Donut } from "@/components/charts";
+import { QuickActions, type QuickAction } from "@/components/QuickActions";
 import { NotificationBell, ScreenHeader } from "@/components/shell";
 import { SiteMap, type MapMarker } from "@/components/SiteMap";
 import { Avatar, Chip, KpiCard, SectionTitle, StatusChip, useNowTick } from "@/components/ui";
@@ -35,12 +36,25 @@ import {
   IArrowR,
   IChart,
   ICheckCircle,
+  IClipboard,
   IClock,
   IHardHat,
   IMap,
+  IMapPin,
+  IRoute,
   ITrend,
   IUsers,
+  IWallet,
 } from "@/components/WfIcons";
+
+const MANAGER_SHORTCUTS: QuickAction[] = [
+  { href: "/manager/live", label: "Live site", icon: <IMapPin size={17} />, feature: "liveTracking" },
+  { href: "/manager/shifts", label: "Shifts", icon: <IClock size={17} />, feature: "shifts" },
+  { href: "/manager/payroll", label: "Payroll", icon: <IWallet size={17} />, feature: "payroll" },
+  { href: "/manager/travel", label: "Travel", icon: <IRoute size={17} />, feature: "petrolAllowance" },
+  { href: "/manager/updates", label: "Updates", icon: <IClipboard size={17} /> },
+  { href: "/manager/reports", label: "Reports", icon: <IChart size={17} /> },
+];
 
 export default function ManagerDashboard() {
   const { state, currentUser } = useWorkforce();
@@ -143,17 +157,9 @@ export default function ManagerDashboard() {
           )}
         </div>
 
-        {/* Stacked, not side by side: "Manage shifts" wraps to two lines
-            in half a row at phone widths, so each action gets the full row
-            instead of a cramped half. */}
-        <div className="flex flex-col gap-2">
-          <Link href="/manager/shifts" className="wf-btn wf-btn-ghost w-full">
-            <IClock size={16} /> Manage shifts
-          </Link>
-          <Link href="/manager/payroll" className="wf-btn wf-btn-ghost w-full">
-            <IChart size={16} /> Payroll
-          </Link>
-        </div>
+        {/* The manager's own set: their four tabs are Projects, Workforce
+            and Attendance, so these are the rest of the day's work. */}
+        <QuickActions actions={MANAGER_SHORTCUTS} />
 
         {/* live map + working list */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-5">

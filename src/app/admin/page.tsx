@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { BarTrend, Donut } from "@/components/charts";
 import { FirstRun } from "@/components/onboarding/FirstRun";
+import { QuickActions, type QuickAction } from "@/components/QuickActions";
 import { ScreenHeader } from "@/components/shell";
 import { Avatar, Chip, KpiCard, SectionTitle, useNowTick } from "@/components/ui";
 import { fmtDuration, fmtRelative, pct, roleLabel, todayISO } from "@/lib/format";
@@ -21,11 +22,25 @@ import { useViewingOrgId } from "@/components/FeatureGate";
 import {
   IAlert,
   IArrowR,
+  IBuilding,
+  IChart,
+  IClock,
   IHardHat,
   IMapPin,
+  IRoute,
   IShield,
   IUsers,
+  IWallet,
 } from "@/components/WfIcons";
+
+const ADMIN_SHORTCUTS: QuickAction[] = [
+  { href: "/manager/live", label: "Live site", icon: <IMapPin size={17} />, feature: "liveTracking" },
+  { href: "/manager/shifts", label: "Shifts", icon: <IClock size={17} />, feature: "shifts" },
+  { href: "/manager/payroll", label: "Payroll", icon: <IWallet size={17} />, feature: "payroll" },
+  { href: "/manager/travel", label: "Travel", icon: <IRoute size={17} />, feature: "petrolAllowance" },
+  { href: "/manager/reports", label: "Reports", icon: <IChart size={17} /> },
+  { href: "/admin/company", label: "Company", icon: <IBuilding size={17} /> },
+];
 
 export default function AdminOverview() {
   const { state, currentUser } = useWorkforce();
@@ -74,17 +89,10 @@ export default function AdminOverview() {
           <KpiCard label="Avg hours" value={fmtDuration(stats.avgWorkedMinutes)} sub="per closed shift today" />
         </div>
 
-        {/* Stacked, not side by side: "Shifts & breaks" wraps to two lines
-            in half a row at phone widths, so each action gets the full row
-            instead of a cramped half. */}
-        <div className="flex flex-col gap-2">
-          <Link href="/manager/shifts" className="wf-btn wf-btn-ghost w-full">
-            Shifts & breaks
-          </Link>
-          <Link href="/manager/payroll" className="wf-btn wf-btn-ghost w-full">
-            Payroll
-          </Link>
-        </div>
+        {/* Everything here is otherwise behind "More" — the bar at the
+            bottom holds four destinations and a menu, and these are the
+            ones an administrator opens the app to reach. */}
+        <QuickActions actions={ADMIN_SHORTCUTS} />
 
         {/* portfolio health */}
         <div>
