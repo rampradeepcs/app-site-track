@@ -14,7 +14,7 @@ import pg8000.dbapi, os, ssl, json, pathlib, uuid
 
 MIG = pathlib.Path(
     "/Users/rampradeepcholan/Documents/ram/app-site-track/supabase/migrations/"
-    "20260919140000_an_invitation_delivers_what_it_names.sql"
+    "20260919104215_an_invitation_delivers_what_it_names.sql"
 ).read_text()
 
 ctx = ssl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE
@@ -41,7 +41,11 @@ def scenario(name, branch):
     """branch: 'new' | 'claim' | 'already'."""
     cur.execute("begin")
     try:
-        cur.execute(MIG)                       # the migration under test
+        # SKIP_APPLY=1 exercises the function as it is deployed, instead of
+        # replacing it first. That is the difference between "my SQL works"
+        # and "what is running in production works".
+        if not os.environ.get("SKIP_APPLY"):
+            cur.execute(MIG)
 
         org = one("select id from public.organizations limit 1")
         proj = one("select id from public.projects where org_id = %s limit 1", (org,))
@@ -113,7 +117,8 @@ for branch, want_already in [("new", False), ("claim", True), ("already", True)]
 # The guard: a project from another company must not be granted.
 cur.execute("begin")
 try:
-    cur.execute(MIG)
+    if not os.environ.get("SKIP_APPLY"):
+        cur.execute(MIG)
     row = one("""select json_build_object('a', a.id, 'b', b.id)
                    from public.organizations a, public.organizations b
                   where a.id <> b.id
