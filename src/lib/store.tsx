@@ -2891,18 +2891,31 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
    * Push a project's roster after it changes.
    *
    * Assign and remove both come down to the same fact — this is who is on
-   * this project now — so both send the whole set rather than a delta. Read
-   * from the ref after the mutation so the membership sent is the one that
-   * actually landed, not the one the caller intended.
+   * this project now — so both send the whole set rather than a delta.
+   *
+   * The roster is a parameter, and that is the whole point. This used to read
+   * it back from stateRef after the mutation, on the reasoning that the ref
+   * holds what actually landed rather than what the caller intended. The ref
+   * is assigned in an effect, so it is one commit behind: a caller that
+   * mutates and syncs in the same tick reads the state from BEFORE its own
+   * change and sends that.
+   *
+   * It sent the roster as it was a moment ago, so an assignment was dropped
+   * and a removal was undone, and the next person's assignment would carry
+   * the previous one in with it — which reads as "it works, just late", and
+   * is how it survived. Two people added seconds apart landed one row, for
+   * the first of them.
+   *
+   * Passing the intended set removes the timing question entirely.
    */
-  const syncRoster = useCallback((projectId: string) => {
-    const s = stateRef.current;
-    const project = s?.projects.find((p) => p.id === projectId);
-    if (!project) return;
-    persist("update who is on the project", () =>
-      replaceProjectMembers(projectId, project.employeeIds, project.orgId),
-    );
-  }, []);
+  const syncRoster = useCallback(
+    (projectId: string, employeeIds: string[], orgId: string) => {
+      persist("update who is on the project", () =>
+        replaceProjectMembers(projectId, employeeIds, orgId),
+      );
+    },
+    [],
+  );
 
   const setUserRole = useCallback(
     (userId: string, role: Role) => {
@@ -3893,44 +3906,69 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
 
   const assignEmployee = useCallback(
     (userId: string, projectId: string) => {
-      mutate((s) => ({
-        ...s,
-        users: s.users.map((u) =>
-          u.id === userId
-            ? { ...u, projectIds: [...new Set([...u.projectIds, projectId])] }
-            : u,
-        ),
-        projects: s.projects.map((p) =>
-          p.id === projectId
-            ? { ...p, employeeIds: [...new Set([...p.employeeIds, userId])] }
-            : p,
-        ),
-        audit: [
-          { id: rid("aud"), at: Date.now(), actorId: s.session?.userId ?? "system", action: "employee.assign", target: projectId, detail: userId },
-          ...s.audit,
-        ],
-      }));
-      syncRoster(projectId);
+      /*
+       * The roster to send is worked out here, from the state as it stands
+       * before the change, rather than read back afterwards.
+       *
+       * Reading it back was the bug: stateRef is assigned in an effect, so a
+       * handler that mutates and syncs in the same tick sees the state from
+       * before its own change and sends that. Every assignment went to
+       * Postgres one person short, and the next assignment carried the
+       * previous one in — so it looked like it worked, one action late,
+       * and the last person added was simply never written.
+       *
+       * Deriving it inside the mutate callback is no good either: mutate is
+       * setState, and React runs the updater during render, not at the call.
+       */
+      const before = stateRef.current?.projects.find((p) => p.id === projectId);
+      mutate((s) => {
+        return {
+          ...s,
+          users: s.users.map((u) =>
+            u.id === userId
+              ? { ...u, projectIds: [...new Set([...u.projectIds, projectId])] }
+              : u,
+          ),
+          projects: s.projects.map((p) =>
+            p.id === projectId
+              ? { ...p, employeeIds: [...new Set([...p.employeeIds, userId])] }
+              : p,
+          ),
+          audit: [
+            { id: rid("aud"), at: Date.now(), actorId: s.session?.userId ?? "system", action: "employee.assign", target: projectId, detail: userId },
+            ...s.audit,
+          ],
+        };
+      });
+      if (before) {
+        syncRoster(projectId, [...new Set([...before.employeeIds, userId])], before.orgId);
+      }
     },
     [mutate, syncRoster],
   );
 
   const removeEmployeeFromProject = useCallback(
     (userId: string, projectId: string) => {
-      mutate((s) => ({
-        ...s,
-        users: s.users.map((u) =>
-          u.id === userId
-            ? { ...u, projectIds: u.projectIds.filter((p) => p !== projectId) }
-            : u,
-        ),
-        projects: s.projects.map((p) =>
-          p.id === projectId
-            ? { ...p, employeeIds: p.employeeIds.filter((e) => e !== userId) }
-            : p,
-        ),
-      }));
-      syncRoster(projectId);
+      // Same reasoning as assignEmployee above.
+      const before = stateRef.current?.projects.find((p) => p.id === projectId);
+      mutate((s) => {
+        return {
+          ...s,
+          users: s.users.map((u) =>
+            u.id === userId
+              ? { ...u, projectIds: u.projectIds.filter((p) => p !== projectId) }
+              : u,
+          ),
+          projects: s.projects.map((p) =>
+            p.id === projectId
+              ? { ...p, employeeIds: p.employeeIds.filter((e) => e !== userId) }
+              : p,
+          ),
+        };
+      });
+      if (before) {
+        syncRoster(projectId, before.employeeIds.filter((e) => e !== userId), before.orgId);
+      }
     },
     [mutate, syncRoster],
   );

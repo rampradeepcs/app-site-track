@@ -393,9 +393,17 @@ export async function fetchWorkforce() {
     // geofence exit is only useful if the manager's phone hears about it.
     sb.from("notifications").select("*").order("at", { ascending: false }).limit(300),
   ]);
+  /*
+   * members.error belongs here and was missing. Its absence was not a
+   * cosmetic gap: a failed read of project_members does not just leave
+   * projectIds empty — it leaves every project's employeeIds empty too, and
+   * the roster writer will happily send that emptiness back to Postgres the
+   * next time anybody edits a roster. A read that fails has to stop the
+   * hydration, not quietly hand back a company with nobody on any site.
+   */
   const err =
-    users.error ?? projects.error ?? attendance.error ?? updates.error ??
-    audit.error ?? notifications.error;
+    users.error ?? projects.error ?? members.error ?? attendance.error ??
+    updates.error ?? audit.error ?? notifications.error;
   if (err) throw err;
 
   const mapped = {

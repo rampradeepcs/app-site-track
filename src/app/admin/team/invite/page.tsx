@@ -90,6 +90,22 @@ export default function InviteMemberPage() {
       setError("Enter a valid email address.");
       return;
     }
+    /*
+     * A worker without a site has nowhere to check in: the home screen is a
+     * geofenced clock, so with no project it can only say "No project
+     * assigned" — which is what it said to the first person invited this
+     * way. Asked for here rather than repaired afterwards, because the
+     * moment somebody accepts is the moment they try to use it.
+     *
+     * Only for employees, and only when there is a site to pick. Managers
+     * and administrators run a company rather than stand on one, and a
+     * company that has not created its first project must still be able to
+     * invite the people who will.
+     */
+    if (role === "employee" && !projectId && state.projects.length > 0) {
+      setError("Choose the site this worker will check in at.");
+      return;
+    }
     setBusy(true);
     try {
       const out = await inviteMemberRemote({
@@ -241,13 +257,29 @@ export default function InviteMemberPage() {
         </Field>
       </div>
 
-      <Field label="Project" hint="They join it as soon as they accept.">
+      <Field
+        label={role === "employee" ? "Project*" : "Project"}
+        hint={
+          role === "employee"
+            ? "They join it as soon as they accept. A worker without one lands on an empty home screen and cannot check in."
+            : "They join it as soon as they accept."
+        }
+      >
         <select
           className="wf-input"
           value={projectId}
           onChange={(e) => setProjectId(e.target.value)}
         >
-          <option value="">No project yet</option>
+          {/* A disabled placeholder rather than no option at all: a
+              controlled select whose value matches nothing renders blank,
+              which looks like a choice already made. */}
+          {role === "employee" && state.projects.length > 0 ? (
+            <option value="" disabled>
+              Select a project…
+            </option>
+          ) : (
+            <option value="">No project yet</option>
+          )}
           {state.projects.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
