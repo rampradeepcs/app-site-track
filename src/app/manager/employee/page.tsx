@@ -11,14 +11,7 @@ import { useSearchParams } from "next/navigation";
 import { ScreenHeader } from "@/components/shell";
 import { StatusPills, countByStatus } from "@/components/StatusPills";
 import { ProgressRing, ScoreBars, Sparkline } from "@/components/charts";
-import {
-  Avatar,
-  Chip,
-  KpiCard,
-  SectionTitle,
-  StatusChip,
-  useNowTick,
-} from "@/components/ui";
+import { Avatar, CallLink, Chip, KpiCard, SectionTitle, StatusChip, useNowTick } from "@/components/ui";
 import { SalaryAndShiftSection } from "@/components/SalarySection";
 import {
   fmtDateLong,
@@ -121,7 +114,7 @@ function EmployeeInner() {
                 <StatusChip status={live?.attendance ? live.attendance.status : "not-in"} />
               )}
               <Chip tone="neutral">
-                <IPhone size={11} /> {user.phone}
+                <IPhone size={11} /> <CallLink phone={user.phone} absent="No number" />
               </Chip>
             </div>
             <p className="mt-1.5 text-[0.76rem] text-[var(--wf-muted)]">

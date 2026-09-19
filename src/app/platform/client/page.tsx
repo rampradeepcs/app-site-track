@@ -19,15 +19,7 @@ import {
 } from "@/components/platform/bits";
 import { SubscriptionPanel } from "@/components/platform/SubscriptionPanel";
 import { BarTrend } from "@/components/charts";
-import {
-  Avatar,
-  BottomSheet,
-  Chip,
-  Field,
-  SectionTitle,
-  Segmented,
-  useNowTick,
-} from "@/components/ui";
+import { Avatar, BottomSheet, CallLink, Chip, Field, SectionTitle, Segmented, useNowTick } from "@/components/ui";
 import { entitlementsFor } from "@/lib/entitlements";
 import { fmtDateLong, fmtRelative, roleLabel, roleTone } from "@/lib/format";
 import { usePlatform } from "@/lib/platform-store";
@@ -390,11 +382,7 @@ function ClientInner() {
                           )}
                         </td>
                         <td className="whitespace-nowrap">
-                          {u.phone ? (
-                            <a href={`tel:${u.phone.replace(/\s+/g, "")}`} className="text-[var(--wf-fg)] underline-offset-2 hover:underline">{u.phone}</a>
-                          ) : (
-                            <span className="text-[var(--wf-faint)]">—</span>
-                          )}
+                          <CallLink phone={u.phone} absent="—" className="text-[var(--wf-fg)]" />
                         </td>
                         <td className="text-[var(--wf-muted)]">{u.designation}</td>
                         <td className="text-[var(--wf-muted)]">{u.department}</td>

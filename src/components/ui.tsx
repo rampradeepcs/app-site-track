@@ -337,6 +337,46 @@ export function SearchField({
   );
 }
 
+/**
+ * A number you can ring, or a plain statement that there isn't one.
+ *
+ * A call affordance with nothing behind it is worse than no affordance: on a
+ * phone `tel:` with an empty number opens the dialer on a blank screen, and on
+ * a desktop it does nothing at all — which a manager reads as the app being
+ * broken rather than as the record being incomplete. The manager's view of an
+ * employee showed a phone icon and an empty space for anybody whose number was
+ * never filled in; users.phone is `not null default ''`, so that is every
+ * person added without one.
+ *
+ * With a number it is a real link. Without one it is not a link at all — not a
+ * disabled-looking anchor, which screen readers still announce as a link, but
+ * text saying what is missing.
+ */
+export function CallLink({
+  phone,
+  absent = "No phone number",
+  className = "",
+}: {
+  phone?: string | null;
+  /** What to say when there is no number. */
+  absent?: string;
+  className?: string;
+}) {
+  const trimmed = (phone ?? "").trim();
+  if (!trimmed) {
+    return <span className={`text-[var(--wf-faint)] ${className}`}>{absent}</span>;
+  }
+  // Spaces are for reading; the dialer wants none of them.
+  return (
+    <a
+      href={`tel:${trimmed.replace(/\s+/g, "")}`}
+      className={`underline-offset-2 hover:underline ${className}`}
+    >
+      {trimmed}
+    </a>
+  );
+}
+
 export function Facts({
   children,
   separated,
