@@ -21,8 +21,28 @@ import { likelySupported } from "@/lib/face/engine";
 import { FaceEnroll } from "./FaceEnroll";
 import { BottomSheet } from "./ui";
 import { ICheckCircle, IShield } from "./WfIcons";
+import { biometricAvailability } from "@/lib/biometric";
 
-const DEFER_KEY = "workfence.face-setup.deferred";
+/**
+ * "Later", remembered against the person who said it.
+ *
+ * This used to be one key for the whole device, which is wrong on the phones
+ * this app is used on. A site phone is shared, and personas are switched on it
+ * all day: one worker tapping Later silenced the prompt for everybody who
+ * picked the handset up after them, for a week. It is a decision about a
+ * person's own face, so it belongs to that person.
+ *
+ * The old unscoped key is deliberately not migrated. It cannot be attributed to
+ * anybody now, and the cost of getting it wrong in each direction is uneven —
+ * carrying it over to the wrong person hides a prompt they never dismissed,
+ * while dropping it shows the current holder one card they can dismiss again in
+ * a second.
+ */
+const DEFER_PREFIX = "workfence.face-setup.deferred";
+
+function deferKey(userId: string): string {
+  return `${DEFER_PREFIX}.${userId}`;
+}
 
 /**
  * How long "Later" lasts.
@@ -45,9 +65,9 @@ const DEFER_DAYS = 7;
  * so everybody carrying one is offered the enrolment again the next time
  * they open the app — which is the whole point of changing this.
  */
-function deferredUntil(): number {
+function deferredUntil(userId: string): number {
   try {
-    const raw = localStorage.getItem(DEFER_KEY);
+    const raw = localStorage.getItem(deferKey(userId));
     if (!raw) return 0;
     if (raw === "1") return 0; // the old for-ever value: expired by definition
     const at = Number(raw);
@@ -62,15 +82,31 @@ export function FaceSetupCard() {
   const [open, setOpen] = useState(false);
   const [deferred, setDeferred] = useState(true);
   const [capable, setCapable] = useState(false);
+  const [deviceDoesIt, setDeviceDoesIt] = useState(false);
 
-  // Both reads touch the browser, so they wait for the client.
+  // All three reads touch the browser or the device, so they wait for the client.
+  const uid = currentUser?.id ?? "";
   useEffect(() => {
+    if (!uid) return;
     setCapable(likelySupported());
-    setDeferred(Date.now() < deferredUntil());
-  }, []);
+    setDeferred(Date.now() < deferredUntil(uid));
+    void biometricAvailability().then((b) => setDeviceDoesIt(b.available));
+  }, [uid]);
 
   if (!currentUser || currentUser.role !== "employee") return null;
   if (currentUser.face?.descriptors?.length) return null;
+  /*
+   * The phone already does this, so we do not ask them to do it again.
+   *
+   * Check-in runs the device prompt first and only falls back to matching
+   * against these photos when the device could not answer — see
+   * employee/page.tsx, where the comparison is guarded on
+   * `deviceAuth !== "ok"`. On a handset with Face ID or a fingerprint
+   * enrolled, three photos taken here are never read. Asking for them is
+   * asking somebody to do work that will not be used, and every one of them
+   * is a face stored on a device that did not need to hold one.
+   */
+  if (deviceDoesIt) return null;
   if (!capable || deferred) return null;
 
   return (
@@ -97,7 +133,7 @@ export function FaceSetupCard() {
               onClick={() => {
                 try {
                   // When, not whether. The reader turns this into an expiry.
-                  localStorage.setItem(DEFER_KEY, String(Date.now()));
+                  localStorage.setItem(deferKey(currentUser.id), String(Date.now()));
                 } catch {
                   /* it simply reappears next launch */
                 }
@@ -135,6 +171,11 @@ export function FaceSetupCard() {
 export function FaceEnrolledRow() {
   const { currentUser, enrollFace } = useWorkforce();
   const [open, setOpen] = useState(false);
+  const [deviceDoesIt, setDeviceDoesIt] = useState(false);
+  // Above the early return: a hook cannot be conditional.
+  useEffect(() => {
+    void biometricAvailability().then((b) => setDeviceDoesIt(b.available));
+  }, []);
   if (!currentUser) return null;
   const enrolled = currentUser.face?.descriptors?.length ?? 0;
 
@@ -152,7 +193,9 @@ export function FaceEnrolledRow() {
           <p className="mt-0.5 text-[0.76rem] text-[var(--wf-muted)]">
             {enrolled
               ? `Enrolled from ${enrolled} photos, on this phone only.`
-              : "Not set up. Check-ins record a selfie without matching it."}
+              : deviceDoesIt
+                ? "This phone's own Face ID or fingerprint confirms your check-in. Nothing to set up."
+                : "Not set up. Check-ins record a selfie without matching it."}
           </p>
         </div>
         {enrolled ? (
@@ -162,7 +205,7 @@ export function FaceEnrolledRow() {
           >
             Remove
           </button>
-        ) : (
+        ) : deviceDoesIt ? null : (
           <button
             className="wf-btn wf-btn-ghost wf-btn-sm shrink-0"
             onClick={() => setOpen(true)}
