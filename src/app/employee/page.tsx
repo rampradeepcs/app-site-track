@@ -36,12 +36,7 @@ import {
   todayISO,
 } from "@/lib/format";
 import { dayMetrics, shiftFor } from "@/lib/payroll";
-import {
-  dayAllowances,
-  fmtKmLabel,
-  sanitiseTrack,
-  travelPoints,
-} from "@/lib/allowances";
+import { dayAllowances, fmtKmLabel, sanitiseTrack, travelPoints, vehicleOf } from "@/lib/allowances";
 import { TRAVEL_PURPOSES, type TravelPurpose } from "@/lib/types";
 import { resolvePlace } from "@/lib/geo";
 import {
@@ -52,19 +47,7 @@ import {
 } from "@/lib/premises";
 import type { Project } from "@/lib/types";
 import { useWorkforce, type SimScenario } from "@/lib/store";
-import {
-  ICamera,
-  ICheckCircle,
-  IClipboard,
-  IClock,
-  ICoffee,
-  ICrosshair,
-  IMapPin,
-  INav,
-  IRoute,
-  IAlert,
-  IShield,
-} from "@/components/WfIcons";
+import { IAlert, ICamera, ICheckCircle, IClipboard, IClock, ICoffee, ICrosshair, IMapPin, INav, IRoute, IShield } from "@/components/WfIcons";
 
 type Flow =
   | null
@@ -142,7 +125,20 @@ export default function EmployeeHome() {
 
   /* Travel: live measured distance of the running session, and the day's
      allowances for the checkout summary. */
-  const travelEnabled = petrolEnabled && !!project?.travelTracking;
+  /*
+   * A vehicle is what turns travel on.
+   *
+   * The rate a trip earns is chosen by the traveller's vehicle type
+   * (petrolRuleFor), and somebody with no vehicle assigned matches no rule and
+   * earns nothing. Until now the button appeared anyway, gated only on the plan
+   * and the project's tracking setting — so a worker could drive to a material
+   * yard, record the whole trip, and be paid zero for it with nothing on screen
+   * to say why. Adding their vehicle is what enables the allowance, so adding
+   * their vehicle is what enables the button.
+   */
+  const hasVehicle = vehicleOf(currentUser ?? undefined) !== "none";
+  const travelAllowed = petrolEnabled && !!project?.travelTracking;
+  const travelEnabled = travelAllowed && hasVehicle;
   const liveTravelMeters = useMemo(() => {
     if (!activeTravel) return 0;
     return sanitiseTrack(travelPoints(state, activeTravel.id)).meters;
@@ -475,6 +471,18 @@ export default function EmployeeHome() {
         ) : null}
 
         <SimulatedLocationControls value={simScenario} onChange={setSimScenario} onShift />
+
+        {/* Not silence: a missing button is indistinguishable from a broken
+            one, and this is a thing somebody else has to do for them. */}
+        {travelAllowed && !hasVehicle ? (
+          <div className="wf-card2 flex items-start gap-2.5 px-3.5 py-3">
+            <INav size={16} className="mt-0.5 shrink-0 text-[var(--wf-faint)]" />
+            <p className="min-w-0 text-[0.78rem] leading-relaxed text-[var(--wf-muted)]">
+              Work travel is not recorded for you yet. Petrol allowance is paid
+              against a vehicle, so ask your manager to add yours.
+            </p>
+          </div>
+        ) : null}
 
         {travelEnabled ? (
           activeTravel ? (
