@@ -16,6 +16,7 @@ import { fmtDuration, fmtRelative, pct, roleLabel, todayISO } from "@/lib/format
 import { attendanceTrend, dashboardStats, liveBoard, needsAttention } from "@/lib/metrics";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
+import { isForMe } from "@/lib/notify";
 import { useViewingOrgId } from "@/components/FeatureGate";
 import {
   IAlert,
@@ -41,7 +42,11 @@ export default function AdminOverview() {
   const employees = state.users.filter((u) => u.role === "employee");
   const admins = state.users.filter((u) => u.role === "admin");
   const alerts = state.notifications
-    .filter((n) => n.audience === "manager" && (n.severity === "warning" || n.severity === "critical"))
+    .filter(
+      (n) =>
+        (n.severity === "warning" || n.severity === "critical") &&
+        isForMe(n, state.session?.role, state.session?.userId),
+    )
     .slice(0, 5);
 
   return (

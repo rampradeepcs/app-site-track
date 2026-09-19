@@ -16,6 +16,7 @@ import { Avatar, Chip } from "@/components/ui";
 import { fmtShiftTime, todayISO } from "@/lib/format";
 import { shiftFor } from "@/lib/payroll";
 import { useWorkforce } from "@/lib/store";
+import { isForMe } from "@/lib/notify";
 import { useFeature } from "@/components/FeatureGate";
 import { teamsOf } from "@/lib/teams";
 import { readableNotes } from "@/lib/notes";
@@ -38,10 +39,7 @@ export default function EmployeeMore() {
   const unread = useMemo(
     () =>
       state.notifications.filter(
-        (n) =>
-          n.audience === "employee" &&
-          !n.read &&
-          (!n.userId || n.userId === currentUser?.id),
+        (n) => !n.read && isForMe(n, "employee", currentUser?.id),
       ).length,
     [state.notifications, currentUser],
   );

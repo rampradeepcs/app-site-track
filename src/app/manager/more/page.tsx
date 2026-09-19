@@ -22,13 +22,16 @@ import { ScreenHeader } from "@/components/shell";
 import { MyCompaniesPanel } from "@/components/MyCompaniesPanel";
 
 import { useWorkforce } from "@/lib/store";
+import { isForMe } from "@/lib/notify";
 
 import { IBell, ICamera, IChart, IChevronR, IClipboard, IClock, IFile, IMapPin, INav, ISettings, IUsers, IWallet } from "@/components/WfIcons";
 
 export default function MorePage() {
   const { state } = useWorkforce();
 
-  const alerts = state.notifications.filter((n) => n.audience === "manager");
+  const alerts = state.notifications.filter((n) =>
+    isForMe(n, state.session?.role, state.session?.userId),
+  );
   const unread = alerts.filter((n) => !n.read).length;
   const shiftsOn = useFeature("shifts");
   const payrollOn = useFeature("payroll");

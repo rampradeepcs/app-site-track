@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="true"
@@ -70,9 +71,37 @@
          notification, POST_NOTIFICATIONS, and a Play declaration carrying a
          demo video and an annual re-review. Do not re-add them speculatively.
 
-         POST_NOTIFICATIONS went with them: nothing in this app posts an
-         Android notification. The bell on the profile screen is an in-app
-         feed, not a system one. -->
+         POST_NOTIFICATIONS went with them and has since come back on its own
+         terms, below. Note what did not come back with it: posting a
+         notification needs no foreground service and no background location.
+         These three are still gone. -->
+
+    <!-- Attendance reaches the phone's own notification tray, not only the
+         bell inside the app. A worker checks in at the gate and locks their
+         phone; the confirmation has to survive that, and an in-app feed does
+         not. src/lib/notify.ts mirrors each event addressed to the person
+         holding the phone.
+
+         Removed in 80f721d because nothing here posted a notification, which
+         was true then. Re-declared now, with the code that needs it in the
+         same commit. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Both arrive by merge from @capacitor/local-notifications, and both
+         exist for notifications scheduled to fire at some future time: an
+         exact alarm to wake the device at the appointed minute, and a boot
+         receiver to re-register alarms that a reboot cleared. Everything this
+         app posts is posted immediately, about something that has just
+         happened. There is no alarm to set and nothing to restore.
+
+         SCHEDULE_EXACT_ALARM is worth removing rather than tolerating: Play
+         treats it as a sensitive permission and asks for a written
+         justification, and there is no honest one to give while nothing is
+         scheduled. Removing them at the merge keeps the shipped manifest a
+         description of the code. Scheduling a reminder later means bringing
+         them back deliberately, and answering that form. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" tools:node="remove" />
 
     <!-- Check-in / checkout selfies and work-update photos. Capture only.
          Reading the gallery needs no permission and never did: the WebView's

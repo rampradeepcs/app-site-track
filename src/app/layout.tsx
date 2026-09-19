@@ -9,6 +9,7 @@ import { NativeChrome } from "@/components/NativeChrome";
 import { ToastHost } from "@/components/ToastHost";
 import { TileCache } from "@/components/TileCache";
 import { NoteReminders } from "@/components/NoteReminders";
+import { NativeNotifications } from "@/components/NativeNotifications";
 import { SsoReturn } from "@/components/SsoReturn";
 import { WelcomeAboard } from "@/components/WelcomeAboard";
 import { WatchLink } from "@/components/WatchLink";
@@ -63,6 +64,7 @@ export default function RootLayout({
               <NativeChrome />
               <TileCache />
               <NoteReminders />
+              <NativeNotifications />
               <SsoReturn />
               <WelcomeAboard />
               <WatchLink />

@@ -10,6 +10,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
+import { isForMe } from "@/lib/notify";
 import { useEntitlements, useServiceBlock } from "./FeatureGate";
 import type { FeatureSet } from "@/lib/saas-types";
 import { PlanExpired } from "./PlanExpired";
@@ -812,10 +813,7 @@ function BackendModeNote() {
 export function NotificationBell({ role }: { role: Role; }) {
   const { state } = useWorkforce();
   const unread = state.notifications.filter(
-    (n) =>
-      n.audience === role &&
-      !n.read &&
-      (!n.userId || n.userId === state.session?.userId),
+    (n) => !n.read && isForMe(n, role, state.session?.userId),
   ).length;
   /*
    * The employee half is a real tab and stays a query string; the manager half

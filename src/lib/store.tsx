@@ -1822,6 +1822,28 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         body: `${project.name} · ${fmtHM(worked)} worked${voiceNote ? " · voice note attached" : ""}`,
         severity: early ? "warning" : "info",
       });
+      /*
+       * The worker's own copy. Check-in raised one of these and checkout
+       * raised nothing, so the day ended in silence on the phone of the only
+       * person whose pay depends on it — and since lib/notify mirrors this
+       * feed to the notification tray, that silence was the difference
+       * between walking off site with a record of the hours and walking off
+       * site with nothing.
+       *
+       * It states the hours rather than congratulating anybody. That figure
+       * is the reason to read it, and it is the one to argue with at the end
+       * of the month if it is wrong.
+       */
+      pushNotification({
+        audience: "employee",
+        userId: user.id,
+        kind: "check-out",
+        title: early ? "Checked out early" : "Checked out",
+        body: `${fmtHM(worked)} at ${project.name}${
+          otMinutes > 0 ? ` · ${fmtHM(otMinutes)} overtime` : ""
+        }. Tracking has stopped.`,
+        severity: early ? "warning" : "success",
+      });
       if (overtime?.status === "pending") {
         pushNotification({
           audience: "manager",

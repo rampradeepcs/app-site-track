@@ -27,6 +27,7 @@ import {
   needsAttention,
 } from "@/lib/metrics";
 import { useWorkforce } from "@/lib/store";
+import { isForMe } from "@/lib/notify";
 import { fmtINR, todayShiftKpis } from "@/lib/payroll";
 import { useFeature } from "@/components/FeatureGate";
 import {
@@ -69,7 +70,11 @@ export default function ManagerDashboard() {
 
   const recentUpdates = state.updates.slice(0, 4);
   const alerts = state.notifications
-    .filter((n) => n.audience === "manager" && (n.severity === "warning" || n.severity === "critical"))
+    .filter(
+      (n) =>
+        (n.severity === "warning" || n.severity === "critical") &&
+        isForMe(n, state.session?.role, state.session?.userId),
+    )
     .slice(0, 4);
 
   return (

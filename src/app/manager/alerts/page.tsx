@@ -12,11 +12,14 @@ import { useNowTick } from "@/components/ui";
 import { ScreenHeader } from "@/components/shell";
 import { fmtRelative } from "@/lib/format";
 import { useWorkforce } from "@/lib/store";
+import { isForMe } from "@/lib/notify";
 import { IAlert, ICheckCircle, IInfo } from "@/components/WfIcons";
 
 export default function ManagerAlerts() {
   const { state, markNotificationsRead } = useWorkforce();
-  const alerts = state.notifications.filter((n) => n.audience === "manager");
+  const alerts = state.notifications.filter((n) =>
+    isForMe(n, state.session?.role, state.session?.userId),
+  );
   const now = useNowTick(30);
 
   useEffect(() => {
