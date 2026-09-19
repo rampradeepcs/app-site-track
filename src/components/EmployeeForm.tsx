@@ -27,7 +27,7 @@ import { useUnsavedGuard } from "@/lib/unsaved";
 const DEPARTMENTS = ["Civil", "MEP", "EHS", "Plant", "Quality"];
 
 /** Where the invite points. One place to change when the listing moves. */
-const APP_DOWNLOAD_URL = "https://app-site-track.vercel.app";
+const APP_DOWNLOAD_URL = "https://live.workfence.app";
 
 export function EmployeeForm({
   base,

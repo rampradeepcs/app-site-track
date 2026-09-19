@@ -191,7 +191,10 @@ Deno.serve(async (req: Request) => {
   ]);
   if (!org) return json({ error: "No such company." }, 404);
 
-  const appUrl = Deno.env.get("APP_URL") ?? "https://app-site-track.vercel.app";
+  // The fallback is the live domain, not a deployment URL. A worker who
+  // cannot reach the link in this letter cannot join, so it has to point at
+  // the address that outlives any one Vercel project.
+  const appUrl = Deno.env.get("APP_URL") ?? "https://live.workfence.app";
   const base = Deno.env.get("TENANT_BASE_DOMAIN");
   const tenantUrl = org.slug ? (base ? `https://${org.slug}.${base}` : `${appUrl}/t/${org.slug}`) : undefined;
   // Set APK_URL to "" to leave the Android block out of the letter entirely.

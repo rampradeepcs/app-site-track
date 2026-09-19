@@ -100,7 +100,7 @@ Deno.serve(async (req: Request) => {
     return json({ sent: false, reason: "no address on the administrator" });
   }
 
-  const appUrl = Deno.env.get("APP_URL") ?? "https://app-site-track.vercel.app";
+  const appUrl = Deno.env.get("APP_URL") ?? "https://live.workfence.app";
   const base = Deno.env.get("TENANT_BASE_DOMAIN");
   const trialDays = sub?.trial_ends_at
     ? Math.max(
