@@ -197,11 +197,25 @@ export function SiteMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitKey, dims.w, dims.h]);
 
-  /* follow mode keeps the subject centred while it moves */
+  /*
+   * follow keeps a subject centred while it moves, and is also the only
+   * channel for a deliberate jump — a search hit, a GPS fix. Keyed on the
+   * object's identity, so a caller asks for a move by handing over a fresh
+   * LatLng, and a value that merely stays equal asks for nothing.
+   *
+   * Centre only. The zoom somebody chose survives, which is the whole
+   * difference between this and a re-fit — and the reason the fit effect
+   * above is keyed so narrowly: a fence centre moves on every tick of a
+   * handle drag, and re-framing on those would drag the ground out from
+   * under the finger.
+   */
   useEffect(() => {
     if (!follow) return;
+    // Seed the view when nothing has framed the map yet. Every caller today
+    // has a fence or a marker, so this branch is unreachable for them; it
+    // stops a future one from being handed a jump and silently dropping it.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setView((v) => (v ? { ...v, center: follow } : v));
+    setView((v) => (v ? { ...v, center: follow } : { center: follow, zoom: 17 }));
   }, [follow]);
 
   /* projection helpers */

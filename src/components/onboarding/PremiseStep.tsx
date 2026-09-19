@@ -91,19 +91,20 @@ export function PremiseStep({
         />
       </Field>
 
-      <UseMyLocation
-        onPick={(here) => {
-          setFocus(here);
-          onChange({ ...value, location: here });
-        }}
-      />
-
       <SitePlacer
         location={value.location}
         onChange={(p: LatLng) => onChange({ ...value, location: p })}
         fence={fence}
         follow={focus}
         label={value.name || namePlaceholder}
+      />
+
+      {/* Under the map, because it acts on the map. */}
+      <UseMyLocation
+        onPick={(here) => {
+          setFocus(here);
+          onChange({ ...value, location: here });
+        }}
       />
       <p className="text-[0.78rem] leading-relaxed text-[var(--wf-muted)]">
         Workers can only check in <strong>inside</strong> the boundary — you

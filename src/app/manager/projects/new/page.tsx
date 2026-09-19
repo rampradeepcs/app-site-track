@@ -53,6 +53,7 @@ export default function NewProjectPage() {
     () => state.projects[0]?.location ?? { lat: 20.5937, lng: 78.9629 },
   );
   const [radius, setRadius] = useState(160);
+  const [focus, setFocus] = useState<LatLng | null>(null);
 
   /*
    * Where the pin is, said in words.
@@ -207,7 +208,17 @@ export default function NewProjectPage() {
            details rather than leaving, which is what somebody who has just
            dragged a pin expects — and leaving from there would discard the
            name they typed a moment ago. */
-        onBack={step === 1 ? () => setStep(0) : undefined}
+        onBack={
+          step === 1
+            ? () => {
+                // The map unmounts here and is rebuilt on the way forward.
+                // A leftover jump target would then override the fresh
+                // framing with wherever they searched last time.
+                setFocus(null);
+                setStep(0);
+              }
+            : undefined
+        }
         confirmBack={step === 0 ? confirmBack : undefined}
         /* The step's own action, in the bar: on a form this long the button
            that finishes it was below the fold on every phone. */
@@ -285,15 +296,6 @@ export default function NewProjectPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-3.5">
-          {/* No second search box. The address field above already placed
-              the map; Move the pin puts it exactly. */}
-          {/*
-            Most new sites are created standing on them. The pin already
-            opens on the current fix where there is one; this puts it back
-            after somebody has searched or dragged, and says plainly when the
-            app has no position to offer rather than doing nothing on a tap.
-          */}
-          {/* Most new sites are created standing on them. */}
           {/*
             Two ways to place the boundary and no third: stand on it, or
             find it by name. The address is not asked for — it is read back
@@ -303,15 +305,38 @@ export default function NewProjectPage() {
             label="Find on the map"
             hint="Jumps the map to a place — then drag the pin to sit it exactly."
           >
-            <LocationSearch onPick={(hit) => setLocation(hit.at)} />
+            <LocationSearch
+              onPick={(hit) => {
+                setLocation(hit.at);
+                setFocus(hit.at);
+              }}
+            />
           </Field>
-          <UseMyLocation onPick={setLocation} />
           <SitePlacer
             location={location}
             onChange={setLocation}
             fence={{ kind: "circle", polygon: [], center: location, radius, bufferMeters: 40 }}
             label={name || "New site"}
             heightClass="h-64"
+            /* Where to point the map, kept apart from where the site is.
+               They are the same value here and they are not the same idea:
+               dragging the pin changes the location every few pixels, and a
+               map that re-centres on each of those follows the finger
+               instead of letting it aim. Only a search hit or a GPS fix
+               moves the view. */
+            follow={focus}
+          />
+          {/*
+            Most new sites are created standing on them. This is the other of
+            the two ways in, and it sits under the map because it acts on the
+            map — above it, the tap and the thing it changed were a scroll
+            apart on a phone.
+          */}
+          <UseMyLocation
+            onPick={(here) => {
+              setLocation(here);
+              setFocus(here);
+            }}
           />
           {/*
             What the pin turned out to be. Shown rather than asked, and shown

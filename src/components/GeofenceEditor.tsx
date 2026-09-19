@@ -39,6 +39,11 @@ export function GeofenceEditor({
     polygon: [...project.geofence.polygon],
   }));
   const [drawing, setDrawing] = useState(false);
+  /* Where to point the map, which is not the same as where the fence is.
+     The centre moves on every tick of a handle drag; re-centring on those
+     would drag the ground out from under the finger. Only an explicit jump
+     — a GPS fix — sets this. */
+  const [focus, setFocus] = useState<LatLng | null>(null);
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => onDirty?.(dirty), [dirty, onDirty]);
@@ -127,6 +132,7 @@ export function GeofenceEditor({
       <SiteMap
         project={project}
         fence={draft}
+        follow={focus}
         heightClass="h-[320px] md:h-[400px]"
         onMapClick={onMapClick}
         onVertexDrag={
@@ -168,7 +174,13 @@ export function GeofenceEditor({
       {draft.kind === "circle" ? (
         <UseMyLocation
           label="Centre on my location"
-          onPick={(here) => patch({ center: here })}
+          onPick={(here) => {
+            patch({ center: here });
+            // Move the fence and the view together. Without this the centre
+            // moved and the map stayed where it was, so the boundary walked
+            // off screen and only the recenter button brought it back.
+            setFocus(here);
+          }}
         />
       ) : null}
 

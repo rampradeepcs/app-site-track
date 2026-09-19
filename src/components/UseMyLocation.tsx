@@ -21,6 +21,12 @@
  * Asked on a tap, never on mount. A permission prompt that appears because
  * somebody walked into a screen is a prompt they decline, and a decline is
  * remembered by the operating system long after they wanted it.
+ *
+ * Getting a fix is only half of it. onPick hands back a position; the caller
+ * still has to point the map at it, and the way to do that is a `follow` /
+ * `focus` value held separately from the location itself — see PremiseStep.
+ * Separately, because the location changes when a pin is dragged too, and a
+ * map that re-centres on every drag tick chases the finger across the screen.
  */
 
 import { useState } from "react";
@@ -30,7 +36,10 @@ import { ICrosshair } from "./WfIcons";
 export function UseMyLocation({
   onPick,
   label = "Use my current location",
-  className = "wf-btn wf-btn-ghost wf-btn-sm w-fit",
+  // Full width, under the map. It is the primary way somebody standing on a
+  // site places it, and a small w-fit button tucked beside a search box read
+  // as a minor option next to the thing it is usually better than.
+  className = "wf-btn wf-btn-ghost w-full",
 }: {
   onPick: (at: LatLng) => void;
   /** Override where the surrounding words need something more specific. */
