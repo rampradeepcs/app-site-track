@@ -18,13 +18,8 @@ import {
   Toggle,
   useNowTick,
 } from "@/components/ui";
-import {
-  fmtDuration,
-  fmtRelative,
-  fmtShiftTime,
-  pct,
-} from "@/lib/format";
-import { performanceFor, PERFORMANCE_WEIGHTS } from "@/lib/metrics";
+import { fmtDateLong, fmtDuration, fmtRelative, fmtShiftTime, pct } from "@/lib/format";
+import { PERFORMANCE_WEIGHTS, performanceFor, projectStandings } from "@/lib/metrics";
 import { SalaryAndShiftSection } from "@/components/SalarySection";
 import { useWorkforce } from "@/lib/store";
 import type { Permissions } from "@/lib/types";
@@ -56,6 +51,11 @@ function ProfileInner() {
   const params = useSearchParams();
   const tab = (params.get("tab") as Tab) ?? "profile";
   const now = useNowTick(30);
+
+  const standings = useMemo(
+    () => projectStandings(state, currentUser?.id ?? "", currentUser?.projectIds ?? [], 30, now),
+    [state, currentUser, now],
+  );
 
   const perf = useMemo(
     () => (currentUser ? performanceFor(state, currentUser) : null),
@@ -157,11 +157,26 @@ function ProfileInner() {
               {currentUser.projectIds.map((pid) => {
                 const p = state.projects.find((x) => x.id === pid);
                 if (!p) return null;
+                const mine = standings.find((x) => x.projectId === pid);
                 return (
-                  <div key={pid} className="flex items-center justify-between py-1.5">
-                    <span className="text-sm font-semibold">{p.name}</span>
-                    <span className="text-[0.74rem] tabular-nums text-[var(--wf-muted)]">
-                      {fmtShiftTime(p.rules.shiftStart)}–{fmtShiftTime(p.rules.shiftEnd)}
+                  <div key={pid} className="flex flex-col gap-0.5 py-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 truncate text-sm font-semibold">{p.name}</span>
+                      <span className="shrink-0 text-[0.74rem] tabular-nums text-[var(--wf-muted)]">
+                        {fmtShiftTime(p.rules.shiftStart)}–{fmtShiftTime(p.rules.shiftEnd)}
+                      </span>
+                    </div>
+                    {/* What they have actually done here, not just that they are
+                        on the roster — the difference is the interesting part
+                        for somebody splitting a month between two sites. */}
+                    <span className="text-[0.72rem] text-[var(--wf-faint)]">
+                      {mine?.openNow ? "On this site now · " : ""}
+                      {mine && mine.daysPresent > 0
+                        ? `${mine.daysPresent} ${mine.daysPresent === 1 ? "day" : "days"} · ${fmtDuration(mine.workedMinutes)} in the last 30`
+                        : "No shifts here in the last 30 days"}
+                      {mine?.lastDate && !mine.openNow
+                        ? ` · last ${fmtDateLong(mine.lastDate)}`
+                        : ""}
                     </span>
                   </div>
                 );

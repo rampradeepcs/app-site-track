@@ -447,3 +447,57 @@ export function attendanceSources(
     total: rows.length,
   };
 }
+
+/** One person's own standing on one project. */
+export interface ProjectStanding {
+  projectId: string;
+  /** Days they checked in on this project within the window. */
+  daysPresent: number;
+  /** Minutes worked on it, from closed shifts only. */
+  workedMinutes: number;
+  /** The most recent date they were on it, or null. */
+  lastDate: string | null;
+  /** True while a shift on this project is open right now. */
+  openNow: boolean;
+}
+
+/**
+ * What somebody has actually done on each project they are assigned to.
+ *
+ * An employee can be on several sites, and until now the app only ever showed
+ * them one — the home screen picks `activeProjectId ?? projectIds[0]`, and the
+ * profile listed the others by name and shift time alone. So a worker splitting
+ * a month between two sites could see neither how the split fell nor that the
+ * second site had any of their time on it at all.
+ *
+ * Counted from attendance rather than from assignment: being on a project's
+ * roster is not the same as having worked on it, and the difference is the
+ * interesting part. Hours come from closed shifts only, because workedMinutes
+ * is null while one is open — the open shift is reported separately as
+ * `openNow` rather than as zero hours, which would read as a day that earned
+ * nothing.
+ */
+export function projectStandings(
+  s: Pick<WorkforceState, "attendance">,
+  employeeId: string,
+  projectIds: readonly string[],
+  days = 30,
+  now = Date.now(),
+): ProjectStanding[] {
+  const from = new Date(now - days * 86_400_000).toISOString().slice(0, 10);
+  const mine = s.attendance.filter(
+    (a) => a.employeeId === employeeId && a.date >= from,
+  );
+  return projectIds.map((projectId) => {
+    const rows = mine.filter((a) => a.projectId === projectId && a.checkIn);
+    return {
+      projectId,
+      daysPresent: new Set(rows.map((r) => r.date)).size,
+      workedMinutes: rows.reduce((t, r) => t + (r.workedMinutes ?? 0), 0),
+      lastDate: rows.length
+        ? rows.reduce((m, r) => (r.date > m ? r.date : m), rows[0].date)
+        : null,
+      openNow: rows.some((r) => r.checkIn && !r.checkOut),
+    };
+  });
+}
