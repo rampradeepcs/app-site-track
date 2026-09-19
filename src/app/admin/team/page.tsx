@@ -12,18 +12,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { RemoveMemberDialog } from "@/components/RemoveMemberDialog";
 import { useMyCompanies } from "@/lib/companies";
 import { MemberStatusChip } from "@/components/MemberStatus";
-import {
-  cancelInvitationRemote,
-  fetchCompanyMembers,
-  fetchPendingInvitations,
-  type MemberState,
-  type PendingInvitation,
-} from "@/lib/supabase/repository";
+import { cancelInvitationRemote, fetchCompanyMembers, fetchPendingInvitations, resendInvitationRemote, type MemberState, type PendingInvitation } from "@/lib/supabase/repository";
 import { describeError } from "@/lib/errors";
 import { showToast } from "@/lib/toast";
 import { ScreenHeader } from "@/components/shell";
 import { Avatar, Chip, EmptyState, SearchField, Segmented, StatusChip, useNowTick } from "@/components/ui";
-import { fmtClock, fmtDateShort, pct, roleTone } from "@/lib/format";
+import { fmtClock, fmtDateShort, fmtRelative, pct, roleTone } from "@/lib/format";
 import { liveBoard, performanceFor } from "@/lib/metrics";
 import { useWorkforce } from "@/lib/store";
 import { isLiveBackend } from "@/lib/supabase/client";
@@ -75,6 +69,7 @@ export default function AdminTeam() {
   const now = useNowTick(15);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<Role | "all" | "invited">("all");
+  const [resending, setResending] = useState<string | null>(null);
   const [removing, setRemoving] = useState<User | null>(null);
   const { active } = useMyCompanies();
 
@@ -212,9 +207,42 @@ export default function AdminTeam() {
                       {inv.invitedBy ? ` by ${inv.invitedBy}` : ""}
                     </span>
                   </span>
-                  <Chip tone="blue">Invited</Chip>
+                  <Chip tone={inv.expired ? "amber" : "blue"}>
+                    {inv.expired ? "Lapsed" : "Invited"}
+                  </Chip>
                 </div>
+                {/* When the last letter went, so somebody who is not sure
+                    whether they already pressed Resend can see rather than
+                    guess — and does not send a third. */}
+                <p className="-mt-1 text-[0.72rem] text-[var(--wf-faint)]">
+                  {inv.expired
+                    ? "This invitation has lapsed. Sending it again gives them another 30 days."
+                    : inv.lastSentAt
+                      ? `Last sent ${fmtRelative(new Date(inv.lastSentAt).getTime())}`
+                      : `Sent when it was created, ${fmtRelative(new Date(inv.createdAt).getTime())}`}
+                </p>
                 <div className="flex flex-wrap gap-2">
+                  <button
+                    className="wf-btn wf-btn-ghost wf-btn-sm"
+                    disabled={resending === inv.id}
+                    onClick={() => {
+                      setResending(inv.id);
+                      void resendInvitationRemote(inv.id)
+                        .then((out) => {
+                          showToast(
+                            out.mailed
+                              ? `Invitation to ${out.email} sent again`
+                              : `${out.email} is still invited, but the email could not be sent`,
+                            out.mailed ? "success" : "danger",
+                          );
+                          loadMembership();
+                        })
+                        .catch((e) => showToast(describeError(e), "danger"))
+                        .finally(() => setResending(null));
+                    }}
+                  >
+                    {resending === inv.id ? "Sending…" : "Resend invitation"}
+                  </button>
                   <button
                     className="wf-btn wf-btn-ghost wf-btn-sm wf-btn-danger-text"
                     onClick={() =>

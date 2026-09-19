@@ -46,6 +46,12 @@ told about it: that the people added are notified and nobody else is, that
 each is notified once, that the notice is addressed to their own role, and
 that re-saving an unchanged roster is not an event.
 
+`resend_invitation_test.py` covers sending an invitation again: who may press
+it, that it pushes the expiry out and records when the letter went, that it
+refuses invitations already answered, that another company's id is
+indistinguishable from one that does not exist, and that an invitation which
+lapsed unanswered is listed again rather than hidden.
+
 `provision_client_test.py` covers onboarding a client from the platform
 console: who may call the RPC, that the client comes out whole — organisation,
 subscription and an administrator row waiting to be claimed — that the

@@ -467,6 +467,8 @@ export type Database = {
         Returns: PendingInvitationRow[];
       };
       cancel_invitation: { Args: { p_id: string }; Returns: undefined };
+      /** Company admin or manager: post the invitation again and push its expiry out. */
+      resend_invitation: { Args: { p_id: string }; Returns: Json };
       /** Every company the caller belongs to, the active one first. */
       my_companies: { Args: Record<string, never>; Returns: MyCompanyRow[] };
       /** Pending invitations addressed to the caller. */
@@ -554,6 +556,10 @@ export interface PendingInvitationRow {
   invited_by: string | null;
   created_at: string;
   expires_at: string;
+  /** When the last letter went; null on invitations sent before resending. */
+  last_sent_at: string | null;
+  /** Computed from expires_at — nothing flips the status on a schedule. */
+  expired: boolean;
   has_membership: boolean;
 }
 

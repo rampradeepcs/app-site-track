@@ -39,6 +39,7 @@ import type {
   NotificationRow,
 } from "./types";
 import type { ProvisionResult, SignupPayload } from "./types";
+import { activeCompanyId } from "../company";
 import type {
   LabourTeam,
   LabourTeamMember,
@@ -556,6 +557,10 @@ export interface PendingInvitation {
   invitedBy: string | null;
   createdAt: string;
   expiresAt: string;
+  /** When the last letter went. Null on rows that predate resending. */
+  lastSentAt: string | null;
+  /** Past its expiry. Nothing flips the status, so this is computed. */
+  expired: boolean;
   hasMembership: boolean;
 }
 
@@ -575,8 +580,43 @@ export async function fetchPendingInvitations(): Promise<PendingInvitation[]> {
     invitedBy: r.invited_by,
     createdAt: r.created_at,
     expiresAt: r.expires_at,
+    lastSentAt: r.last_sent_at ?? null,
+    expired: !!r.expired,
     hasMembership: r.has_membership,
   }));
+}
+
+/**
+ * Send an invitation again, when the first letter did not arrive.
+ *
+ * Two steps, and they are separate on purpose — the same bargain the original
+ * invite makes. The RPC refreshes the expiry and records the send; the edge
+ * function writes the letter. A mail that fails must not undo the refresh, and
+ * "still invited, but we could not write to them again" is a true and useful
+ * thing to be able to say.
+ */
+export async function resendInvitationRemote(
+  id: string,
+): Promise<{ id: string; email: string; name: string; mailed: boolean }> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("resend_invitation", { p_id: id });
+  if (error) throw error;
+  const d = (data ?? {}) as Record<string, string>;
+
+  let mailed = true;
+  const org = activeCompanyId();
+  if (org) {
+    try {
+      const sent = await inviteCrewRemote(org, [d.email]);
+      mailed = sent.failed === 0;
+    } catch (e) {
+      mailed = false;
+      console.warn("[workfence] resent invitation email failed:", e);
+    }
+  } else {
+    mailed = false;
+  }
+  return { id: String(d.id), email: String(d.email), name: String(d.name ?? ""), mailed };
 }
 
 export async function cancelInvitationRemote(id: string): Promise<void> {
