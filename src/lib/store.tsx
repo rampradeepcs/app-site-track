@@ -1531,6 +1531,25 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
          company's own data underneath. Demo personas sign in here too, and
          stay where they are. */
       if (!isDemoUserId(user.id) && leaveDemoFor("/")) return;
+      /*
+       * The company header follows the identity, always.
+       *
+       * Two things name the company on every write and they came from
+       * different places: the x-workfence-company header off this device's
+       * remembered choice, and the org_id on the row off the membership in
+       * state. When they disagree the database does not pick one — a header
+       * naming a company the caller does not belong to resolves
+       * active_org_id() to NULL, and then `org_id = auth_org_id()` is false
+       * for every row, so every insert is refused with a policy error while
+       * the reads carry on working. A worker's check-in alerts were being
+       * rejected exactly this way.
+       *
+       * Signing in is the moment to make them agree, because the membership
+       * row is the authority and we are holding it. logout already clears
+       * the choice for the next person; this covers the session that is
+       * restored without a sign-out in between.
+       */
+      if (!isDemoUserId(user.id) && user.orgId) setActiveCompany(user.orgId);
       mutate((s) => ({
         ...s,
         users: s.users.some((u) => u.id === user.id)
