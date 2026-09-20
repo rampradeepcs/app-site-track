@@ -45,6 +45,7 @@ import {
   DEFAULT_PAY_POLICY,
   dayMetrics,
   fmtHM,
+  isImplicitShift,
   monthLocked,
   shiftFor,
 } from "./payroll";
@@ -1749,7 +1750,11 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
             date: att.date,
             mark,
             status: att.status,
-            shiftId: shiftDef?.id,
+            // A fallback shift is this process's own invention — contracted
+            // hours dressed as a definition — so there is no row to point
+            // at. Sent anyway, it failed the whole insert on a uuid cast and
+            // the shift was never recorded at all.
+            shiftId: isImplicitShift(shiftDef?.id) ? undefined : shiftDef?.id,
           });
           // Only now may the trail follow it.
           syncedShiftsRef.current.add(att.id);

@@ -79,9 +79,26 @@ export function creditedOvertime(raw: number, ot: OvertimeConfig): number {
  * contracted times off the user record, dressed as a definition so the
  * engine has one shape to reason about.
  */
+/**
+ * The prefix on a shift that exists only in this process.
+ *
+ * fallbackShift below dresses a person's contracted hours up as a ShiftDef
+ * so the payroll engine has one shape to reason about. It is not a row in
+ * `shifts` and its id is not a uuid — which is fine until somebody sends it
+ * to Postgres, where `attendance.shift_id` is a uuid with a foreign key.
+ * That rejected the whole check-in with a 400, for every worker who had not
+ * been assigned a real shift, which is the default.
+ */
+const IMPLICIT_SHIFT_PREFIX = "implicit_";
+
+/** True for a shift that exists only here and must never be written down. */
+export function isImplicitShift(id: string | undefined | null): boolean {
+  return !!id && id.startsWith(IMPLICIT_SHIFT_PREFIX);
+}
+
 export function fallbackShift(user: User): ShiftDef {
   return {
-    id: `implicit_${user.id}`,
+    id: `${IMPLICIT_SHIFT_PREFIX}${user.id}`,
     orgId: user.orgId,
     name: "Contracted hours",
     code: "—",

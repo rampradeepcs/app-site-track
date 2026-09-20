@@ -1084,7 +1084,16 @@ export async function insertCheckIn(a: {
       date: a.date,
       check_in: a.mark as never,
       status: a.status,
-      shift_id: a.shiftId ?? null,
+      /*
+       * Only a real shift id goes in. The same guard insertNotifications
+       * applies to user_id, and for the same reason: this app mints
+       * synthetic ids for things that exist only in the client — a
+       * fallback shift, a demo persona — and shift_id is a uuid with a
+       * foreign key. One of those reaching here failed the entire
+       * check-in, so a worker's shift went unrecorded because of a field
+       * that was never required.
+       */
+      shift_id: a.shiftId && UUID_RE.test(a.shiftId) ? a.shiftId : null,
     } as never)
     .select()
     .single();
