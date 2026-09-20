@@ -615,6 +615,21 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
 
   // Provider state rather than store state: see the note on StoreApi.rosterAt.
   const [rosterAt, setRosterAt] = useState(0);
+  /*
+   * Shifts known to exist in Postgres.
+   *
+   * location_points carries a foreign key to attendance, so a trail point
+   * sent before its shift row lands is rejected outright — and both writes
+   * are fire-and-forget, so "I am online" says nothing about whether the
+   * shift got there first. A worker who checked in on a flickering
+   * connection got the shift queued and the trail sent, which is that
+   * rejection every fifteen seconds for the rest of the shift.
+   *
+   * A ref, not state: it is a fact about the network, nothing renders from
+   * it, and it must not survive a reload — after one, the hydrate repopulates
+   * it from what the server actually returned.
+   */
+  const syncedShiftsRef = useRef<Set<string>>(new Set());
   const stateRef = useRef<WorkforceState | null>(null);
   const fixRef = useRef<LiveFix | null>(null);
   const simRef = useRef<SimScenario>("approach");
@@ -700,6 +715,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     // deliberately leave it alone, so a failure reads as "we do not know"
     // rather than as "they have nothing".
     setRosterAt(Date.now());
+    for (const a of live.attendance) syncedShiftsRef.current.add(a.id);
     // Shifts, salary, payroll, travel and allowance rules follow in their own
     // round: RLS may legitimately answer parts of it with nothing (a manager
     // who may not read salary), and that must not void the workforce read
@@ -1155,7 +1171,28 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       lastRecordedRef.current = f.at;
       recordingRef.current = true;
 
-      const isOffline = !(navigator.onLine && !s.settings.forceOffline);
+      /*
+       * Queued, not sent, until the shift it belongs to exists server-side.
+       *
+       * The outbox flush already knows this ordering — "Shifts first: a
+       * trail point references its attendance row" — but recordFix did not,
+       * and it is the one that runs every few seconds. Being online is not
+       * the question; whether the shift got there is.
+       *
+       * Queuing is the right answer rather than dropping: the outbox sends
+       * the shift and then the points, in that order, so the trail arrives
+       * complete a moment later instead of being rejected a piece at a time.
+       */
+      // Nowhere to upload to means no foreign key to violate and no ordering
+      // to keep, so the question does not arise. The same pair of conditions
+      // reloadFromBackend and the alert sync use — and it has to be both:
+      // a demo runs with a live backend configured and simply never talks to
+      // it, so isLiveBackend alone would queue every point of a demo shift
+      // and then settle it straight back.
+      const shiftOnServer =
+        !isLiveBackend || demoActive() || syncedShiftsRef.current.has(shift.id);
+      const isOffline =
+        !(navigator.onLine && !s.settings.forceOffline) || !shiftOnServer;
       const point: LocationPoint = {
         id: uid(),
         attendanceId: shift.id,
@@ -1201,9 +1238,40 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       // is exactly the stretch of route that would be lost. Offline fixes
       // batch anyway — they queue in the outbox and flush together.
       if (!isOffline) {
-        persist("save the location trail", () =>
-          insertPoints([point], user.orgId),
-        );
+        persist("save the location trail", async () => {
+          try {
+            await insertPoints([point], user.orgId);
+          } catch (e) {
+            /*
+             * Queue it, because the banner says we did.
+             *
+             * persist reports a failure and does nothing else — it has no
+             * retry — so a point sent and refused was dropped on the floor
+             * while the message on screen promised it was "saved on this
+             * device and will be sent when the connection returns". The
+             * flush only looks at points marked queued, so it never was.
+             * A worker watching that banner had no way to know their route
+             * had a hole in it.
+             */
+            mutate((prev) => ({
+              ...prev,
+              points: prev.points.map((pt) =>
+                pt.id === point.id ? { ...pt, queued: true } : pt,
+              ),
+              outbox: [
+                ...prev.outbox,
+                {
+                  id: rid("ob"),
+                  at: point.at,
+                  kind: "location",
+                  label: "Location point",
+                  payloadId: point.id,
+                } satisfies OutboxItem,
+              ],
+            }));
+            throw e; // persist still raises the banner
+          }
+        });
       }
     },
     [mutate],
@@ -1399,6 +1467,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           mark: a.checkIn,
           status: a.status,
         });
+        syncedShiftsRef.current.add(a.id);
         if (a.checkOut) {
           await insertCheckOut(a.id, {
             mark: a.checkOut,
@@ -1671,8 +1740,8 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       // is the same record with the same id, not a second one. Offline it
       // waits in the outbox above and the flush below sends it.
       if (!isOffline) {
-        persist("record the check-in", () =>
-          insertCheckIn({
+        persist("record the check-in", async () => {
+          await insertCheckIn({
             id: att.id,
             orgId: user.orgId,
             employeeId: att.employeeId,
@@ -1681,8 +1750,10 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
             mark,
             status: att.status,
             shiftId: shiftDef?.id,
-          }),
-        );
+          });
+          // Only now may the trail follow it.
+          syncedShiftsRef.current.add(att.id);
+        });
       }
       pushNotification({
         audience: "manager",
