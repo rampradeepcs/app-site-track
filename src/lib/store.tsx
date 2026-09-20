@@ -872,25 +872,62 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
    */
   useEffect(() => {
     if (!state) return;
+    const orgId = currentOrgId(state);
+    // The platform owner belongs to no company and writes to neither table.
+    const sendable = isLiveBackend && !demoActive() && Boolean(orgId);
+
     const collect = <T extends { id: string }>(
       ref: React.MutableRefObject<Set<string> | null>,
       rows: T[],
     ): T[] => {
+      // The first state seen — this device's own storage — is history, not
+      // news. Seeded even when there is nowhere to send it, or everything it
+      // holds would be posted the moment a company arrived.
       if (!ref.current) {
         ref.current = new Set(rows.map((r) => r.id));
         return [];
       }
+      /*
+       * Nowhere to send yet, so claim nothing.
+       *
+       * This used to mark rows as known and only then discover it had no
+       * company to send them to. currentOrgId is "" until the live hydrate
+       * lands the user row, which is a real window at every sign-in — and a
+       * check-in raised inside it was recorded as already-uploaded and then
+       * never uploaded. Held unclaimed, it goes up on the first pass after
+       * hydration instead.
+       */
+      if (!sendable) return [];
       const fresh = rows.filter((r) => !ref.current!.has(r.id));
       for (const r of fresh) ref.current.add(r.id);
       return fresh;
     };
+
     const audit = collect(knownAuditRef, state.audit);
     const alerts = collect(knownNotifRef, state.notifications);
-    const orgId = currentOrgId(state);
-    // The platform owner belongs to no company and writes to neither table.
-    if (!isLiveBackend || demoActive() || !orgId) return;
+    if (!sendable) return;
     if (audit.length) persist("record the audit entry", () => insertAuditEntries(audit, orgId));
-    if (alerts.length) persist("send the alert", () => insertNotifications(alerts, orgId));
+    if (alerts.length) {
+      const ids = alerts.map((a) => a.id);
+      persist("send the alert", () =>
+        insertNotifications(alerts, orgId).catch((e: unknown) => {
+          /*
+           * Put them back. collect() claimed these the moment it handed them
+           * over and persist does not retry, so an alert raised in a
+           * dead-signal area was claimed, lost, and then wiped from the
+           * raiser's own feed by the next hydrate — which is the worst
+           * shape a bug can have, because the evidence disappears with it.
+           *
+           * Unclaimed, the next state change re-collects them; during a
+           * shift that is every sampling interval. A policy refusal does not
+           * come through here — insertNotifications swallows 42501 — so this
+           * cannot spin on a write the database will always refuse.
+           */
+          for (const id of ids) knownNotifRef.current?.delete(id);
+          throw e; // persist still reports it
+        }),
+      );
+    }
   }, [state]);
 
   /* persist (debounced via rAF batching of React updates) */

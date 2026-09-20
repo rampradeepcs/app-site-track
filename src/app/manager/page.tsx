@@ -83,11 +83,22 @@ export default function ManagerDashboard() {
     }));
 
   const recentUpdates = state.updates.slice(0, 4);
+  /*
+   * Severity alone quietly excluded the news a manager actually opens this
+   * screen for. "X checked in" and "X returned to site" are info, not
+   * warnings, so the one card that reports what is happening on site showed
+   * only what is going wrong on it.
+   *
+   * Unread-and-recent is the better rule: a problem stays until somebody
+   * reads it, routine news ages out of the way on its own.
+   */
   const alerts = state.notifications
     .filter(
       (n) =>
-        (n.severity === "warning" || n.severity === "critical") &&
-        isForMe(n, state.session?.role, state.session?.userId),
+        isForMe(n, state.session?.role, state.session?.userId) &&
+        (n.severity === "warning" ||
+          n.severity === "critical" ||
+          (!n.read && now - n.at < 12 * 60 * 60_000)),
     )
     .slice(0, 4);
 

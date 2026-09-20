@@ -512,7 +512,12 @@ export async function insertNotifications(rows: AppNotification[], orgId: string
     })) as never,
     { onConflict: "id", ignoreDuplicates: true },
   );
-  if (error) throw error;
+  // Tolerated exactly as insertAuditEntries above tolerates it, and for one
+  // more reason: the caller now puts failed rows back to be retried, and a
+  // policy refusal would be refused identically every time. It is also the
+  // wrong thing to show a worker — the alert was raised on their phone
+  // about something their manager needs.
+  if (error && error.code !== "42501") throw error;
 }
 
 export async function markNotificationsReadRemote(audience: AppNotification["audience"], orgId: string) {
