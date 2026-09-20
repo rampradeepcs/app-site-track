@@ -22,7 +22,7 @@
  *    and the shell says so.
  */
 
-import { demoActive } from "../demo/mode";
+import { demoActive, demoDataInMemory } from "../demo/mode";
 import { describeErrorSentence } from "../errors";
 import { isLiveBackend } from "./client";
 
@@ -80,7 +80,13 @@ export function persist(action: string, write: () => Promise<unknown>): void {
    * that was never supposed to happen. It is also what the demo promises in
    * as many words: nothing here reaches a real company's records.
    */
-  if (demoActive()) return;
+  /*
+   * Both questions, because they can disagree for the length of a page.
+   * demoActive is off the moment leaveDemoFor is called; demoDataInMemory
+   * stays true until the reload it triggered actually replaces this page,
+   * which is the window demo records were escaping through.
+   */
+  if (demoActive() || demoDataInMemory()) return;
   void write().then(
     () => {
       // Only clear a failure that this same action raised; another pending

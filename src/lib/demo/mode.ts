@@ -37,10 +37,43 @@ export const DEMO_PLATFORM_KEY = `workfence.demo.platform.v${SEED_VERSION}`;
 export function demoActive(): boolean {
   if (typeof window === "undefined") return false;
   try {
-    return localStorage.getItem(FLAG_KEY) === "1";
+    const on = localStorage.getItem(FLAG_KEY) === "1";
+    // Sticky, and only ever upwards — see demoDataInMemory below. Set here
+    // rather than lazily on first use because the first use might be after
+    // the flag was cleared, which latches the wrong answer: the point is to
+    // notice demo mode while it is still on, and the stores ask this during
+    // hydration, long before anything can turn it off.
+    if (on) sawDemo = true;
+    return on;
   } catch {
     return false;
   }
+}
+
+/**
+ * Whether the data in memory on this page is the demonstration's.
+ *
+ * demoActive() answers a different question — which storage namespace to
+ * read — and leaveDemoFor turns it off mid-life, before a reload it cannot
+ * wait for. window.location.replace does not stop JavaScript: timers keep
+ * firing, promises keep resolving, and the GPS tick keeps recording, all
+ * against the forty-five fictional people still sitting in memory. With the
+ * flag already off, persist stopped short-circuiting and began posting them
+ * to a real company's database. Postgres rejected each one — "invalid input
+ * syntax for type uuid: demo-att-demo-user-employee-…" — which is luck
+ * rather than design, and would not hold for a synthetic id that happened
+ * to parse.
+ *
+ * So this latches the moment demo mode is ever seen on, and never unlatches.
+ * The flag describes storage and can be turned off; a process describes its
+ * data, and a page that has loaded the demonstration is holding it until a
+ * reload replaces the page entirely. Only that reload clears this, by
+ * evaluating the module again.
+ */
+let sawDemo = false;
+
+export function demoDataInMemory(): boolean {
+  return sawDemo;
 }
 
 export function workforceKey(): string {
