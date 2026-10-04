@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from "react";
 import { activeCompanyId, setActiveCompany, subscribeActiveCompany } from "./company";
+import { demoActive, demoDataInMemory } from "./demo/mode";
 import { isLiveBackend } from "./supabase/client";
 import {
   fetchMyCompanies,
@@ -28,7 +29,12 @@ function notify() {
 }
 
 export function loadMyCompanies(force = false): Promise<CompanyMembership[]> {
-  if (!isLiveBackend) return Promise.resolve([]);
+  // A demonstration has no memberships to ask about, and asking sends a real
+  // request to a real database from a session that is not supposed to reach
+  // it. isLiveBackend alone does not cover that: a demo runs with a backend
+  // configured and simply never talks to it — the same two conditions
+  // persist() and reloadFromBackend() already use.
+  if (!isLiveBackend || demoActive() || demoDataInMemory()) return Promise.resolve([]);
   if (!pending || force) {
     pending = fetchMyCompanies()
       .then((list) => {
