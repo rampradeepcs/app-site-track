@@ -273,6 +273,40 @@ function nextShiftCode(s: WorkforceState): string {
  * Tenant of the signed-in user. New records inherit it, so a manager can
  * never create a record that lands in another client's data.
  */
+/**
+ * The shift somebody is on right now, if they are on one.
+ *
+ * "The first row today with a check-in" is not that, and it is the answer
+ * three call sites had reached for. Somebody can work two shifts in a day —
+ * the product offers "Check in again" — and then the first row is the one
+ * they finished, not the one they are in.
+ */
+function openShiftOf(s: WorkforceState, userId: string, date: string) {
+  return s.attendance.find(
+    (a) => a.employeeId === userId && a.date === date && a.checkIn && !a.checkOut && !a.autoClosed,
+  );
+}
+
+/**
+ * The shift a piece of work belongs to: the open one if there is one,
+ * otherwise the one most recently finished today.
+ *
+ * The fallback is not a convenience. Checkout ends on "Add today's work
+ * update", which is written after the shift is closed, and it has to land on
+ * the shift that was just closed — not on an earlier one that happens to
+ * come first in the list.
+ */
+function shiftForWork(s: WorkforceState, userId: string, date: string) {
+  const open = openShiftOf(s, userId, date);
+  if (open) return open;
+  let latest: (typeof s.attendance)[number] | undefined;
+  for (const a of s.attendance) {
+    if (a.employeeId !== userId || a.date !== date || !a.checkIn) continue;
+    if (!latest || a.checkIn.at > latest.checkIn!.at) latest = a;
+  }
+  return latest;
+}
+
 function currentOrgId(s: WorkforceState): string {
   const u = s.users.find((x) => x.id === s.session?.userId);
   return u?.orgId ?? "";
@@ -1699,10 +1733,12 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         };
       }
       const today = todayISO();
-      const dup = s.attendance.find(
-        (a) => a.employeeId === user.id && a.date === today && a.checkIn && !a.autoClosed,
-      );
-      if (dup && !dup.checkOut) return { ok: false, reason: "You're already checked in." };
+      // Asked of the OPEN shift, not of the first one today. The first is
+      // often the one they finished, and a guard that looked only at that
+      // let a second check-in through while a shift was already running.
+      if (openShiftOf(s, user.id, today)) {
+        return { ok: false, reason: "You're already checked in." };
+      }
 
       const isOffline = !(navigator.onLine && !s.settings.forceOffline);
       const mark: AttendanceMark = {
@@ -2997,9 +3033,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       const f = fixRef.current;
       const isOffline = !(navigator.onLine && !s.settings.forceOffline);
       const today = todayISO();
-      const shift = s.attendance.find(
-        (a) => a.employeeId === user.id && a.date === today && a.checkIn,
-      );
+      const shift = shiftForWork(s, user.id, today);
       const update: WorkUpdate = {
         id: uid(),
         employeeId: user.id,
