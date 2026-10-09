@@ -11,7 +11,7 @@ import { useSearchParams } from "next/navigation";
 import { GeofenceEditor } from "@/components/GeofenceEditor";
 import { DISCARD_FENCE, confirmDestructive } from "@/lib/confirm";
 import { ScreenHeader } from "@/components/shell";
-import { useFeature } from "@/components/FeatureGate";
+import { useFeature, useLimitGuard } from "@/components/FeatureGate";
 import { SiteMap, type MapMarker } from "@/components/SiteMap";
 import { BarTrend } from "@/components/charts";
 import { EmployeePicker } from "@/components/EmployeePicker";
@@ -36,6 +36,7 @@ import { useRouter } from "next/navigation";
 import { IArrowR, ICheck, IEdit, IMapPin, IPhone, IPlus, ITarget, IUsers, IX } from "@/components/WfIcons";
 
 type Tab = "overview" | "geofence" | "team" | "attendance" | "updates";
+const TABS: readonly Tab[] = ["overview", "geofence", "team", "attendance", "updates"];
 
 export default function ProjectPage() {
   return (
@@ -51,9 +52,15 @@ function ProjectInner() {
   const params = useSearchParams();
   const id = params.get("id");
   const project = state.projects.find((p) => p.id === id) ?? null;
-  const [tab, setTab] = useState<Tab>("overview");
+  // Opens on ?tab= when given, so Add people can hand back to the Team tab
+  // it was opened from rather than to the overview.
+  const [tab, setTab] = useState<Tab>(() => {
+    const asked = params.get("tab") as Tab | null;
+    return asked && TABS.includes(asked) ? asked : "overview";
+  });
   const canGeofence = useFeature("geofencing");
   const canUpdates = useFeature("workUpdates");
+  const seats = useLimitGuard("employees");
 
   /*
    * A redrawn boundary lives in the editor below and dies with the tab.
@@ -378,9 +385,28 @@ function ProjectInner() {
 
         {tab === "team" && (
           <>
-            <button className="wf-btn wf-btn-primary" onClick={() => setAssigning(true)}>
-              <IPlus size={16} /> Assign employees
-            </button>
+            {/* Two different acts: Assign puts somebody already in the
+                company on this project; Add people brings new people into
+                the company, opened on this project. */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <button className="wf-btn wf-btn-primary" onClick={() => setAssigning(true)}>
+                <IUsers size={16} /> Assign existing
+              </button>
+              {/* A Link has no disabled, and the seat limit has to keep
+                  biting — so the blocked case stays a button that says why. */}
+              {seats.blocked ? (
+                <button className="wf-btn wf-btn-ghost" disabled title={seats.message}>
+                  <IPlus size={16} /> Add people
+                </button>
+              ) : (
+                <Link
+                  href={`/manager/projects/add-people?id=${project.id}`}
+                  className="wf-btn wf-btn-ghost"
+                >
+                  <IPlus size={16} /> Add people
+                </Link>
+              )}
+            </div>
             <div className="flex flex-col gap-2">
               {team.length === 0 && (
                 <p className="wf-card2 px-4 py-6 text-center text-sm text-[var(--wf-muted)]">
@@ -553,10 +579,18 @@ function ProjectInner() {
       {/* assignment sheet */}
       <BottomSheet open={assigning} onClose={() => setAssigning(false)} title="Assign employees" tall fill>
         {unassigned.length === 0 ? (
-          <p className="py-6 text-center text-sm text-[var(--wf-muted)]">
+          <div className="py-6 text-center text-sm text-[var(--wf-muted)]">
             <IUsers size={22} className="mx-auto mb-2" />
-            Every active employee is already on this project.
-          </p>
+            <p>Every active employee is already on this project.</p>
+            {seats.blocked ? null : (
+              <Link
+                href={`/manager/projects/add-people?id=${project.id}`}
+                className="wf-btn wf-btn-ghost wf-btn-sm mt-3"
+              >
+                <IPlus size={14} /> Add people
+              </Link>
+            )}
+          </div>
         ) : (
           /* Single-select: assigning is one tap with nothing to confirm, so
              the row acts immediately rather than building a set. */

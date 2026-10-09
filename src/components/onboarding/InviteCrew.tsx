@@ -438,28 +438,31 @@ export function InviteCrew({
       )}
 
       <div className="flex flex-col gap-2">
-        <div className="flex gap-2">
-          <input
-            className="wf-input min-w-0 flex-1"
-            placeholder="Name"
-            value={name}
-            aria-label="Crew member name"
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addManual()}
-          />
-          <input
-            className="wf-input min-w-0 flex-1"
-            placeholder="Work email"
-            type="email"
-            inputMode="email"
-            autoCapitalize="none"
-            spellCheck={false}
-            aria-label="Crew member work email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addManual()}
-          />
-        </div>
+        <input
+          className="wf-input"
+          placeholder="Name"
+          value={name}
+          aria-label="Crew member name"
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && addManual()}
+        />
+        {/* A row of its own, at full width: the address is the person's
+            unique ID, and half a row truncated it while it was typed. */}
+        <input
+          className="wf-input"
+          placeholder="Work email"
+          type="email"
+          inputMode="email"
+          autoCapitalize="none"
+          spellCheck={false}
+          aria-label="Crew member work email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && addManual()}
+        />
+        {emailProblem(email) ? (
+          <p className="text-[0.76rem] text-[var(--wf-red)]">{emailProblem(email)}</p>
+        ) : null}
         <input
           className="wf-input"
           placeholder="Mobile (optional)"
@@ -469,9 +472,6 @@ export function InviteCrew({
           onChange={(e) => setPhone(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addManual()}
         />
-        {emailProblem(email) ? (
-          <p className="text-[0.76rem] text-[var(--wf-red)]">{emailProblem(email)}</p>
-        ) : null}
         <button
           className="wf-btn wf-btn-ghost wf-btn-sm w-fit"
           onClick={addManual}
