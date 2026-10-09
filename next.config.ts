@@ -16,9 +16,21 @@ const basePath = isPages ? "/app-site-track" : "";
 
 const nextConfig: NextConfig = {
   turbopack: { root: __dirname },
+  /*
+   * `route.server.ts` is a route only when there is a server to run it. A
+   * static export has none, and a route handler that reads its request
+   * fails the export outright — so those files are simply not routes there.
+   * The client treats the endpoint as optional (see MapLinkField).
+   */
+  pageExtensions: isStatic
+    ? ["tsx", "ts", "jsx", "js"]
+    : ["tsx", "ts", "jsx", "js", "server.ts"],
   env: {
     // Exposed so client code can build correct absolute paths when needed.
     NEXT_PUBLIC_BASE_PATH: basePath,
+    // Whether /api routes exist in this build (see pageExtensions below), so
+    // the client can tell a missing endpoint from a failing one up front.
+    NEXT_PUBLIC_HAS_SERVER: isStatic ? "" : "1",
   },
   ...(isStatic
     ? {

@@ -15,6 +15,7 @@ import { ScreenHeader } from "@/components/shell";
 import { SitePlacer } from "@/components/SitePlacer";
 import { Field, FormError, Toggle } from "@/components/ui";
 import { LocationSearch } from "@/components/LocationSearch";
+import { MapLinkField } from "@/components/MapLinkField";
 import { reverseGeocode, type PlaceAddress } from "@/lib/geocode";
 import { UseMyLocation } from "@/components/UseMyLocation";
 import { DISCARD_PROJECT } from "@/lib/confirm";
@@ -88,6 +89,9 @@ export default function NewProjectPage() {
   // narrower policy should be something a manager opts into knowingly.
   const [trackInside, setTrackInside] = useState(true);
   const [error, setError] = useState("");
+  /* A pasted map link still being read. Create waits for it: pressed
+     meanwhile, the project would be saved where the pin was before. */
+  const [linkBusy, setLinkBusy] = useState(false);
 
   /*
    * Whether there is work here worth protecting.
@@ -228,8 +232,8 @@ export default function NewProjectPage() {
               Next — site location <IArrowR size={16} />
             </button>
           ) : (
-            <button className="wf-btn wf-btn-primary" onClick={create}>
-              Create project
+            <button className="wf-btn wf-btn-primary" onClick={create} disabled={linkBusy}>
+              {linkBusy ? "Opening the link…" : "Create project"}
             </button>
           )
         }
@@ -297,15 +301,26 @@ export default function NewProjectPage() {
       ) : (
         <div className="flex flex-col gap-3.5">
           {/*
-            Two ways to place the boundary and no third: stand on it, or
-            find it by name. The address is not asked for — it is read back
-            from wherever the pin lands, below.
+            Three ways to place the boundary: stand on it, find it by name,
+            or paste where Google Maps already has it. The address is not
+            asked for — it is read back from wherever the pin lands, below.
           */}
           <Field
             label="Find on the map"
             hint="Jumps the map to a place — then drag the pin to sit it exactly."
           >
             <LocationSearch
+              onPick={(hit) => {
+                setLocation(hit.at);
+                setFocus(hit.at);
+              }}
+            />
+          </Field>
+          {/* The exact spot, for whoever already has it in Google Maps —
+              which is most people, and is far quicker than panning. */}
+          <Field label="Or paste a Google Maps link">
+            <MapLinkField
+              onBusyChange={setLinkBusy}
               onPick={(hit) => {
                 setLocation(hit.at);
                 setFocus(hit.at);

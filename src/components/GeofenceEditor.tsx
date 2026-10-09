@@ -10,9 +10,10 @@
 import { useEffect, useState } from "react";
 import { SiteMap } from "./SiteMap";
 import { UseMyLocation } from "./UseMyLocation";
+import { MapLinkField } from "./MapLinkField";
 import { offsetMeters } from "@/lib/geo";
 import type { Geofence, LatLng, Project } from "@/lib/types";
-import { Segmented } from "./ui";
+import { Field, Segmented } from "./ui";
 import { showToast } from "@/lib/toast";
 import { ICheck, IRefresh, ITrash } from "./WfIcons";
 
@@ -42,9 +43,12 @@ export function GeofenceEditor({
   /* Where to point the map, which is not the same as where the fence is.
      The centre moves on every tick of a handle drag; re-centring on those
      would drag the ground out from under the finger. Only an explicit jump
-     — a GPS fix — sets this. */
+     — a GPS fix or a pasted map link — sets this. */
   const [focus, setFocus] = useState<LatLng | null>(null);
   const [dirty, setDirty] = useState(false);
+  /* A pasted map link still being read: Save waits, so it cannot settle a
+     boundary the link is about to move. */
+  const [linkBusy, setLinkBusy] = useState(false);
 
   useEffect(() => onDirty?.(dirty), [dirty, onDirty]);
 
@@ -128,6 +132,35 @@ export function GeofenceEditor({
           </div>
         )}
       </div>
+
+      {/*
+        The other way to say where the site is, for a manager who is not
+        standing on it: the spot as Google Maps already has it.
+
+        A circle moves with it, view and centre together, for the same reason
+        Centre on my location does. A polygon does not — it has no single
+        centre, and shifting every corner is not what a link asks for — so
+        there it only takes the map there, to draw the corners around it.
+      */}
+      <Field label="Google Maps link">
+        <MapLinkField
+          /* A new field per shape: what a pasted link does depends on the
+             shape, so a confirmation — or a lookup still in flight — from
+             the other one must not carry over and describe the wrong act. */
+          key={draft.kind}
+          onBusyChange={setLinkBusy}
+          effect={
+            draft.kind === "circle"
+              ? "Moves the boundary's centre to that spot."
+              : "Moves the map to that spot, to draw the corners around it."
+          }
+          movedLabel={draft.kind === "circle" ? "Boundary moved to" : "Map moved to"}
+          onPick={(hit) => {
+            if (draft.kind === "circle") patch({ center: hit.at });
+            setFocus(hit.at);
+          }}
+        />
+      </Field>
 
       <SiteMap
         project={project}
@@ -237,7 +270,7 @@ export function GeofenceEditor({
             is already saved and invites a second, identical save. */}
         <button
           className="wf-btn wf-btn-primary wf-btn-lg w-full"
-          disabled={!valid || !dirty}
+          disabled={!valid || !dirty || linkBusy}
           onClick={() => {
             onSave(draft);
             setDirty(false);

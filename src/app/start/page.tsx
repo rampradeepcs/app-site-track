@@ -183,6 +183,11 @@ function StartWizard() {
     location: FALLBACK_CENTRE,
     radius: 80,
   });
+  /* A map link pasted on the site or office step and still being read.
+     Continue waits for it, or the premise would go forward with the pin
+     where it was — here, the fallback centre in another city. One flag for
+     both steps: only one is ever on screen. */
+  const [linkBusy, setLinkBusy] = useState(false);
   const [crew, setCrew] = useState<CrewInvite[]>([]);
   const [orgName, setOrgName] = useState("");
 
@@ -668,6 +673,7 @@ function StartWizard() {
             value={site}
             onChange={setSite}
             namePlaceholder="e.g. Riverside Tower"
+            onLinkBusyChange={setLinkBusy}
           >
             <div className="wf-card2 flex flex-col gap-3 p-4">
               <span className="text-[0.72rem] font-bold tracking-wider uppercase text-[var(--wf-muted)]">
@@ -711,10 +717,16 @@ function StartWizard() {
 
           <button
             className="wf-btn wf-btn-primary wf-btn-lg"
-            disabled={!site.name.trim()}
+            disabled={!site.name.trim() || linkBusy}
             onClick={() => setStep(wantOffice ? "office" : "crew")}
           >
-            Continue <IArrowR size={17} />
+            {linkBusy ? (
+              "Opening the link…"
+            ) : (
+              <>
+                Continue <IArrowR size={17} />
+              </>
+            )}
           </button>
         </div>
       ) : null}
@@ -735,13 +747,20 @@ function StartWizard() {
             value={office}
             onChange={setOffice}
             namePlaceholder="e.g. Head Office"
+            onLinkBusyChange={setLinkBusy}
           />
           <button
             className="wf-btn wf-btn-primary wf-btn-lg"
-            disabled={!office.name.trim()}
+            disabled={!office.name.trim() || linkBusy}
             onClick={() => setStep("crew")}
           >
-            Continue <IArrowR size={17} />
+            {linkBusy ? (
+              "Opening the link…"
+            ) : (
+              <>
+                Continue <IArrowR size={17} />
+              </>
+            )}
           </button>
         </div>
       ) : null}

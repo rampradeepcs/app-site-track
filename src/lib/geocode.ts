@@ -41,6 +41,42 @@ interface NominatimAddress {
   country?: string;
 }
 
+export interface PlaceHit {
+  id: string;
+  label: string;
+  at: LatLng;
+}
+
+/**
+ * Find places by name — the forward direction, for LocationSearch and for a
+ * map link that names a place without saying where it is. Throws when the
+ * service cannot be reached, so a caller can tell "nothing matched" from
+ * "could not ask".
+ */
+export async function searchPlaces(
+  query: string,
+  signal?: AbortSignal,
+  limit = 5,
+): Promise<PlaceHit[]> {
+  const res = await fetch(
+    `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=${limit}&q=` +
+      encodeURIComponent(query),
+    { headers: { Accept: "application/json" }, signal },
+  );
+  if (!res.ok) throw new Error(String(res.status));
+  const rows: Array<{
+    place_id: number;
+    display_name: string;
+    lat: string;
+    lon: string;
+  }> = await res.json();
+  return rows.map((r) => ({
+    id: String(r.place_id),
+    label: r.display_name,
+    at: { lat: Number(r.lat), lng: Number(r.lon) },
+  }));
+}
+
 /**
  * Ask what is at this point. Resolves to null rather than throwing: a
  * lookup that fails is a missing label, not a broken screen.

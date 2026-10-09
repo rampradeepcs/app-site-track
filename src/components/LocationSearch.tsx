@@ -12,13 +12,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { IMapPin, ISearch } from "./WfIcons";
-import type { LatLng } from "@/lib/types";
+import { searchPlaces, type PlaceHit } from "@/lib/geocode";
 
-export interface PlaceHit {
-  id: string;
-  label: string;
-  at: LatLng;
-}
+export type { PlaceHit };
 
 /**
  * Free-text place search over Nominatim — OpenStreetMap's geocoder, the same
@@ -46,26 +42,9 @@ export function LocationSearch({ onPick }: { onPick: (hit: PlaceHit) => void }) 
     setBusy(true);
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(
-          "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=" +
-            encodeURIComponent(query),
-          { headers: { Accept: "application/json" } },
-        );
-        if (!res.ok) throw new Error(String(res.status));
-        const rows: Array<{
-          place_id: number;
-          display_name: string;
-          lat: string;
-          lon: string;
-        }> = await res.json();
+        const found = await searchPlaces(query);
         if (seq.current !== id) return;
-        setHits(
-          rows.map((r) => ({
-            id: String(r.place_id),
-            label: r.display_name,
-            at: { lat: Number(r.lat), lng: Number(r.lon) },
-          })),
-        );
+        setHits(found);
         setBusy(false);
       } catch {
         if (seq.current !== id) return;

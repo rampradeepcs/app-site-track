@@ -18,6 +18,7 @@ import { SitePlacer } from "../SitePlacer";
 import { UseMyLocation } from "../UseMyLocation";
 import { Field } from "../ui";
 import { LocationSearch } from "../LocationSearch";
+import { MapLinkField } from "../MapLinkField";
 import type { Geofence, LatLng } from "@/lib/types";
 
 export interface PremiseFields {
@@ -31,16 +32,22 @@ export function PremiseStep({
   value,
   onChange,
   namePlaceholder,
+  onLinkBusyChange,
   children,
 }: {
   value: PremiseFields;
-  onChange: (next: PremiseFields) => void;
+  /** A state setter: a map link resolves after the paste, and its update
+   *  has to merge into the fields as they are by then. */
+  onChange: React.Dispatch<React.SetStateAction<PremiseFields>>;
   namePlaceholder: string;
+  /** Whether a pasted map link is still being read — the step's Continue
+   *  should wait for it. See MapLinkField. */
+  onLinkBusyChange?: (busy: boolean) => void;
   children?: React.ReactNode;
 }) {
   /*
-   * Where the map should jump: set on a search pick or a geolocation fix,
-   * never on a tap. A tap already happens inside the current view, and
+   * Where the map should jump: set on a search pick, a pasted map link or a
+   * geolocation fix, never on a tap. A tap already happens inside the current view, and
    * recentring under someone's finger while they fine-tune reads as the map
    * fighting them. A fresh object each time, because `follow` recentres on
    * reference change.
@@ -87,6 +94,27 @@ export function PremiseStep({
               location: hit.at,
               address: value.address.trim() ? value.address : hit.label,
             });
+          }}
+        />
+      </Field>
+
+      {/* The exact spot, for whoever already has it in Google Maps —
+          which is most people, and far quicker than panning. */}
+      <Field label="Or paste a Google Maps link">
+        <MapLinkField
+          onBusyChange={onLinkBusyChange}
+          onPick={(hit) => {
+            setFocus(hit.at);
+            // An updater, not a spread of `value`: a short link resolves a
+            // second or two after the paste, and whatever was typed into
+            // the step meanwhile has to survive it.
+            onChange((v) => ({
+              ...v,
+              location: hit.at,
+              // As with a search pick: a typed address is never replaced,
+              // and a place name is better than nothing in an empty one.
+              address: v.address.trim() ? v.address : (hit.name ?? ""),
+            }));
           }}
         />
       </Field>
