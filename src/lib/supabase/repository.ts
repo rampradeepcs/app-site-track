@@ -40,6 +40,7 @@ import type {
 } from "./types";
 import type { ProvisionResult, SignupPayload } from "./types";
 import { activeCompanyId } from "../company";
+import { thisDeviceEndpoint } from "../device-notifications";
 import type {
   LabourTeam,
   LabourTeamMember,
@@ -509,6 +510,9 @@ export async function insertNotifications(rows: AppNotification[], orgId: string
       link: n.link ?? null,
       read: n.read,
       at: iso(n.at),
+      // So the server does not push it back to this device, which has
+      // already shown it (see the notifications fan-out migration).
+      raised_on: thisDeviceEndpoint(),
     })) as never,
     { onConflict: "id", ignoreDuplicates: true },
   );

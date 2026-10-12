@@ -3,14 +3,16 @@
 /**
  * Manager settings — its own screen.
  *
- * Tracking, retention and the destructive device reset. None of it
- * belonged behind a tab beside a feed of work updates.
+ * Notifications, tracking, retention and the destructive device reset.
+ * None of it belonged behind a tab beside a feed of work updates. Admins
+ * reach this screen too, from their own More menu.
  */
 
 import { ScreenHeader } from "@/components/shell";
 import { PersonaMenuEntry } from "@/components/demo/PersonaMenuEntry";
 import { AccountPanel } from "@/components/shell";
 import { ThemeControl } from "@/components/ThemeControl";
+import { NotificationSettings } from "@/components/NotificationSettings";
 import { Field, SectionTitle } from "@/components/ui";
 import { fmtDateLong } from "@/lib/format";
 import { useWorkforce } from "@/lib/store";
@@ -21,8 +23,9 @@ export default function ManagerSettings() {
   const { state, updateSettings, eraseLocalData } = useWorkforce();
   return (
     <div>
-      <ScreenHeader back title="Settings" sub="Tracking, appearance and this device" />
+      <ScreenHeader back title="Settings" sub="Notifications, tracking and this device" />
       <div className="flex flex-col gap-3 px-4">
+            <NotificationSettings />
             <div className="wf-card flex flex-col gap-4 p-4">
               <SectionTitle>Tracking policy</SectionTitle>
               <Field

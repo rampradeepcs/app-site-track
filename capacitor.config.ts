@@ -21,6 +21,11 @@ const config: CapacitorConfig = {
       // per client from Platform Settings.
       enableHighAccuracy: true,
     },
+    PushNotifications: {
+      // A push that lands while the app is open is shown by the app itself,
+      // from the live feed, so the OS must not show a second copy.
+      presentationOptions: [],
+    },
   },
 };
 

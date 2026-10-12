@@ -491,6 +491,35 @@ export type Database = {
        * pass the read on both and be greeted twice.
        */
       claim_welcome: { Args: Record<string, never>; Returns: Json };
+      /**
+       * The caller's notification preferences, per category and channel —
+       * see src/lib/notification-prefs.ts and
+       * supabase/migrations/*_notifications_everywhere.sql.
+       */
+      my_notification_prefs: { Args: Record<string, never>; Returns: Json };
+      /** One switch; returns everything stored. */
+      set_my_notification_pref: {
+        Args: {
+          p_category: "attendance" | "tracking" | "work" | "team" | "reminders" | "system";
+          p_channel: "inApp" | "device";
+          p_value: boolean;
+        };
+        Returns: Json;
+      };
+      /** This device, as somewhere the caller's notifications are pushed. */
+      register_push_subscription: {
+        Args: {
+          p_platform: "web" | "fcm" | "apns";
+          p_endpoint: string;
+          p_p256dh?: string | null;
+          p_auth?: string | null;
+          p_user_agent?: string | null;
+        };
+        Returns: undefined;
+      };
+      unregister_push_subscription: { Args: { p_endpoint: string }; Returns: undefined };
+      /** The public half of the web-push signing key, or null before the first push. */
+      push_vapid_public_key: { Args: Record<string, never>; Returns: string | null };
       /** Public: name and branding of the company at a subdomain, or null. */
       tenant_branding: {
         Args: { p_slug: string };

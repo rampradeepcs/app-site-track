@@ -10,6 +10,7 @@ import { ToastHost } from "@/components/ToastHost";
 import { TileCache } from "@/components/TileCache";
 import { NoteReminders } from "@/components/NoteReminders";
 import { NativeNotifications } from "@/components/NativeNotifications";
+import { LiveNotifications } from "@/components/LiveNotifications";
 import { SsoReturn } from "@/components/SsoReturn";
 import { WelcomeAboard } from "@/components/WelcomeAboard";
 import { WatchLink } from "@/components/WatchLink";
@@ -65,6 +66,7 @@ export default function RootLayout({
               <TileCache />
               <NoteReminders />
               <NativeNotifications />
+              <LiveNotifications />
               <SsoReturn />
               <WelcomeAboard />
               <WatchLink />

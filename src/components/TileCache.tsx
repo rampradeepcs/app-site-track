@@ -14,18 +14,17 @@
  */
 
 import { useEffect } from "react";
+import { serviceWorker } from "@/lib/device-notifications";
 
 export function TileCache() {
   useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
-    // A worker needs a secure context. That covers the Capacitor shell,
-    // which serves the app from https://localhost, and any real
-    // deployment; a plain-http dev host simply goes without.
-    if (!window.isSecureContext) return;
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      /* No cache, and the map falls back to fetching every tile — which is
-         exactly how it behaved before. Nothing to report to the user. */
-    });
+    // The same worker shows notifications, so it is registered in one place
+    // (lib/device-notifications) — under the site's base path, which the old
+    // "/sw.js" missed on a build served from a sub-path. A worker needs a
+    // secure context: the Capacitor shell (https://localhost), any real
+    // deployment, or localhost in development. Without one there is no
+    // cache, and the map fetches every tile, as it always could.
+    void serviceWorker();
   }, []);
   return null;
 }

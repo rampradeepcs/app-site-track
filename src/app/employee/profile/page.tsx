@@ -24,6 +24,8 @@ import { SalaryAndShiftSection } from "@/components/SalarySection";
 import { useWorkforce } from "@/lib/store";
 import type { Permissions } from "@/lib/types";
 import { ERASE_DEVICE, confirmDestructive } from "@/lib/confirm";
+import { useNotificationPrefs, wants } from "@/lib/notification-prefs";
+import { NotificationSettings } from "@/components/NotificationSettings";
 import {
   IAlert,
   ICamera,
@@ -62,14 +64,16 @@ function ProfileInner() {
     [state, currentUser],
   );
 
+  const prefs = useNotificationPrefs();
   const notifications = useMemo(
     () =>
       state.notifications.filter(
         (n) =>
           n.audience === "employee" &&
-          (!n.userId || n.userId === currentUser?.id),
+          (!n.userId || n.userId === currentUser?.id) &&
+          wants(prefs, n, "inApp"),
       ),
-    [state.notifications, currentUser],
+    [state.notifications, currentUser, prefs],
   );
 
   if (!currentUser || !perf) return null;
@@ -260,6 +264,7 @@ function ProfileInner() {
 
         {tab === "settings" && (
           <>
+            <NotificationSettings />
             <div className="wf-card flex flex-col gap-4 p-4">
               <Field label="Location source" hint="Device GPS uses your real position. Simulated walks you around your site instead, for trying the app away from it.">
                 <Segmented

@@ -1,4 +1,11 @@
 /*
+ * The app's one service worker: the map tile cache, and notifications.
+ *
+ * Notifications (at the end of this file) arrive two ways — posted by the
+ * open page through registration.showNotification, and pushed by the server
+ * when the site is closed — and both are tagged with the notification's id,
+ * so they are always one notification, never two.
+ *
  * Map tile cache.
  *
  * The app already works with no signal — GPS, geofencing, check-in and the
@@ -7,9 +14,10 @@
  * returns to the same gate every day, so the tiles for a site are almost
  * always ones this device has already displayed.
  *
- * Deliberately narrow: this worker touches nothing but tile requests. It
- * does not cache the app shell, which would mean shipping a second, subtly
- * stale copy of the product and a cache-busting problem to go with it.
+ * Deliberately narrow: of the network, this worker touches nothing but tile
+ * requests. It does not cache the app shell, which would mean shipping a
+ * second, subtly stale copy of the product and a cache-busting problem to go
+ * with it.
  *
  * Cache-first with a background refresh. A map tile of a road junction does
  * not change between one shift and the next, so serving the stored copy
@@ -92,6 +100,67 @@ self.addEventListener("fetch", (event) => {
         '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"></svg>',
         { headers: { "Content-Type": "image/svg+xml" }, status: 200 },
       );
+    })(),
+  );
+});
+
+/* ------------------------------------------------------- notifications -- */
+
+/**
+ * A path inside the app, resolved against where this worker is served.
+ * Exactly one leading slash: "//elsewhere" and "/\\elsewhere" are other
+ * sites to a URL parser, and a tapped notification must never be a redirect.
+ * Anything that does not land inside this app opens its home instead.
+ */
+function appUrl(link) {
+  // As isAppLink in lib/notify.ts: one leading slash, and no whitespace,
+  // control character or backslash, which parsers drop or reinterpret.
+  const ok = typeof link === "string" && /^\/(?![\/\\])[^\x00-\x20\x7f\\]*$/.test(link);
+  const path = ok ? link.slice(1) : "";
+  const url = new URL(path, self.registration.scope);
+  return url.href.startsWith(self.registration.scope) ? url.href : self.registration.scope;
+}
+
+/*
+ * A push from the server: the site may be closed, in the background, or open.
+ * Always shown, even with the site in front: Safari takes away the push
+ * subscription of a site whose pushes show nothing, three strikes and out.
+ * Shown under the notification's id, the same tag the open page posts its
+ * own copy with, so the two are one notification rather than two.
+ */
+self.addEventListener("push", (event) => {
+  let n = {};
+  try {
+    n = event.data ? event.data.json() : {};
+  } catch {
+    n = { title: "Workfence", body: event.data ? event.data.text() : "" };
+  }
+  event.waitUntil(
+    (async () => {
+      await self.registration.showNotification(n.title || "Workfence", {
+        body: n.body || "",
+        tag: n.id || undefined,
+        icon: appUrl("/icon.svg"),
+        data: { link: n.link || null },
+      });
+    })(),
+  );
+});
+
+/* Tapping one opens what it is about: in the window already open, if any. */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = appUrl(event.notification.data && event.notification.data.link);
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const mine = windows.find((w) => w.url.startsWith(self.registration.scope));
+      if (mine) {
+        await mine.focus();
+        if ("navigate" in mine) await mine.navigate(target).catch(() => {});
+        return;
+      }
+      await self.clients.openWindow(target);
     })(),
   );
 });

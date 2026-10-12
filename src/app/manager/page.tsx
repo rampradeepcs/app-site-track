@@ -29,6 +29,7 @@ import {
 } from "@/lib/metrics";
 import { useWorkforce } from "@/lib/store";
 import { isForMe } from "@/lib/notify";
+import { useNotificationPrefs, wants } from "@/lib/notification-prefs";
 import { fmtINR, todayShiftKpis } from "@/lib/payroll";
 import { useFeature } from "@/components/FeatureGate";
 import {
@@ -58,6 +59,7 @@ const MANAGER_SHORTCUTS: QuickAction[] = [
 
 export default function ManagerDashboard() {
   const { state, currentUser } = useWorkforce();
+  const prefs = useNotificationPrefs();
   const now = useNowTick(15);
   const stats = useMemo(() => dashboardStats(state, now), [state, now]);
   const sources = useMemo(() => attendanceSources(state), [state]);
@@ -96,6 +98,7 @@ export default function ManagerDashboard() {
     .filter(
       (n) =>
         isForMe(n, state.session?.role, state.session?.userId) &&
+        wants(prefs, n, "inApp") &&
         (n.severity === "warning" ||
           n.severity === "critical" ||
           (!n.read && now - n.at < 12 * 60 * 60_000)),

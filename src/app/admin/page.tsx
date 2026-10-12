@@ -18,6 +18,7 @@ import { attendanceTrend, dashboardStats, liveBoard, needsAttention } from "@/li
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
 import { isForMe } from "@/lib/notify";
+import { useNotificationPrefs, wants } from "@/lib/notification-prefs";
 import { useViewingOrgId } from "@/components/FeatureGate";
 import {
   IAlert,
@@ -44,6 +45,7 @@ const ADMIN_SHORTCUTS: QuickAction[] = [
 
 export default function AdminOverview() {
   const { state, currentUser } = useWorkforce();
+  const prefs = useNotificationPrefs();
   const { platform } = usePlatform();
   const viewingOrgId = useViewingOrgId();
   const org = platform.organizations.find((o) => o.id === viewingOrgId);
@@ -60,7 +62,8 @@ export default function AdminOverview() {
     .filter(
       (n) =>
         (n.severity === "warning" || n.severity === "critical") &&
-        isForMe(n, state.session?.role, state.session?.userId),
+        isForMe(n, state.session?.role, state.session?.userId) &&
+        wants(prefs, n, "inApp"),
     )
     .slice(0, 5);
 

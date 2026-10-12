@@ -71,6 +71,8 @@ import {
   signOut as authSignOut,
 } from "./supabase/auth";
 import { recordGateNotice } from "./gate-notice";
+import { noteOrigin, originOf } from "./notify";
+import { forgetThisDevice } from "./device-notifications";
 import { activeCompanyId, setActiveCompany } from "./company";
 import { refreshMyCompanies } from "./companies";
 import { BootMark } from "@/components/Brand";
@@ -567,6 +569,8 @@ interface StoreApi {
   updateSettings: (patch: Partial<Settings>) => void;
   markNotificationsRead: (audience: Role) => void;
   pushNotification: (n: Omit<AppNotification, "id" | "at" | "read">) => void;
+  /** Notifications that arrived live from the server (see LiveNotifications). */
+  receiveNotifications: (items: AppNotification[]) => void;
   /* labour teams */
   saveTeam: (patch: Partial<LabourTeam> & { name: string; projectId: string }, id?: string) => LabourTeam;
   setTeamStatus: (teamId: string, status: LabourTeamStatus) => void;
@@ -652,6 +656,10 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
      beyond these is new here and is written. */
   const knownAuditRef = useRef<Set<string> | null>(null);
   const knownNotifRef = useRef<Set<string> | null>(null);
+  /* When each live arrival landed, so a hydrate already in flight keeps it. */
+  const liveArrivalsRef = useRef<Map<string, number>>(new Map());
+  /* Raised here and on their way up, so a hydrate does not drop them mid-flight. */
+  const uploadingNotifRef = useRef<Set<string>>(new Set());
   const [fix, setFix] = useState<LiveFix | null>(null);
   const [simScenario, setSimScenarioRaw] = useState<SimScenario>("approach");
 
@@ -717,6 +725,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
    */
   const reloadFromBackend = useCallback(async () => {
     if (!isLiveBackend || demoActive()) return;
+    const fetchedFrom = Date.now();
     let live: Awaited<ReturnType<typeof fetchWorkforce>>;
     try {
       live = await fetchWorkforce();
@@ -735,23 +744,47 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       ...(knownAuditRef.current ?? []),
       ...live.audit.map((a) => a.id),
     ]);
+    // Rows raised here that the server has not confirmed: never sent, sent
+    // and failed, or still on the way. Known before this read began.
+    const knownBefore = knownNotifRef.current;
     knownNotifRef.current = new Set([
       ...(knownNotifRef.current ?? []),
       ...live.notifications.map((n) => n.id),
     ]);
-    setState((prev) =>
-      prev
-        ? {
-            ...prev,
-            users: live.users,
-            projects: live.projects,
-            attendance: live.attendance,
-            updates: live.updates,
-            audit: live.audit,
-            notifications: live.notifications,
-          }
-        : prev,
-    );
+    setState((prev) => {
+      if (!prev) return prev;
+      // Rows this read brought that the device did not have are history, not
+      // news — the tray must not announce them (lib/notify noteOrigin).
+      const had = new Set(prev.notifications.map((n) => n.id));
+      noteOrigin(
+        live.notifications.filter((n) => !had.has(n.id)).map((n) => n.id),
+        "server",
+      );
+      // And rows that arrived live, or were raised here, while the read was
+      // in flight are newer than its snapshot; replacing the list wholesale
+      // would drop them — and one raised here whose upload then failed would
+      // never be retried, because the retry looks for it in the list.
+      const fetched = new Set(live.notifications.map((n) => n.id));
+      const unsent = (id: string) =>
+        uploadingNotifRef.current.has(id) || (knownBefore !== null && !knownBefore.has(id));
+      const arrived = prev.notifications.filter(
+        (n) =>
+          !fetched.has(n.id) &&
+          ((liveArrivalsRef.current.get(n.id) ?? 0) >= fetchedFrom ||
+            (originOf(n.id) === "local" && (unsent(n.id) || n.at >= fetchedFrom))),
+      );
+      return {
+        ...prev,
+        users: live.users,
+        projects: live.projects,
+        attendance: live.attendance,
+        updates: live.updates,
+        audit: live.audit,
+        notifications: arrived.length
+          ? [...arrived, ...live.notifications].sort((a, b) => b.at - a.at).slice(0, 300)
+          : live.notifications,
+      };
+    });
     // Only here, after the users and projects are in. Both early returns
     // above — a thrown read and a read that came back with no visible rows —
     // deliberately leave it alone, so a failure reads as "we do not know"
@@ -829,6 +862,9 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       setState((s) => (s?.session ? { ...s, session: null } : s));
       setFix(null);
       recordGateNotice(reason);
+      // Nobody is signed in here now, so nobody's notifications should be
+      // pushed here either.
+      void forgetThisDevice("ended");
     },
     [],
   );
@@ -967,23 +1003,31 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     if (audit.length) persist("record the audit entry", () => insertAuditEntries(audit, orgId));
     if (alerts.length) {
       const ids = alerts.map((a) => a.id);
+      for (const id of ids) uploadingNotifRef.current.add(id);
       persist("send the alert", () =>
-        insertNotifications(alerts, orgId).catch((e: unknown) => {
-          /*
-           * Put them back. collect() claimed these the moment it handed them
-           * over and persist does not retry, so an alert raised in a
-           * dead-signal area was claimed, lost, and then wiped from the
-           * raiser's own feed by the next hydrate — which is the worst
-           * shape a bug can have, because the evidence disappears with it.
-           *
-           * Unclaimed, the next state change re-collects them; during a
-           * shift that is every sampling interval. A policy refusal does not
-           * come through here — insertNotifications swallows 42501 — so this
-           * cannot spin on a write the database will always refuse.
-           */
-          for (const id of ids) knownNotifRef.current?.delete(id);
-          throw e; // persist still reports it
-        }),
+        insertNotifications(alerts, orgId)
+          .then(() => {
+            for (const id of ids) uploadingNotifRef.current.delete(id);
+          })
+          .catch((e: unknown) => {
+            /*
+             * Put them back. collect() claimed these the moment it handed them
+             * over and persist does not retry, so an alert raised in a
+             * dead-signal area was claimed, lost, and then wiped from the
+             * raiser's own feed by the next hydrate — which is the worst
+             * shape a bug can have, because the evidence disappears with it.
+             *
+             * Unclaimed, the next state change re-collects them; during a
+             * shift that is every sampling interval. A policy refusal does not
+             * come through here — insertNotifications swallows 42501 — so this
+             * cannot spin on a write the database will always refuse.
+             */
+            for (const id of ids) {
+              knownNotifRef.current?.delete(id);
+              uploadingNotifRef.current.delete(id);
+            }
+            throw e; // persist still reports it
+          }),
       );
     }
   }, [state]);
@@ -1079,6 +1123,41 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ...s.notifications,
         ].slice(0, 200),
       }));
+    },
+    [mutate],
+  );
+
+  /*
+   * Notifications that arrived live — raised on somebody else's device, or
+   * by the database itself. They are already stored on the server, so they
+   * are counted as sent before they land: the upload pass above sends every
+   * row it has not seen, and would otherwise write each one back again. One
+   * this device raised itself comes back too, and is simply already here.
+   */
+  const receiveNotifications = useCallback(
+    (items: AppNotification[]) => {
+      if (items.length === 0) return;
+      for (const n of items) knownNotifRef.current?.add(n.id);
+      mutate((s) => {
+        const have = new Set(s.notifications.map((n) => n.id));
+        const fresh = items.filter((n) => !have.has(n.id));
+        if (fresh.length === 0) return s;
+        noteOrigin(
+          fresh.map((n) => n.id),
+          "live",
+        );
+        const now = Date.now();
+        for (const n of fresh) liveArrivalsRef.current.set(n.id, now);
+        if (liveArrivalsRef.current.size > 500) {
+          for (const [id, t] of liveArrivalsRef.current) {
+            if (now - t > 10 * 60_000) liveArrivalsRef.current.delete(id);
+          }
+        }
+        return {
+          ...s,
+          notifications: [...fresh, ...s.notifications].sort((a, b) => b.at - a.at).slice(0, 300),
+        };
+      });
     },
     [mutate],
   );
@@ -4736,6 +4815,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     updateSettings,
     markNotificationsRead,
     pushNotification,
+    receiveNotifications,
     eraseLocalData,
   };
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;

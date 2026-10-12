@@ -3,3 +3,10 @@
 # `supabase login`) or, more simply, `--db-url` with the connection string.
 # See supabase/README.md.
 project_id = "fdxwxcwnzzcsnsxdhzjj"
+
+# The push sender is called by a database trigger, not by a signed-in user, so
+# it has no user JWT to verify. It checks its own shared secret
+# (private.push_config.trigger_secret) on every POST instead; GET only hands
+# out the public VAPID key.
+[functions.push]
+verify_jwt = false

@@ -294,3 +294,43 @@ No computed money is stored anywhere in these tables. They hold inputs and
 judgements — rules, routes, approvals — and every amount the app shows is
 recalculated from them, so a figure on screen can never drift from the
 evidence behind it.
+
+## Notifications on every device
+
+`20261011120000_notifications_everywhere.sql` and the `push` edge function.
+Every row in `notifications` now fans out from an insert trigger: live to open
+apps over Realtime Broadcast (private topics, authorised by a policy on
+`realtime.messages`), and pushed by the `push` function to every device the
+recipients registered. Who receives what is the app's own rule
+(`isForMe` in `src/lib/notify.ts`), each person's choices in Settings
+(`profiles.notification_prefs`), never the device that raised it, only rows
+less than fifteen minutes old, and from any one member's API writes no more
+than sixty a minute to one recipient and six hundred in all (counted by a
+server-side `inserted_at`, which clients cannot set).
+
+Deploy the function with JWT verification off — its caller is the database,
+which proves itself with `private.push_config.trigger_secret` instead
+(`supabase/config.toml` already says so):
+
+```bash
+supabase functions deploy push --no-verify-jwt
+```
+
+**Browsers** need nothing else. The function makes its Web Push (VAPID) key
+pair on first request and keeps it in `private.push_config`; no key is ever
+pasted anywhere.
+
+**Android and iOS** — closed-app push — also need, before building with
+`NEXT_PUBLIC_NATIVE_PUSH=1` (without it the apps post only while running,
+which is safe; registering without Firebase set up crashes Android at launch):
+
+- Android: a Firebase project for `app.workfence.workforce`, its
+  `google-services.json` in `android/app/`, and the service-account JSON as a
+  function secret: `supabase secrets set FCM_SERVICE_ACCOUNT="$(cat sa.json)"`.
+- iOS: the Push Notifications capability on the App target in Xcode (it adds
+  the `aps-environment` entitlement), and an APNs key (.p8) as secrets
+  `APNS_KEY`, `APNS_KEY_ID`, `APNS_TEAM_ID`, plus `APNS_ENV=development` for
+  builds run from Xcode (production is the default).
+
+The Settings screen says, per device, whether alerts reach it with the app
+closed; the push function reports which platforms it has credentials for.

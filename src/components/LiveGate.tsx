@@ -28,6 +28,7 @@ import {
   sendOtp,
   sessionEmail,
   signOut,
+  signingOutNow,
   verifyOtp,
 } from "@/lib/supabase/auth";
 import { SsoButtons } from "./SsoButtons";
@@ -245,7 +246,9 @@ export default function LiveGate() {
   useEffect(() => {
     let cancelled = false;
     const off = onAuthChange((event) => {
-      if (event !== "signed-in") return;
+      // A token refreshed while a sign-out is still finishing is not
+      // somebody arriving.
+      if (event !== "signed-in" || signingOutNow()) return;
       void (async () => {
         if (cancelled || state.session) return;
         console.info("[sso] gate: session arrived");
@@ -255,7 +258,10 @@ export default function LiveGate() {
           // control they used, the same address reaches the same place.
           const ok = await enter();
           if (cancelled || ok) return;
-          // Authenticated, and on no company: straight to founding one.
+          // Authenticated, and on no company: straight to founding one —
+          // provided there is still a session; one that ended meanwhile was
+          // a sign-out, not a newcomer.
+          if (!(await sessionEmail())) return;
           toOnboarding();
         } catch (e) {
           // Said on screen. A rejection here used to vanish into the

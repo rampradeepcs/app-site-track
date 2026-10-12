@@ -26,6 +26,7 @@ import {
   ILayers,
   IMapPin,
   INav,
+  ISettings,
   IShield,
   IWallet,
 } from "@/components/WfIcons";
@@ -118,6 +119,13 @@ const ITEMS: Item[] = [
     label: "Subscription",
     sub: "Your plan, what it includes, usage and invoices",
     roles: ["admin", "superadmin"],
+  },
+  {
+    href: "/manager/settings",
+    icon: <ISettings size={18} />,
+    label: "Settings",
+    sub: "Notifications, tracking and this device",
+    roles: ["admin", "manager", "superadmin"],
   },
 ];
 

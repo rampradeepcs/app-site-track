@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
 import { isForMe } from "@/lib/notify";
+import { useNotificationPrefs, wants } from "@/lib/notification-prefs";
 import { useEntitlements, useServiceBlock, useEntryBlock } from "./FeatureGate";
 import type { FeatureSet } from "@/lib/saas-types";
 import { PlanExpired } from "./PlanExpired";
@@ -849,8 +850,9 @@ function BackendModeNote() {
 
 export function NotificationBell({ role }: { role: Role; }) {
   const { state } = useWorkforce();
+  const prefs = useNotificationPrefs();
   const unread = state.notifications.filter(
-    (n) => !n.read && isForMe(n, role, state.session?.userId),
+    (n) => !n.read && isForMe(n, role, state.session?.userId) && wants(prefs, n, "inApp"),
   ).length;
   /*
    * The employee half is a real tab and stays a query string; the manager half

@@ -13,12 +13,14 @@ import { ScreenHeader } from "@/components/shell";
 import { fmtRelative } from "@/lib/format";
 import { useWorkforce } from "@/lib/store";
 import { isForMe } from "@/lib/notify";
+import { useNotificationPrefs, wants } from "@/lib/notification-prefs";
 import { IAlert, ICheckCircle, IInfo } from "@/components/WfIcons";
 
 export default function ManagerAlerts() {
   const { state, markNotificationsRead } = useWorkforce();
-  const alerts = state.notifications.filter((n) =>
-    isForMe(n, state.session?.role, state.session?.userId),
+  const prefs = useNotificationPrefs();
+  const alerts = state.notifications.filter(
+    (n) => isForMe(n, state.session?.role, state.session?.userId) && wants(prefs, n, "inApp"),
   );
   const now = useNowTick(30);
 

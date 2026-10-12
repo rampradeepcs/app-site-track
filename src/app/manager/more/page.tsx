@@ -23,14 +23,16 @@ import { MyCompaniesPanel } from "@/components/MyCompaniesPanel";
 
 import { useWorkforce } from "@/lib/store";
 import { isForMe } from "@/lib/notify";
+import { useNotificationPrefs, wants } from "@/lib/notification-prefs";
 
 import { IBell, ICamera, IChart, IChevronR, IClipboard, IClock, IFile, IMapPin, INav, ISettings, IUsers, IWallet } from "@/components/WfIcons";
 
 export default function MorePage() {
   const { state } = useWorkforce();
+  const prefs = useNotificationPrefs();
 
-  const alerts = state.notifications.filter((n) =>
-    isForMe(n, state.session?.role, state.session?.userId),
+  const alerts = state.notifications.filter(
+    (n) => isForMe(n, state.session?.role, state.session?.userId) && wants(prefs, n, "inApp"),
   );
   const unread = alerts.filter((n) => !n.read).length;
   const shiftsOn = useFeature("shifts");
@@ -190,7 +192,7 @@ export default function MorePage() {
             <span className="min-w-0 flex-1">
               <span className="block text-[0.92rem] font-semibold">Settings</span>
               <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
-                Tracking, appearance and this device
+                Notifications, tracking and this device
               </span>
             </span>
             <IChevronR size={16} className="shrink-0 text-[var(--wf-faint)]" />

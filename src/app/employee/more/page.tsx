@@ -17,6 +17,7 @@ import { fmtShiftTime, todayISO } from "@/lib/format";
 import { shiftFor } from "@/lib/payroll";
 import { useWorkforce } from "@/lib/store";
 import { isForMe } from "@/lib/notify";
+import { useNotificationPrefs, wants } from "@/lib/notification-prefs";
 import { useFeature } from "@/components/FeatureGate";
 import { teamsOf } from "@/lib/teams";
 import { readableNotes } from "@/lib/notes";
@@ -36,12 +37,13 @@ export default function EmployeeMore() {
   const { state, currentUser } = useWorkforce();
   const petrolOn = useFeature("petrolAllowance");
 
+  const prefs = useNotificationPrefs();
   const unread = useMemo(
     () =>
       state.notifications.filter(
-        (n) => !n.read && isForMe(n, "employee", currentUser?.id),
+        (n) => !n.read && isForMe(n, "employee", currentUser?.id) && wants(prefs, n, "inApp"),
       ).length,
-    [state.notifications, currentUser],
+    [state.notifications, currentUser, prefs],
   );
 
   const shift = useMemo(
@@ -120,7 +122,7 @@ export default function EmployeeMore() {
       href: "/employee/profile?tab=settings",
       icon: <ISettings size={18} />,
       label: "App settings",
-      sub: "GPS source, appearance, offline mode",
+      sub: "Notifications, GPS source, offline mode",
     },
   ];
 

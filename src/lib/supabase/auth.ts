@@ -14,6 +14,7 @@
  */
 
 import { requireSupabase, supabase } from "./client";
+import { forgetThisDevice } from "../device-notifications";
 import { describeError } from "../errors";
 import type { User } from "../types";
 import { toUser } from "./repository";
@@ -59,9 +60,40 @@ export async function verifyOtp(
   }
 }
 
-export async function signOut(): Promise<void> {
+/*
+ * A sign-out in progress. Signing out now takes a moment before the session
+ * is cleared (the device is unregistered first, below), and the sign-in
+ * screen it lands on reads the session straight away. Those reads wait for
+ * this, or they would find the old session still there — and sign the person
+ * straight back in.
+ */
+let signingOut: Promise<void> | null = null;
+
+async function afterSignOut(): Promise<void> {
+  if (signingOut) await signingOut.catch(() => {});
+}
+
+/** Whether a sign-out is under way — a "signed in" heard now is its echo. */
+export function signingOutNow(): boolean {
+  return signingOut !== null;
+}
+
+export function signOut(): Promise<void> {
   const sb = supabase();
-  if (sb) await sb.auth.signOut();
+  if (!sb) return Promise.resolve();
+  signingOut ??= (async () => {
+    try {
+      // First, while the session still answers: this device stops receiving
+      // the signed-out person's notifications. A shared site tablet must not
+      // keep showing one supervisor's alerts after they have gone home.
+      await forgetThisDevice("signout");
+    } finally {
+      await sb.auth.signOut();
+    }
+  })().finally(() => {
+    signingOut = null;
+  });
+  return signingOut;
 }
 
 /**
@@ -81,6 +113,7 @@ export async function signOut(): Promise<void> {
 export async function currentAppUser(): Promise<User | null> {
   const sb = supabase();
   if (!sb) return null;
+  await afterSignOut();
   const { data: session, error: sessionError } = await sb.auth.getUser();
   // No session is an answer; anything else — the network, the server — is not.
   if (sessionError && sessionError.name !== "AuthSessionMissingError") throw sessionError;
@@ -189,6 +222,7 @@ export function onAuthChange(cb: (event: AuthChange) => void): () => void {
 export async function hasStoredSession(): Promise<boolean> {
   const sb = supabase();
   if (!sb) return false;
+  await afterSignOut();
   const { data } = await sb.auth.getSession();
   return !!data.session;
 }
@@ -439,6 +473,7 @@ export type SessionIdentity = { email: string; name: string | null };
 export async function sessionIdentity(): Promise<SessionIdentity | null> {
   const sb = supabase();
   if (!sb) return null;
+  await afterSignOut();
   const { data } = await sb.auth.getSession();
   const user = data.session?.user;
   if (!user?.email) return null;
@@ -458,6 +493,7 @@ export async function sessionEmail(): Promise<string | null> {
 export async function currentAuthEmail(): Promise<string | null> {
   const sb = supabase();
   if (!sb) return null;
+  await afterSignOut();
   const { data } = await sb.auth.getUser();
   return data.user?.email ?? null;
 }

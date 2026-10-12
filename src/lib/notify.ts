@@ -23,13 +23,14 @@
  * checkout, your geofence exit, tracking stopping. Those fire the instant
  * they happen, closed app or not.
  *
- * It does not reach across devices. A worker checking in writes a
- * manager-audience row to Postgres from *their* phone; the manager's phone
- * learns of it at its next hydrate, which may be hours later. Posting it
- * then, as news, would be a lie — so FRESH_MS below refuses to. Buzzing a
- * manager when a worker checks in is a push notification, and push means
- * FCM and APNs, device tokens, and a server that sends them. That is a
- * separate piece of work; this is not a half-built version of it.
+ * Across devices it has help now. A worker checking in writes a
+ * manager-audience row to Postgres from *their* phone; the database sends it
+ * live to the manager's open app (components/LiveNotifications.tsx), which
+ * posts it here like any other, and pushes it to their closed one
+ * (lib/device-notifications.ts and the `push` edge function). What still
+ * arrives only by a hydrate — the whole feed re-read at sign-in — is history,
+ * and posting it as news would be a lie; FRESH_MS and the origins below are
+ * how that is refused.
  */
 
 import type { AppNotification, Role } from "./types";
@@ -74,6 +75,54 @@ export function isForMe(
  * through the database and back.
  */
 const FRESH_MS = 2 * 60_000;
+
+/**
+ * The same question for a row that arrived live from somebody else's device.
+ * It may have waited in that phone's outbox through a dead-signal patch, so
+ * it gets the window the server pushes in rather than the one for this
+ * device's own events.
+ */
+export const LIVE_FRESH_MS = 15 * 60_000;
+
+/* --------------------------------------------- where each one came from ----
+ *
+ * Raised on this device, received live, or read back in a hydrate. Only the
+ * first two are news: a hydrate brings in rows that may have been shown
+ * already — by a push, which is very likely how the app came to be opened —
+ * and announcing them again repeats what the person just tapped. Rows with
+ * no recorded origin were raised here.
+ */
+export type NotificationOrigin = "local" | "live" | "server";
+
+const origins = new Map<string, Exclude<NotificationOrigin, "local">>();
+
+export function noteOrigin(ids: Iterable<string>, origin: "live" | "server"): void {
+  for (const id of ids) if (!origins.has(id)) origins.set(id, origin);
+  // Kept to roughly the size of a feed or two; the oldest go first.
+  if (origins.size > 1000) {
+    let excess = origins.size - 600;
+    for (const id of origins.keys()) {
+      if (excess-- <= 0) break;
+      origins.delete(id);
+    }
+  }
+}
+
+export function originOf(id: string): NotificationOrigin {
+  return origins.get(id) ?? "local";
+}
+
+/**
+ * Whether a notification's link is a screen in this app. Exactly one leading
+ * slash: "//elsewhere" and "/\\elsewhere" are other sites to a URL parser
+ * and to the router, and a tapped notification must never be a redirect.
+ * Parsers also drop tabs and newlines before they look, so "/<tab>/elsewhere"
+ * is the same thing — no whitespace, control character or backslash at all.
+ * The database holds new rows to the same rule.
+ */
+export function isAppLink(link: unknown): link is string {
+  return typeof link === "string" && /^\/(?![/\\])[^\x00-\x20\x7f\\]*$/.test(link);
+}
 
 /**
  * A burst is a sign something is wrong, not something to relay faithfully.
@@ -159,30 +208,75 @@ function load(): Promise<{ api: Plugin } | null> {
 }
 
 /**
- * Asked once, kept for the session.
+ * Checked every time; asked only in answer to the person's own action.
  *
- * Android 13 shows the system dialog the first time and quietly refuses
- * afterwards, so asking again on every notification would achieve nothing
- * except a round trip. Somebody who says no is taken at their word until
- * they change it in settings, which restarts the app anyway.
+ * A prompt that appears because a colleague checked in somewhere else is a
+ * prompt that gets declined — and iOS remembers a decline for good. So the
+ * system dialog comes up only from the Settings switch, or when the person's
+ * own action (their check-in) raises the first notification of a session,
+ * and at most once a session: Android 13 refuses quietly after the first
+ * time anyway. A "no" is not remembered as the answer: granting it later in
+ * the phone's settings does not restart the app, and a remembered no would
+ * keep the tray empty — and the Settings switch stuck — until something did.
+ * A "yes" is kept, because it cannot be withdrawn without a restart.
  */
-let granted: Promise<boolean> | null = null;
+let granted = false;
+let autoAsked = false;
+let inFlight: { p: Promise<boolean>; asking: boolean } | null = null;
 
-export function notificationsPermitted(): Promise<boolean> {
-  granted ??= (async () => {
-    const box = await load();
-    if (!box) return false;
-    try {
-      const have = await box.api.checkPermissions();
-      if (have.display === "granted") return true;
-      if (have.display === "denied") return false;
-      const asked = await box.api.requestPermissions();
-      return asked.display === "granted";
-    } catch {
-      return false;
-    }
-  })();
-  return granted;
+async function permission(mayAsk: boolean): Promise<boolean> {
+  if (granted) return true;
+  const box = await load();
+  if (!box) return false;
+  try {
+    const have = await box.api.checkPermissions();
+    if (have.display === "granted") return (granted = true);
+    if (have.display === "denied" || !mayAsk) return false;
+    const asked = await box.api.requestPermissions();
+    return (granted = asked.display === "granted");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * For posting. Only checks, unless `mayAsk` — the post comes from this
+ * person's own action — and nothing has asked yet this session.
+ */
+export function notificationsPermitted(mayAsk = false): Promise<boolean> {
+  if (granted) return Promise.resolve(true);
+  const ask = mayAsk && !autoAsked;
+  // Join a check already running — unless this one may ask and that one
+  // may not, in which case ask after it rather than lose the session's one
+  // chance to a check that never asked.
+  if (inFlight && (inFlight.asking || !ask)) return inFlight.p;
+  if (ask) autoAsked = true;
+  const before = inFlight?.p ?? Promise.resolve(false);
+  const entry = {
+    asking: ask,
+    p: before.then((ok) => ok || permission(ask)),
+  };
+  inFlight = entry;
+  void entry.p.finally(() => {
+    if (inFlight === entry) inFlight = null;
+  });
+  return entry.p;
+}
+
+/** For the Settings switch: somebody just asked, so asking is right. */
+export function askNotificationPermission(): Promise<boolean> {
+  autoAsked = true;
+  return permission(true);
+}
+
+/**
+ * Make the tray's channels now, before anything is pushed to them. A push
+ * from Firebase names its channel, and one that does not exist yet lands in
+ * Android's catch-all at default importance — no heads-up for an alert.
+ */
+export async function prepareChannels(): Promise<void> {
+  const box = await load();
+  if (box) await ensureChannels(box.api);
 }
 
 let channelsReady = false;
@@ -209,9 +303,10 @@ async function ensureChannels(api: Plugin): Promise<void> {
 export function selectPostable(
   items: readonly AppNotification[],
   now: number,
+  freshMs: number = FRESH_MS,
 ): AppNotification[] {
   return items
-    .filter((n) => now - n.at < FRESH_MS)
+    .filter((n) => now - n.at < freshMs)
     .sort((a, b) => b.at - a.at)
     .slice(0, BURST_CAP);
 }
@@ -227,13 +322,15 @@ export function selectPostable(
 export async function postNative(
   items: readonly AppNotification[],
   now: number,
+  freshMs: number = FRESH_MS,
+  mayAsk = false,
 ): Promise<number> {
-  const fresh = selectPostable(items, now);
+  const fresh = selectPostable(items, now, freshMs);
   if (fresh.length === 0) return 0;
 
   const box = await load();
   if (!box) return 0;
-  if (!(await notificationsPermitted())) return 0;
+  if (!(await notificationsPermitted(mayAsk))) return 0;
   await ensureChannels(box.api);
 
   try {
@@ -276,7 +373,7 @@ export async function onNotificationTap(
       (event) => {
         const link = (event.notification.extra as { link?: string | null } | undefined)
           ?.link;
-        if (link) go(link);
+        if (isAppLink(link)) go(link);
       },
     );
     return () => void handle.remove();
