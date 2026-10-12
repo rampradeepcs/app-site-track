@@ -23,9 +23,11 @@ import { useRouter } from "next/navigation";
 import { useWorkforce } from "@/lib/store";
 import {
   currentAppUser,
+  explainProviderRefusal,
   onAuthChange,
   sendOtp,
   sessionEmail,
+  signOut,
   verifyOtp,
 } from "@/lib/supabase/auth";
 import { SsoButtons } from "./SsoButtons";
@@ -34,6 +36,7 @@ import { emailProblem, isUsableEmail } from "@/lib/email";
 import {
   clearGateNotice,
   readGateNotice,
+  recordGateNotice,
   serverGateNotice,
   subscribeGateNotice,
 } from "@/lib/gate-notice";
@@ -41,8 +44,7 @@ import { DEMO_EMAIL, leaveDemoFor } from "@/lib/demo/mode";
 import { PersonaChooser } from "@/components/demo/PersonaPicker";
 import { consumeSignInDirect, landingFor } from "@/lib/routes";
 import { useTenant } from "@/lib/tenant";
-import { ROUTE_FOR, resolveSignInDestination } from "@/lib/companies";
-import { fetchMyInvitations } from "@/lib/supabase/repository";
+import { ROUTE_FOR, onboardingDestination, resolveSignInDestination } from "@/lib/companies";
 import { Field } from "@/components/ui";
 import { WorkfenceMark } from "@/components/Brand";
 import {
@@ -75,6 +77,13 @@ export default function LiveGate() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /*
+   * Signed in, and the server could not say who as. Not "nobody": that is a
+   * different answer and leads to founding a company — which is exactly
+   * where a member on a weak signal was being sent. This one waits, says
+   * why, and offers to try again.
+   */
+  const [unreachable, setUnreachable] = useState<string | null>(null);
 
   /* A device sign-on that came back and failed left its reason behind.
      Shown here, where the person is looking, rather than lost to a toast
@@ -129,13 +138,7 @@ export default function LiveGate() {
    * destination would run on top of the demo's own data.
    */
   const toOnboarding = useCallback(async () => {
-    let waiting = 0;
-    try {
-      waiting = (await fetchMyInvitations()).length;
-    } catch {
-      /* treated as none */
-    }
-    const to = waiting ? "/invitations" : "/start";
+    const to = await onboardingDestination();
     if (!leaveDemoFor(to)) router.replace(to);
   }, [router]);
 
@@ -181,6 +184,15 @@ export default function LiveGate() {
        they just left. Without that this and /start bounce off each other. */
     const askedToSignIn = consumeSignInDirect();
     /*
+     * A Google or Microsoft sign-in that the provider or Supabase refused
+     * comes back to this page with the reason in the address — and was
+     * dropped, so the person saw the sign-in form again and no reason. It
+     * is recorded as the gate notice, which the form already shows, and the
+     * address is cleaned so a reload does not show it twice.
+     */
+    const refused = oauthRefusal();
+    if (refused) recordGateNotice(refused);
+    /*
      * Somebody whose session just ended is not a new arrival, and the four
      * screens of product tour stand between them and the sentence that
      * explains why they are here. A pending notice sends them straight to
@@ -205,8 +217,8 @@ export default function LiveGate() {
         }
         arrive();
       })
-      .catch(() => {
-        if (!cancelled) arrive();
+      .catch((e) => {
+        if (!cancelled) setUnreachable(describeError(e));
       });
     return () => {
       cancelled = true;
@@ -248,8 +260,8 @@ export default function LiveGate() {
         } catch (e) {
           // Said on screen. A rejection here used to vanish into the
           // console, and the screen kept waiting for a sign-in that had
-          // already failed.
-          if (!cancelled) setError(describeError(e));
+          // already failed — and it is "couldn't find out", never "nobody".
+          if (!cancelled) setUnreachable(describeError(e));
         }
       })();
     });
@@ -313,7 +325,14 @@ export default function LiveGate() {
     // address belong to a worker record? enter() claims one if it does. If
     // not, this person is on no company yet, and founding one is the answer
     // — the same answer Google and Outlook get for the same address.
-    const ok = await enter();
+    let ok: boolean;
+    try {
+      ok = await enter();
+    } catch (e) {
+      setBusy(false);
+      setUnreachable(describeError(e));
+      return;
+    }
     setBusy(false);
     if (!ok) void toOnboarding();
   };
@@ -332,7 +351,36 @@ export default function LiveGate() {
             : "justify-start pt-[9dvh] pb-10"
       }`}
     >
-      {step === "restoring" ? (
+      {unreachable ? (
+        <div className="wf-fade-in flex flex-col items-center gap-4 text-center">
+          <WorkfenceMark size={56} />
+          <p className="wf-display text-lg">Couldn&apos;t open your account</p>
+          <p className="text-sm leading-relaxed text-[var(--wf-muted)]">
+            You&apos;re signed in, but your company couldn&apos;t be looked up
+            just now. Nothing has changed, and nothing was created.
+          </p>
+          <p className="text-[0.74rem] text-[var(--wf-faint)]">{unreachable}</p>
+          <button
+            type="button"
+            className="wf-btn wf-btn-primary w-full"
+            onClick={() => window.location.reload()}
+          >
+            Try again
+          </button>
+          <button
+            type="button"
+            className="wf-btn wf-btn-ghost w-full"
+            onClick={() => {
+              void signOut().finally(() => {
+                setUnreachable(null);
+                setStep("identity");
+              });
+            }}
+          >
+            Use a different account
+          </button>
+        </div>
+      ) : step === "restoring" ? (
         /*
          * Deliberately not faded in: this is the first thing drawn, and the
          * native splash behind it is the same mark on the same black, so it
@@ -484,5 +532,24 @@ export default function LiveGate() {
       )}
     </main>
   );
+}
+
+/**
+ * The reason a provider sign-in was refused, from the address it came back
+ * on, said in our words (explainProviderRefusal — never the URL's own text)
+ * — or null. Removes it from the address as it reads it.
+ */
+function oauthRefusal(): string | null {
+  if (typeof window === "undefined") return null;
+  const url = new URL(window.location.href);
+  const hash = new URLSearchParams(url.hash.slice(1));
+  const raw =
+    url.searchParams.get("error_description") ??
+    hash.get("error_description") ??
+    url.searchParams.get("error") ??
+    hash.get("error");
+  if (!raw) return null;
+  window.history.replaceState(null, "", url.pathname);
+  return explainProviderRefusal(raw);
 }
 

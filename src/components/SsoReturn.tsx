@@ -25,12 +25,16 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { isLiveBackend } from "@/lib/supabase/client";
-import { completeOAuthRedirect, currentAppUser } from "@/lib/supabase/auth";
+import {
+  completeOAuthRedirect,
+  consumeNativeSignInPending,
+  currentAppUser,
+} from "@/lib/supabase/auth";
 import { showToast } from "@/lib/toast";
 import { recordGateNotice } from "@/lib/gate-notice";
 import { useWorkforce } from "@/lib/store";
 import { landingFor } from "@/lib/routes";
-import { ROUTE_FOR, resolveSignInDestination } from "@/lib/companies";
+import { ROUTE_FOR, onboardingDestination, resolveSignInDestination } from "@/lib/companies";
 import { describeError } from "@/lib/errors";
 import { leaveDemoFor } from "@/lib/demo/mode";
 
@@ -58,6 +62,13 @@ export function SsoReturn() {
       const { App } = await import("@capacitor/app");
       const handle = await App.addListener("appUrlOpen", async ({ url }) => {
         if (!url.includes("auth-callback")) return;
+        /* Only the return of a sign-in this device started. The scheme can
+           be opened by any page; a link nobody here asked for is ignored,
+           not completed and not reported. */
+        if (!consumeNativeSignInPending()) {
+          console.warn("[sso] ignored a sign-in callback this device did not start");
+          return;
+        }
         /* Breadcrumbs, readable from logcat on a device, for the next time
            a sign-in stops somewhere between the browser and the app. The
            code is elided: it is single-use, but it is still a credential. */
@@ -106,8 +117,15 @@ export function SsoReturn() {
               to.kind === "enter" ? landingFor(user.role) : ROUTE_FOR[to.kind],
             );
           } else {
-            console.info("[sso] no worker record for this address; onboarding");
-            if (!leaveDemoFor("/start")) router.replace("/start");
+            // The same answer the web gate gives: invitations waiting for
+            // this address first, founding a company only when there are
+            // none. This used to go straight to /start, so an invited
+            // person signing in on the phone was offered a new company in
+            // front of the one that had asked them.
+            const to = await onboardingDestination();
+            if (cancelled) return;
+            console.info("[sso] no worker record for this address; to", to);
+            if (!leaveDemoFor(to)) router.replace(to);
           }
           showToast("Signed in", "success");
         } catch (e) {

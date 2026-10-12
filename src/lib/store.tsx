@@ -71,7 +71,7 @@ import {
   signOut as authSignOut,
 } from "./supabase/auth";
 import { recordGateNotice } from "./gate-notice";
-import { setActiveCompany } from "./company";
+import { activeCompanyId, setActiveCompany } from "./company";
 import { refreshMyCompanies } from "./companies";
 import { BootMark } from "@/components/Brand";
 import {
@@ -1650,15 +1650,30 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
 
   const enterCompany = useCallback(
     async (orgId: string): Promise<User> => {
+      /*
+       * Ask first, clear after. The lookup can now fail outright — it says
+       * "couldn't tell" rather than "nobody" — and a failure that left the
+       * new company in the header, the old membership in the session and
+       * the roster emptied had the app reading one company as a member of
+       * another, and remembering it for the next launch. Every way out that
+       * is not a successful switch puts the previous company back.
+       */
+      const previous = activeCompanyId();
       setActiveCompany(orgId);
-      clearCompanyData();
       // The header now names the company, so the record that comes back is
       // the membership there — the one every screen must run as.
-      const me = await currentAppUser();
-      if (!me || (me.orgId && me.orgId !== orgId)) {
-        setActiveCompany(null);
+      let me: User | null;
+      try {
+        me = await currentAppUser();
+      } catch (e) {
+        setActiveCompany(previous);
+        throw e;
+      }
+      if (!me || (me.orgId && me.orgId !== orgId) || me.status === "revoked") {
+        setActiveCompany(previous);
         throw new Error("You are not a member of that company any more.");
       }
+      clearCompanyData();
       // Put the membership in state alongside the session, the way loginAs
       // does. clearCompanyData() has just emptied users, and currentUser is
       // resolved by looking the session id up in that list — so setting the

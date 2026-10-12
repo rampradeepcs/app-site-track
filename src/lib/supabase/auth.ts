@@ -70,12 +70,35 @@ export async function signOut(): Promise<void> {
  * Returns null when authenticated but unlinked — a real state worth handling
  * explicitly: someone with valid credentials who has not been added to any
  * organisation should be told so, not shown an empty app.
+ *
+ * Throws when it could not find out. That is a different answer, and it used
+ * to be the same one: a dropped connection on a site, an RPC that failed, a
+ * read that matched two rows — each came back null, every caller reads null
+ * as "nobody here yet", and an existing member was sent to found a company
+ * and, once there, could found a second one. "I don't know" now says so, and
+ * the screens offer to try again rather than to start over.
  */
 export async function currentAppUser(): Promise<User | null> {
   const sb = supabase();
   if (!sb) return null;
-  const { data: session } = await sb.auth.getUser();
+  const { data: session, error: sessionError } = await sb.auth.getUser();
+  // No session is an answer; anything else — the network, the server — is not.
+  if (sessionError && sessionError.name !== "AuthSessionMissingError") throw sessionError;
   if (!session.user) return null;
+
+  /*
+   * An account with no confirmed address cannot be matched to anybody — the
+   * address is the identity, and an unproven one is not evidence. Microsoft
+   * can produce exactly this, depending on how the app is registered. It is
+   * not "a new person" either, so it does not go to found a company: it is
+   * told what to do instead.
+   */
+  const u = session.user;
+  if (!u.email || !(u.email_confirmed_at || u.confirmed_at)) {
+    throw new Error(
+      "This sign-in didn't come with a confirmed email address, so it can't be matched to your company. Sign in with the emailed code instead.",
+    );
+  }
 
   /*
    * One call links, refreshes and reads.
@@ -91,28 +114,44 @@ export async function currentAppUser(): Promise<User | null> {
    */
   const { data: synced, error: syncError } = await sb.rpc("sync_my_profile");
   if (!syncError) {
-    const row = (synced ?? [])[0];
-    return row ? toUser(row as UserRow) : null;
+    /* A removed membership is not a way in. The list includes them so the
+       caller can tell "removed" from "never added", but a person who still
+       belongs somewhere must land there, not on the company that let them
+       go. */
+    const rows = (synced ?? []) as UserRow[];
+    const row = rows.find((r) => r.status !== "revoked") ?? rows[0];
+    return row ? toUser(row) : null;
   }
+  if (!isMissingFunction(syncError)) throw syncError;
 
   /*
    * A backend that predates the sync answers "function not found". Fall back
    * to the older two steps — read, then claim by address — so an app in the
    * field keeps signing people in against a database that has not caught up.
+   * Ordered and limited rather than maybeSingle: a person in two companies
+   * has two rows, and "more than one" is not "none".
    */
   const read = async (): Promise<User | null> => {
     const { data, error } = await sb
       .from("users")
       .select("*")
       .eq("auth_id", session.user!.id)
-      .maybeSingle();
-    return error || !data ? null : toUser(data as UserRow);
+      .order("joined_at", { ascending: true })
+      .limit(1);
+    if (error) throw error;
+    const row = (data ?? [])[0];
+    return row ? toUser(row as UserRow) : null;
   };
   const linked = await read();
   if (linked) return linked;
   const { error: claimError } = await sb.rpc("claim_user_record");
-  if (claimError) return null;
+  if (claimError) throw claimError;
   return read();
+}
+
+/** PostgREST's "no such function", and Postgres's — the old-backend case. */
+function isMissingFunction(e: { code?: string } | null): boolean {
+  return e?.code === "PGRST202" || e?.code === "42883";
 }
 
 /**
@@ -249,6 +288,7 @@ export async function signInWithProvider(
     });
     if (error) return { ok: false, error: describe(error) };
     if (isNative() && data?.url) {
+      markNativeSignInPending();
       const { Browser } = await import("@capacitor/browser");
       await Browser.open({ url: data.url, presentationStyle: "popover" });
     }
@@ -258,13 +298,72 @@ export async function signInWithProvider(
   }
 }
 
+/* --------------------------------------- a sign-in this device started -- */
+
+const NATIVE_PENDING_KEY = "workfence.sso.pending";
+/** Long enough to finish a sign-in in the browser, short enough to expire. */
+const NATIVE_PENDING_MS = 15 * 60_000;
+
+function markNativeSignInPending(): void {
+  try {
+    localStorage.setItem(NATIVE_PENDING_KEY, String(Date.now()));
+  } catch {
+    /* without storage the return is refused, which is the safe direction */
+  }
+}
+
+/**
+ * Whether a sign-in callback arriving now is one this device asked for —
+ * and forget the request either way.
+ *
+ * The app's URL scheme can be opened by any web page, not only by the
+ * browser finishing a sign-in. A link nobody here started is not a sign-in
+ * to complete: answered, it would at best show a stranger's error text and
+ * at worst swap whose account the phone is signed in to.
+ */
+export function consumeNativeSignInPending(): boolean {
+  try {
+    const at = Number(localStorage.getItem(NATIVE_PENDING_KEY) ?? "");
+    localStorage.removeItem(NATIVE_PENDING_KEY);
+    return Number.isFinite(at) && at > 0 && Date.now() - at < NATIVE_PENDING_MS;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Why Google or Microsoft refused, in words a person can act on.
+ *
+ * Only fixed sentences: the raw text arrives in a URL anybody can write, and
+ * shown under this product's name it would be a ready-made phishing line.
+ * The raw value goes to the console for support, never to the screen.
+ */
+export function explainProviderRefusal(raw: string): string {
+  const msg = raw.replace(/\+/g, " ");
+  console.warn("[sso] provider refusal:", msg.slice(0, 300));
+  if (/unverified email/i.test(msg)) {
+    return "Microsoft didn't confirm this email address, so it can't be used to sign in here. Sign in with the emailed code instead, or ask your administrator to verify the address in Microsoft.";
+  }
+  if (/error getting user email/i.test(msg)) {
+    return "This account didn't share an email address, so it can't be matched to your company. Sign in with the emailed code instead.";
+  }
+  if (/multiple accounts with the same email/i.test(msg)) {
+    return "This email address belongs to more than one sign-in account. Sign in with the emailed code, and ask support to merge them.";
+  }
+  if (/access_denied|cancel/i.test(msg)) return "Sign-in was cancelled.";
+  return "Sign-in with Google or Microsoft didn't complete. Try again, or use the emailed code.";
+}
+
 /**
  * Finish a native sign-in from the deep link the browser returned to.
  *
- * Accepts both shapes a provider may send back: a PKCE `code` in the query,
- * and the implicit `access_token` pair in the fragment, because which one
- * arrives depends on how the Supabase project is configured and being wrong
- * about it would strand the user on a blank screen.
+ * The PKCE `code` only. This used to accept an `access_token` pair in the
+ * fragment too, "in case" the project were configured for the implicit
+ * flow — it is not, and that branch would set whatever session a link
+ * carried: any page could open the app's scheme with its own tokens and
+ * sign the phone in as somebody else, with their check-ins, photos and
+ * route recorded under that account from then on. A code is safe in the
+ * same position because it is useless without this device's verifier.
  */
 export async function completeOAuthRedirect(url: string): Promise<AuthResult> {
   try {
@@ -292,21 +391,19 @@ export async function completeOAuthRedirect(url: string): Promise<AuthResult> {
       return error ? { ok: false, error: describe(error) } : { ok: true };
     }
     const hash = new URLSearchParams(parsed.hash.replace(/^#/, ""));
-    const access_token = hash.get("access_token");
-    const refresh_token = hash.get("refresh_token");
-    if (access_token && refresh_token) {
-      const { error } = await sb.auth.setSession({ access_token, refresh_token });
-      return error ? { ok: false, error: describe(error) } : { ok: true };
-    }
     /* Providers put a refusal in either half of the URL depending on the
        response mode, so look in both before giving up — the difference
-       between naming the reason and shrugging. */
+       between naming the reason and shrugging. Said in our words, not
+       theirs: see explainProviderRefusal. */
     const denied =
       parsed.searchParams.get("error_description") ??
       parsed.searchParams.get("error") ??
       hash.get("error_description") ??
       hash.get("error");
-    return { ok: false, error: denied ?? "Sign-in did not complete." };
+    return {
+      ok: false,
+      error: denied ? explainProviderRefusal(denied) : "Sign-in did not complete.",
+    };
   } catch (e) {
     return { ok: false, error: describe(e) };
   }

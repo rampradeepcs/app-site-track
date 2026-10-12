@@ -94,14 +94,44 @@ export type SignInDestination =
 /**
  * Decide, after sign-in, which company to open.
  *
- * One company: open it. A remembered choice among several: open that —
- * it is the same company as last time on this device, so nothing has
- * switched under them. Several and no memory: ask. None: pending
- * invitations if there are any, otherwise the empty state that says so.
+ * Pending invitations first, for everybody. A company that added this
+ * address — by invitation, or by typing it into its roster, which the
+ * database now turns into one — is asked about once, before going in,
+ * rather than left for someone to find. "Not now" on that screen snoozes
+ * them on this device (see snoozeInvitations), so being asked once does not
+ * become being asked at every launch.
+ *
+ * Then: one company, open it. A remembered choice among several: open that
+ * — it is the same company as last time on this device, so nothing has
+ * switched under them. Several and no memory: ask. None: the empty state
+ * that says so.
  */
-export async function resolveSignInDestination(): Promise<SignInDestination> {
+export async function resolveSignInDestination(
+  opts: {
+    /** For "Not now": decide where to go as if no invitation were waiting,
+     *  so the answer can never be the screen it was asked from. */
+    skipInvitations?: boolean;
+  } = {},
+): Promise<SignInDestination> {
+  /* Asked alongside the companies rather than after them: every path needs
+     both, and a member on a weak signal should not wait one more round trip
+     to be told what they already would have been. A failure is "none". */
+  const invitationsP: Promise<CompanyInvitation[]> = opts.skipInvitations
+    ? Promise.resolve([])
+    : fetchMyInvitations().catch(() => []);
   const companies = await loadMyCompanies(true);
   const live = companies.filter((c) => c.status !== "revoked");
+  if (live.length > 0) {
+    /* Bounded: a member's company is already known, and a slow invitation
+       list must not hold them on the splash. Nothing is snoozed when this
+       gives up, so a skipped invitation is still asked about next time. */
+    const invitations = await Promise.race([
+      invitationsP,
+      new Promise<CompanyInvitation[]>((resolve) => setTimeout(() => resolve([]), 2000)),
+    ]);
+    const snoozed = new Set(snoozedInvitations());
+    if (invitations.some((i) => !snoozed.has(i.id))) return { kind: "invitations" };
+  }
   if (live.length === 1) {
     setActiveCompany(live[0]!.orgId);
     return { kind: "enter", orgId: live[0]!.orgId };
@@ -114,13 +144,58 @@ export async function resolveSignInDestination(): Promise<SignInDestination> {
     return { kind: "choose" };
   }
   setActiveCompany(null);
-  let invitations: CompanyInvitation[] = [];
-  try {
-    invitations = await fetchMyInvitations();
-  } catch {
-    /* an invitation list that fails to load is an empty one, for routing */
-  }
+  const invitations = await invitationsP;
   return invitations.length ? { kind: "invitations" } : { kind: "none" };
+}
+
+/**
+ * Where somebody signed in but on no company goes: invitations waiting for
+ * them, or founding a company. Shared by every way in — the gate, the
+ * native sign-on return — so that none of them sends an invited person to
+ * found a company behind the invitation they were sent. An invitation list
+ * that fails to load counts as empty: the wizard is the safe wrong answer,
+ * a blank screen is not.
+ */
+export async function onboardingDestination(): Promise<"/invitations" | "/start"> {
+  try {
+    return (await fetchMyInvitations()).length ? "/invitations" : "/start";
+  } catch {
+    return "/start";
+  }
+}
+
+/* ------------------------------------------------------ "not now" memory */
+
+const SNOOZE_KEY = "workfence.invitations.snoozed";
+/* Held in memory too, so "Not now" still holds for this session when
+   storage refuses the write (a private window, a full disk). */
+const snoozedThisSession = new Set<string>();
+
+/** Invitations this device was told to stop raising at sign-in. */
+export function snoozedInvitations(): string[] {
+  let stored: string[] = [];
+  try {
+    const v: unknown = JSON.parse(localStorage.getItem(SNOOZE_KEY) ?? "[]");
+    stored = Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    /* unreadable: the in-memory set still answers */
+  }
+  return [...new Set([...stored, ...snoozedThisSession])];
+}
+
+/**
+ * "Not now" for these invitations, on this device. They stay pending and
+ * stay listed under Invitations; they just stop interrupting sign-in. A new
+ * invitation has a new id, so it is still asked about.
+ */
+export function snoozeInvitations(ids: string[]): void {
+  for (const id of ids) snoozedThisSession.add(id);
+  try {
+    const next = snoozedInvitations().slice(-100);
+    localStorage.setItem(SNOOZE_KEY, JSON.stringify(next));
+  } catch {
+    /* storage unavailable: held in memory for this session */
+  }
 }
 
 export const ROUTE_FOR: Record<Exclude<SignInDestination["kind"], "enter">, string> = {

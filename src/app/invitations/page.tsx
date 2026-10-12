@@ -20,11 +20,17 @@ import {
   fetchMyInvitations,
   type CompanyInvitation,
 } from "@/lib/supabase/repository";
-import { refreshMyCompanies } from "@/lib/companies";
+import {
+  ROUTE_FOR,
+  refreshMyCompanies,
+  resolveSignInDestination,
+  snoozeInvitations,
+  useMyCompanies,
+} from "@/lib/companies";
 import { useWorkforce } from "@/lib/store";
 import { describeError } from "@/lib/errors";
 import { fmtDateLong, roleTone } from "@/lib/format";
-import { homeFor } from "@/lib/routes";
+import { homeFor, landingFor } from "@/lib/routes";
 import { showToast } from "@/lib/toast";
 import { IArrowR, IBell } from "@/components/WfIcons";
 
@@ -35,10 +41,41 @@ const ROLE_WORD: Record<string, string> = {
 };
 
 export default function InvitationsPage() {
-  const { enterCompany } = useWorkforce();
+  const { state, enterCompany } = useWorkforce();
   const router = useRouter();
   const [list, setList] = useState<CompanyInvitation[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /* Somebody already in a company was brought here at sign-in to be asked
+     about another one. They have somewhere to go, and "not now" is an
+     answer they are owed — without it, the only ways out were to accept,
+     to decline, or to go back to a gate that would send them here again. */
+  /* A live membership, not merely a session: somebody whose only company
+     removed them has a session and nowhere to continue to, and offering
+     them "continue to your company" sent them round in a circle. */
+  const { companies } = useMyCompanies();
+  const member = !!state.session && (companies ?? []).some((c) => c.status !== "revoked");
+
+  const notNow = async () => {
+    snoozeInvitations((list ?? []).map((i) => i.id));
+    const role = state.session?.role;
+    if (!role) {
+      router.replace("/companies");
+      return;
+    }
+    try {
+      // As if nothing were waiting: the answer must not be this screen.
+      const to = await resolveSignInDestination({ skipInvitations: true });
+      router.replace(
+        to.kind === "enter"
+          ? landingFor(role)
+          : to.kind === "invitations"
+            ? "/companies"
+            : ROUTE_FOR[to.kind],
+      );
+    } catch {
+      router.replace(landingFor(role));
+    }
+  };
 
   const load = useCallback(() => {
     void fetchMyInvitations()
@@ -80,7 +117,14 @@ export default function InvitationsPage() {
 
   return (
     <div>
-      <ScreenHeader back title="Invitations" sub="Companies asking you to join" />
+      <ScreenHeader
+        back
+        /* For a member, back is "not now": the gate behind this screen
+           would only bring them straight here again. */
+        onBack={member ? () => void notNow() : undefined}
+        title="Invitations"
+        sub="Companies asking you to join"
+      />
       <div className="flex flex-col gap-3 px-4 pb-8">
         {list === null ? (
           <p className="py-10 text-center text-sm text-[var(--wf-muted)]">Loading…</p>
@@ -96,7 +140,10 @@ export default function InvitationsPage() {
             <Link href="/companies" className="wf-btn wf-btn-ghost w-full">
               Your companies <IArrowR size={15} />
             </Link>
-            <Link href="/start" className="wf-btn wf-btn-ghost w-full">
+            <Link
+              href={member ? "/start?another=1" : "/start"}
+              className="wf-btn wf-btn-ghost w-full"
+            >
               Set up your own company
             </Link>
           </div>
@@ -152,9 +199,14 @@ export default function InvitationsPage() {
           accept it; the small number who were invited and are also setting up
           their own firm should not have to decline first to find the door.
         */}
+        {list && list.length > 0 && member ? (
+          <button type="button" className="wf-btn wf-btn-ghost" onClick={() => void notNow()}>
+            Not now — continue to your company
+          </button>
+        ) : null}
         {list && list.length > 0 ? (
           <Link
-            href="/start"
+            href={member ? "/start?another=1" : "/start"}
             className="mt-1 text-center text-[0.78rem] text-[var(--wf-muted)] underline underline-offset-4"
           >
             Or set up your own company instead

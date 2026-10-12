@@ -40,6 +40,7 @@ import { useSignUp } from "@/lib/onboarding";
 import { requestSignInDirect } from "@/lib/routes";
 import { useTenant } from "@/lib/tenant";
 import { describeError } from "@/lib/errors";
+import { showToast } from "@/lib/toast";
 import { emailProblem, isUsableEmail } from "@/lib/email";
 import { isLiveBackend } from "@/lib/supabase/client";
 import {
@@ -207,6 +208,40 @@ function StartWizard() {
     router.replace("/");
   }, [another, state.session, router]);
 
+  /*
+   * The same question asked of the server, not just of this device.
+   *
+   * The bounce above sees only a session this app already holds. Somebody
+   * who arrives signed in through Google or Outlook but not yet resolved —
+   * a lookup that failed on a weak signal used to send members exactly here
+   * — would pass it and found a second company under an address that
+   * already has a record. So a signed-in arrival is resolved once more; an
+   * existing member is taken in instead.
+   */
+  useEffect(() => {
+    if (another || !isLiveBackend) return;
+    let cancelled = false;
+    void sessionIdentity()
+      .then(async (who) => {
+        if (!who || cancelled) return;
+        const me = await currentAppUser();
+        // A removed membership is not belonging somewhere — the server's own
+        // guard agrees — so a former worker founding their own firm stays.
+        if (!me || me.status === "revoked" || cancelled || ownSession.current || bounced.current) {
+          return;
+        }
+        bounced.current = true;
+        loginAs(me);
+        router.replace("/");
+      })
+      .catch(() => {
+        /* finish() asks again before anything is created, and says so */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [another, loginAs, router]);
+
 
 
   const back = () => {
@@ -343,6 +378,36 @@ function StartWizard() {
     }
 
     setBusy(true);
+
+    /*
+     * Last check before anything is created: does this signed-in address
+     * already belong to a company? provision_company does not ask — it
+     * cannot, since founding a second company on purpose (?another=1) is
+     * allowed — so this is the one place an accidental second company is
+     * stopped. Not knowing is not "no": it stops here and says so.
+     */
+    if (!another) {
+      let existing;
+      try {
+        existing = await currentAppUser();
+      } catch (e) {
+        setBusy(false);
+        ownSession.current = false;
+        setError(
+          `Couldn't check whether ${d.admin.email} already belongs to a company, so nothing was created. ${describeError(e)}`,
+        );
+        return;
+      }
+      if (existing && existing.status !== "revoked") {
+        setBusy(false);
+        bounced.current = true;
+        loginAs(existing);
+        showToast(`${d.admin.email} already belongs to a company — opening it`, "info");
+        router.replace("/");
+        return;
+      }
+    }
+
     try {
       // createCompanyRemote for somebody who already has one: the same
       // transaction, under the name the product uses for it.

@@ -80,5 +80,21 @@
 	<string>Workfence lets you attach a photo you already have to a work update or a site note.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Workfence turns your check-out voice note into text, so the day&apos;s record can be read and searched rather than listened to.</string>
+	<!-- The scheme a Google or Outlook sign-in returns on
+	     (app.workfence.workforce://auth-callback, as on Android). Without it
+	     the system browser has nowhere to send the person back to, and the
+	     sign-in never reaches the app. SceneDelegate already hands the link
+	     to Capacitor as appUrlOpen. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>app.workfence.workforce</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>app.workfence.workforce</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
