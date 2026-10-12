@@ -17,7 +17,7 @@ import { useRouter } from "next/navigation";
 import { ScreenHeader } from "../shell";
 import { DISCARD_EDITS, DISCARD_TEAM } from "@/lib/confirm";
 import { useWorkforce } from "@/lib/store";
-import { nextTeamCode } from "@/lib/teams";
+import { leaderOnSave, nextTeamCode } from "@/lib/teams";
 import { LABOUR_TEAM_TYPES, type LabourTeam } from "@/lib/types";
 import { Field, Segmented } from "../ui";
 import { useUnsavedGuard } from "@/lib/unsaved";
@@ -91,11 +91,30 @@ export function TeamForm({
      less field to fill for the common case, still editable for the rest. */
   const resolvedName = name.trim() || (resolvedType ? `${resolvedType} Team` : "");
   const code = editing?.code ?? nextTeamCode(state, projectId);
-  const canSave = resolvedName.length > 0 && resolvedType.length > 0;
+  /* A gang works on a project. Opened with none — a company with no sites
+     yet, a stale link — the team would be saved belonging to nothing, and
+     on a live backend the write would fail outright. */
+  const canSave = resolvedName.length > 0 && resolvedType.length > 0 && !!project;
+
+  /* What Save will do with the chosen leader, worked out by the same rule
+     the store applies, so the promise under the field is the outcome. */
+  const leaderName = crew.find((u) => u.id === leaderId)?.name ?? "They";
+  const leaderOutcome = leaderOnSave(state, projectId, leaderId || undefined, editing?.leaderId, editing?.id);
+  const leaderHint =
+    leaderOutcome === "joins"
+      ? `Saving puts ${leaderName} on the gang.`
+      : leaderOutcome === "not-labour"
+        ? `${leaderName} is not labour, so they lead without being on the gang's roster. Add its workers from the team page.`
+        : leaderOutcome === "other-gang"
+          ? `${leaderName} is on another gang on this project, so they won't be added to this one.`
+          : leaderOutcome === "unchanged-off"
+            ? `${leaderName} isn't on the gang. Add them from Add labour on the team page.`
+            : "A worker who leads the gang on site.";
 
   const submit = () => {
     if (!canSave) return;
-    saveTeam(
+    // saveTeam also puts a newly chosen leader on the gang — see the store.
+    const saved = saveTeam(
       {
         projectId,
         name: resolvedName,
@@ -111,7 +130,10 @@ export function TeamForm({
       },
       editing?.id,
     );
-    router.replace(backTo);
+    /* A new gang has nobody on it, and is useless until it does — straight
+       to its page with Add labour open, rather than back to a list that
+       may be showing another project's teams. */
+    router.replace(editing ? backTo : `/manager/team?id=${saved.id}&add=1`);
   };
 
   const leaving = editing ? DISCARD_EDITS : DISCARD_TEAM;
@@ -142,6 +164,13 @@ export function TeamForm({
         </span>
         <span className="text-[0.8rem] font-bold tabular-nums">{code}</span>
       </div>
+      {/* Why Create is off, on the screen rather than nowhere. */}
+      {!project ? (
+        <p className="text-[0.78rem] leading-relaxed text-[var(--wf-amber)]">
+          A labour team belongs to a project, and none is chosen. Open Teams
+          from a project — or create the project first.
+        </p>
+      ) : null}
 
       <Field label="Trade" required>
         <select
@@ -178,7 +207,7 @@ export function TeamForm({
         />
       </Field>
 
-      <Field label="Team leader" hint="A worker who leads the gang on site.">
+      <Field label="Team leader" hint={leaderHint}>
         <select
           className="wf-input"
           value={leaderId}

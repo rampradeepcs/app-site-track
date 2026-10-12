@@ -65,7 +65,25 @@ function report(f: SyncFailure | null) {
  * surfaces, and it does — through `report`, not a rejected promise nobody is
  * holding.
  */
-export function persist(action: string, write: () => Promise<unknown>): void {
+/** The last write of each named queue, so the next one can wait for it. */
+const queues = new Map<string, Promise<unknown>>();
+
+export function persist(
+  action: string,
+  write: () => Promise<unknown>,
+  opts?: {
+    /**
+     * Writes sharing a queue reach the server in the order they were made.
+     *
+     * Most writes are independent and race freely. Some are not: a team's
+     * row has to land before its members', and a leader's membership
+     * written as part of saving the team must not arrive after a removal
+     * the manager made a second later — an upsert by id would reopen the
+     * spell on the server while the screen says it is closed.
+     */
+    queue?: string;
+  },
+): void {
   if (!isLiveBackend) return;
   /*
    * The demonstration does not touch the server.
@@ -87,7 +105,12 @@ export function persist(action: string, write: () => Promise<unknown>): void {
    * which is the window demo records were escaping through.
    */
   if (demoActive() || demoDataInMemory()) return;
-  void write().then(
+  const queue = opts?.queue;
+  // A failed write must not stall the queue behind it: it is reported
+  // below, and the next one still runs.
+  const run = queue ? (queues.get(queue) ?? Promise.resolve()).then(write, write) : write();
+  if (queue) queues.set(queue, run.catch(() => undefined));
+  void run.then(
     () => {
       // Only clear a failure that this same action raised; another pending
       // write's failure is still true and must stay on screen.

@@ -199,6 +199,50 @@ export function unassignedOnProject(
   );
 }
 
+/**
+ * What saving a team does with its leader, said in one place so the form's
+ * promise and the store's action cannot drift apart.
+ *
+ * A leader goes on the gang only when they are new to the team and Add
+ * labour would offer them itself — an employee on the project who is not on
+ * a gang there. Otherwise the answer says why not, so the form can say so
+ * before anybody presses Save.
+ */
+export type LeaderOnSave =
+  | "none" // no leader chosen
+  | "joins" // saving puts them on the gang
+  | "member" // already on this gang
+  | "not-labour" // a manager or administrator: leads without being on the roster
+  | "other-gang" // on another gang on this project
+  | "unavailable" // inactive, or not on this project
+  | "unchanged-off"; // the existing leader, who is not on the gang
+
+export function leaderOnSave(
+  s: WorkforceState,
+  projectId: string,
+  leaderId: string | undefined,
+  previousLeaderId: string | undefined,
+  teamId?: string,
+): LeaderOnSave {
+  if (!leaderId) return "none";
+  const onThisGang =
+    !!teamId &&
+    s.teamMembers.some((m) => m.teamId === teamId && m.employeeId === leaderId && !m.leftAt);
+  if (onThisGang) return "member";
+  const user = s.users.find((u) => u.id === leaderId);
+  if (user && user.role !== "employee") return "not-labour";
+  if (unassignedOnProject(s, projectId).some((u) => u.id === leaderId)) {
+    return leaderId === previousLeaderId ? "unchanged-off" : "joins";
+  }
+  const onAnotherGang = s.teamMembers.some(
+    (m) =>
+      m.employeeId === leaderId &&
+      !m.leftAt &&
+      s.labourTeams.find((t) => t.id === m.teamId)?.projectId === projectId,
+  );
+  return onAnotherGang ? "other-gang" : "unavailable";
+}
+
 /** Group attendance events for a team on a date, newest first. */
 export function groupCaptures(
   s: WorkforceState,

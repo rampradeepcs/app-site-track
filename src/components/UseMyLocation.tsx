@@ -40,11 +40,17 @@ export function UseMyLocation({
   // site places it, and a small w-fit button tucked beside a search box read
   // as a minor option next to the thing it is usually better than.
   className = "wf-btn wf-btn-ghost w-full",
+  fallback = "search for the address or drag the pin instead.",
 }: {
-  onPick: (at: LatLng) => void;
+  /** The point, and — for a screen that has to judge the reading — how
+   *  accurate it was (metres) and when it was taken (ms since epoch). */
+  onPick: (at: LatLng, reading: { accuracy: number; at: number }) => void;
   /** Override where the surrounding words need something more specific. */
   label?: string;
   className?: string;
+  /** What to do instead when there is no fix — the map screens' search and
+   *  pin by default. A screen without them says something else. */
+  fallback?: string;
 }) {
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +65,10 @@ export function UseMyLocation({
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
-        onPick({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        onPick(
+          { lat: pos.coords.latitude, lng: pos.coords.longitude },
+          { accuracy: pos.coords.accuracy ?? Infinity, at: pos.timestamp || Date.now() },
+        );
       },
       (err) => {
         setLocating(false);
@@ -67,8 +76,8 @@ export function UseMyLocation({
         // they changed, the other is a sky they cannot see.
         setError(
           err.code === err.PERMISSION_DENIED
-            ? "Location permission was declined — search for the address or drag the pin instead."
-            : "Couldn't get a fix. Search for the address or drag the pin instead.",
+            ? `Location permission was declined — ${fallback}`
+            : `Couldn't get a fix — ${fallback}`,
         );
       },
       // High accuracy matters: this places a boundary people are paid

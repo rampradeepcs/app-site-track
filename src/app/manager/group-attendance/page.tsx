@@ -19,18 +19,20 @@
  * the flow says which one it is before the photo is even taken.
  */
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
+import { UseMyLocation } from "@/components/UseMyLocation";
 import { Avatar, BottomSheet, Chip, FormError, useNowTick} from "@/components/ui";
 import { canCaptureGroupAttendance } from "@/lib/access";
 import { checkGeofence } from "@/lib/geo";
 import { likelySupported } from "@/lib/face/engine";
 import { analysePhotos, type DetectedFace } from "@/lib/face/group";
-import { activeMembers, teamsForProject } from "@/lib/teams";
+import { activeMembers, teamsForProject, unassignedOnProject } from "@/lib/teams";
 import { useWorkforce } from "@/lib/store";
 import { fmtTime, todayISO } from "@/lib/format";
-import type { GeofenceCheck } from "@/lib/types";
+import type { GeofenceCheck, LatLng } from "@/lib/types";
 import {
   ICamera,
   ICheck,
@@ -41,6 +43,17 @@ import {
 } from "@/components/WfIcons";
 
 type Step = "setup" | "capture" | "review";
+
+/** A one-tap location reading: where, how sure, and when. */
+interface Reading {
+  coords: LatLng;
+  accuracy: number;
+  at: number;
+}
+type ReadingProblem = "stale" | "rough" | null;
+
+/** How long a tapped reading stands as evidence of where the phone is. */
+const READING_FRESH_MS = 5 * 60_000;
 
 /** The reviewer's decision for one member of the gang. */
 interface Decision {
@@ -82,6 +95,14 @@ export default function GroupAttendancePage() {
      pick, with no effect writing state back and re-rendering to do it. */
   const selectedTeamId = teams.some((t) => t.id === teamId) ? teamId : "";
   const team = state.labourTeams.find((t) => t.id === selectedTeamId);
+  /* Named in the empty-gang note only when Add labour would offer them — an
+     employee on the project who is not on a gang there. A manager picked as
+     leader, or a worker already on another gang, is not in that picker, and
+     naming them would send somebody looking for a person it never shows. */
+  const leader =
+    team?.leaderId && team.projectId
+      ? unassignedOnProject(state, team.projectId).find((u) => u.id === team.leaderId)
+      : undefined;
 
   const mayCapture = canCaptureGroupAttendance(state, state.session?.userId, projectId);
 
@@ -104,10 +125,46 @@ export default function GroupAttendancePage() {
     );
   }, [state.attendance, now]);
 
-  const geofence: GeofenceCheck = useMemo(() => {
-    if (!fix || !project) return "unknown";
-    return checkGeofence(fix.coords, project.geofence).inside ? "inside" : "outside";
-  }, [fix, project]);
+  /*
+   * Where the phone is.
+   *
+   * The store's live fix only runs for an employee on shift, and this is a
+   * manager's screen — so for the people who actually use it there was never
+   * a fix, every capture said "location unknown", and the check the screen
+   * asks for could not be done. It asks the browser itself, on a tap, as
+   * every other place-a-premise screen does.
+   */
+  const [here, setHere] = useState<Reading | null>(null);
+
+  /*
+   * A reading is evidence only while it is recent and sharp.
+   *
+   * Taken once and kept, a 07:00 tap at the gate would still say "on site"
+   * for a photo taken at 16:00 somewhere else, and stamp every worker's
+   * check-in with it; an approximate-location grant can put a point two
+   * kilometres wide inside the fence. So a reading counts for a few minutes,
+   * and only if it is as accurate as the store asks of a live fix — and the
+   * verdict is worked out again at the moment of Confirm, not reused.
+   */
+  const verdictAt = (t: number) => {
+    const problem: ReadingProblem = !here
+      ? null
+      : t - here.at > READING_FRESH_MS
+        ? "stale"
+        : here.accuracy > state.settings.accuracyFloor
+          ? "rough"
+          : null;
+    const position =
+      fix && !fix.degraded ? fix.coords : here && !problem ? here.coords : null;
+    const status: GeofenceCheck =
+      !position || !project
+        ? "unknown"
+        : checkGeofence(position, project.geofence).inside
+          ? "inside"
+          : "outside";
+    return { position, status, problem };
+  };
+  const { status: geofence, problem: readingProblem } = verdictAt(now);
 
   /* ------------------------------------------------------------ capture */
 
@@ -214,13 +271,14 @@ export default function GroupAttendancePage() {
 
   const confirm = () => {
     if (!team) return;
+    const atConfirm = verdictAt(Date.now());
     const res = submitGroupAttendance({
       projectId,
       teamId: team.id,
       shiftId: shiftId || team.shiftId,
       photos,
-      coords: fix?.coords,
-      geofenceStatus: geofence,
+      coords: atConfirm.position ?? undefined,
+      geofenceStatus: atConfirm.status,
       faceCount: faces.length,
       members: decisions.map((d) => ({
         employeeId: d.employeeId,
@@ -361,9 +419,73 @@ export default function GroupAttendancePage() {
               </select>
             </label>
 
-            <GeofenceBanner status={geofence} projectName={project?.name} />
+            {/* A project with no gangs had an empty picker and nothing else:
+                say what is missing and where it is made. */}
+            {!project ? (
+              /* Nothing to pick from at all: a company with no sites yet,
+                 or a remembered project that no longer exists. A team
+                 made from here would belong to nothing. */
+              <div className="wf-card2 flex flex-col gap-2.5 px-3.5 py-3">
+                <p className="text-[0.8rem] font-semibold">No project to take attendance on</p>
+                <p className="text-[0.72rem] leading-relaxed text-[var(--wf-muted)]">
+                  Group attendance is taken on a project, for one of its gangs.
+                  Create the project first, then its labour teams.
+                </p>
+                <Link href="/manager/projects" className="wf-btn wf-btn-ghost wf-btn-sm w-fit">
+                  Go to projects
+                </Link>
+              </div>
+            ) : teams.length === 0 ? (
+              <div className="wf-card2 flex flex-col gap-2.5 px-3.5 py-3">
+                <p className="text-[0.8rem] font-semibold">
+                  {project?.name ?? "This project"} has no labour teams yet
+                </p>
+                <p className="text-[0.72rem] leading-relaxed text-[var(--wf-muted)]">
+                  Group attendance is taken for a gang, so make one first and
+                  add its workers.
+                </p>
+                <Link
+                  href={`/manager/teams/edit?project=${projectId}`}
+                  className="wf-btn wf-btn-ghost wf-btn-sm w-fit"
+                >
+                  <IPlus size={14} /> Create a labour team
+                </Link>
+              </div>
+            ) : null}
 
-            {team ? (
+            <GeofenceBanner
+              status={geofence}
+              projectName={project?.name}
+              onLocate={fix && !fix.degraded ? undefined : (at, r) => setHere({ coords: at, ...r })}
+              readingProblem={readingProblem}
+              accuracy={here?.accuracy}
+            />
+
+            {team && roster.length === 0 ? (
+              /*
+               * Continue waits for a gang with somebody on it, and used to
+               * wait without a word — beside "Everyone on this gang has a face
+               * on file", which an empty gang made true. Say why, and offer
+               * the one thing that unblocks it.
+               */
+              <div className="wf-card2 flex flex-col gap-2.5 px-3.5 py-3">
+                <p className="text-[0.8rem] font-semibold">
+                  Nobody is on {team.name} yet
+                </p>
+                <p className="text-[0.72rem] leading-relaxed text-[var(--wf-muted)]">
+                  Attendance is marked for the workers on this gang, so add
+                  them to it first
+                  {leader ? ` — including its leader, ${leader.name}, who is not on it yet` : ""}
+                  .
+                </p>
+                <Link
+                  href={`/manager/team?id=${team.id}&add=1`}
+                  className="wf-btn wf-btn-primary wf-btn-sm w-fit"
+                >
+                  <IPlus size={14} /> Add labour to {team.name}
+                </Link>
+              </div>
+            ) : team ? (
               <div className="wf-card2 px-3.5 py-3">
                 <p className="text-[0.8rem] font-semibold">
                   {roster.length} expected · {enrolled.length} with a face on file
@@ -381,7 +503,13 @@ export default function GroupAttendancePage() {
 
         {step === "capture" ? (
           <>
-            <GeofenceBanner status={geofence} projectName={project?.name} />
+            <GeofenceBanner
+              status={geofence}
+              projectName={project?.name}
+              onLocate={fix && !fix.degraded ? undefined : (at, r) => setHere({ coords: at, ...r })}
+              readingProblem={readingProblem}
+              accuracy={here?.accuracy}
+            />
 
             <div className="grid grid-cols-3 gap-2">
               {photos.map((p, i) => (
@@ -677,9 +805,18 @@ function Steps({ step }: { step: Step }) {
 function GeofenceBanner({
   status,
   projectName,
+  onLocate,
+  readingProblem,
+  accuracy,
 }: {
   status: GeofenceCheck;
   projectName?: string;
+  /** Given when the screen has no live fix of its own to go on — the
+   *  banner then offers to ask the phone, on a tap. */
+  onLocate?: (at: LatLng, reading: { accuracy: number; at: number }) => void;
+  /** Why the last tapped reading no longer counts, if it does not. */
+  readingProblem?: ReadingProblem;
+  accuracy?: number;
 }) {
   const tone =
     status === "inside"
@@ -690,22 +827,38 @@ function GeofenceBanner({
   return (
     <div className="wf-inset flex items-start gap-2.5 px-3.5 py-3">
       <IMapPin size={15} style={{ color: tone }} className="mt-0.5 shrink-0" />
-      <p className="text-[0.76rem] leading-snug">
-        <span style={{ color: tone }} className="font-semibold">
-          {status === "inside"
-            ? `On site at ${projectName ?? "this project"}`
-            : status === "outside"
-              ? "Outside the project geofence"
-              : "Site location not confirmed"}
-        </span>
-        <span className="block text-[var(--wf-muted)]">
-          {status === "inside"
-            ? "This capture will be recorded as taken on site."
-            : status === "outside"
-              ? "You can still record it — the capture will say it was taken off site."
-              : "No GPS fix yet. The capture will record that location was unknown."}
-        </span>
-      </p>
+      <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
+        <p className="text-[0.76rem] leading-snug">
+          <span style={{ color: tone }} className="font-semibold">
+            {status === "inside"
+              ? `On site at ${projectName ?? "this project"}`
+              : status === "outside"
+                ? "Outside the project geofence"
+                : "Site location not confirmed"}
+          </span>
+          <span className="block text-[var(--wf-muted)]">
+            {status === "inside"
+              ? "This capture will be recorded as taken on site."
+              : status === "outside"
+                ? "You can still record it — the capture will say it was taken off site."
+                : readingProblem === "stale"
+                  ? "The last check was over five minutes ago. Check again — otherwise the capture records that location was unknown."
+                  : readingProblem === "rough"
+                    ? `That reading was only accurate to about ${Math.round(accuracy ?? 0)} m — too rough to place you on site. Check again in the open.`
+                    : onLocate
+                      ? "Not checked yet. Without a check, the capture records that location was unknown."
+                      : "No GPS fix yet. The capture will record that location was unknown."}
+          </span>
+        </p>
+        {onLocate ? (
+          <UseMyLocation
+            label={status === "unknown" && !readingProblem ? "Check I'm on site" : "Check again"}
+            className="wf-btn wf-btn-ghost wf-btn-sm"
+            onPick={onLocate}
+            fallback="check again, or carry on — the capture records that location was unknown."
+          />
+        ) : null}
+      </div>
     </div>
   );
 }

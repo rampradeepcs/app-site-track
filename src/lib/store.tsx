@@ -109,7 +109,7 @@ import {
   markNotificationsReadRemote,
 } from "./supabase/repository";
 import { persist, uid } from "./supabase/sync";
-import { nextTeamCode } from "./teams";
+import { leaderOnSave, nextTeamCode } from "./teams";
 import { canCaptureGroupAttendance, canSeeNote } from "./access";
 import { dueReminders } from "./notes";
 import type {
@@ -171,6 +171,13 @@ const STORAGE_KEY = `workfence.v${SEED_VERSION}`;
  * was. Demo records are minted by the seed with their own ids.
  */
 const rid = (_prefix: string) => uid();
+
+/**
+ * One queue for every labour-team write. A team's row must reach Postgres
+ * before its members', and a membership must not be overwritten by an
+ * older write that happened to arrive later — see persist's `queue`.
+ */
+const TEAM_WRITES = "labour-teams";
 
 /** Default contracted shift for a freshly provisioned company: 9-to-6. */
 const DEFAULT_SHIFT = { start: 9 * 60, end: 18 * 60 };
@@ -3285,12 +3292,53 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         updatedAt: now,
       };
 
+      /*
+       * The leader goes on the gang.
+       *
+       * The form asks for "a worker who leads the gang", and a gang saved
+       * with a leader and nobody on it read as having one — until group
+       * attendance, which marks only the gang's members, had nobody to
+       * expect and nothing to continue with.
+       *
+       * Only when the leader is new to this team, so a leader somebody took
+       * off the gang is not put back by the next edit of its name. And only
+       * when Add labour would offer them itself: an employee on the project
+       * who is not on a gang there already — not a manager made "labour"
+       * because they lead, and not a worker put on two gangs at once.
+       */
+      const leaderRow: LabourTeamMember | null =
+        team.leaderId &&
+        leaderOnSave(st, team.projectId, team.leaderId, existing?.leaderId, existing?.id) ===
+          "joins"
+          ? {
+              id: rid("tm"),
+              orgId: team.orgId,
+              teamId: team.id,
+              employeeId: team.leaderId,
+              joinedAt: now,
+              status: "active",
+            }
+          : null;
+
       mutate((s) => ({
         ...s,
         labourTeams: existing
           ? s.labourTeams.map((t) => (t.id === team.id ? team : t))
           : [team, ...s.labourTeams],
+        teamMembers: leaderRow ? [leaderRow, ...s.teamMembers] : s.teamMembers,
         audit: [
+          // The membership is audited like any other start of a spell —
+          // Add labour writes team.member.add, and so does this.
+          ...(leaderRow
+            ? [
+                auditLine(
+                  s,
+                  "team.member.add",
+                  team.name,
+                  `${s.users.find((u) => u.id === leaderRow.employeeId)?.name ?? leaderRow.employeeId} · as leader`,
+                ),
+              ]
+            : []),
           auditLine(
             s,
             existing ? "team.update" : "team.create",
@@ -3300,10 +3348,24 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ...s.audit,
         ].slice(0, 200),
       }));
-      persist(existing ? "save the team" : "create the team", () =>
-        upsertLabourTeam(team),
+      // In order, in one write: the membership row names the team, so the
+      // team has to exist in Postgres before it does.
+      persist(
+        existing ? "save the team" : "create the team",
+        async () => {
+          await upsertLabourTeam(team);
+          if (leaderRow) await upsertTeamMembers([leaderRow]);
+        },
+        { queue: TEAM_WRITES },
       );
-      showToast(existing ? "Team updated" : `${team.name} created`);
+      const leaderName = leaderRow
+        ? st.users.find((u) => u.id === leaderRow.employeeId)?.name
+        : undefined;
+      showToast(
+        `${existing ? "Team updated" : `${team.name} created`}${
+          leaderName ? ` — ${leaderName} is on the gang` : ""
+        }`,
+      );
       return team;
     },
     [mutate],
@@ -3315,8 +3377,10 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
          Postgres — stateRef lags a render and would push the old status. */
       const before = stateRef.current?.labourTeams.find((t) => t.id === teamId);
       if (before) {
-        persist("change the team status", () =>
-          upsertLabourTeam({ ...before, status, updatedAt: Date.now() }),
+        persist(
+          "change the team status",
+          () => upsertLabourTeam({ ...before, status, updatedAt: Date.now() }),
+          { queue: TEAM_WRITES },
         );
       }
       mutate((s) => {
@@ -3374,7 +3438,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ...s.audit,
         ].slice(0, 200),
       }));
-      persist("add labour to the team", () => upsertTeamMembers(rows));
+      persist("add labour to the team", () => upsertTeamMembers(rows), { queue: TEAM_WRITES });
       showToast(`${fresh.length} added to the team`);
       return { added: fresh.length, skipped: employeeIds.length - fresh.length };
     },
@@ -3411,7 +3475,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ...s.audit,
         ].slice(0, 200),
       }));
-      persist("remove from the team", () => upsertTeamMembers(closed));
+      persist("remove from the team", () => upsertTeamMembers(closed), { queue: TEAM_WRITES });
       showToast("Removed from team");
     },
     [mutate],
@@ -3466,7 +3530,9 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ...s.audit,
         ].slice(0, 200),
       }));
-      persist("transfer the worker", () => upsertTeamMembers([...left, joined]));
+      persist("transfer the worker", () => upsertTeamMembers([...left, joined]), {
+        queue: TEAM_WRITES,
+      });
       showToast(`Transferred to ${to.name}`);
       return { ok: true };
     },
@@ -3477,8 +3543,10 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     (teamId: string, employeeId: string | undefined) => {
       const before = stateRef.current?.labourTeams.find((t) => t.id === teamId);
       if (before) {
-        persist("set the team leader", () =>
-          upsertLabourTeam({ ...before, leaderId: employeeId, updatedAt: Date.now() }),
+        persist(
+          "set the team leader",
+          () => upsertLabourTeam({ ...before, leaderId: employeeId, updatedAt: Date.now() }),
+          { queue: TEAM_WRITES },
         );
       }
       mutate((s) => ({

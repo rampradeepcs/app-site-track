@@ -12,7 +12,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ScreenHeader } from "@/components/shell";
 import { EmployeePicker } from "@/components/EmployeePicker";
 import { Avatar, BottomSheet, Chip, Fact, Facts, SectionTitle, Segmented, StatusChip, useNowTick } from "@/components/ui";
@@ -52,7 +52,18 @@ export default function TeamPage() {
   const now = useNowTick(20);
 
   const [tab, setTab] = useState<Tab>("members");
-  const [adding, setAdding] = useState(false);
+  /* ?add=1 arrives from group attendance's empty-gang note, and from a
+     team just created — both sent somebody here to do exactly this. */
+  const [adding, setAdding] = useState(() => params.get("add") === "1");
+  /* A request, used once. Left in the address, every return to this page's
+     history entry — Back from a capture, from Edit — reopened the sheet
+     unasked. The page is not remounted by a same-route replace, so the
+     sheet this visit opened stays open. */
+  useEffect(() => {
+    if (params.get("add") === "1" && teamId) {
+      router.replace(`/manager/team?id=${teamId}`, { scroll: false });
+    }
+  }, [params, router, teamId]);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [moving, setMoving] = useState<User | null>(null);
 
@@ -199,10 +210,24 @@ export default function TeamPage() {
                   setAdding(true);
                 }}
                 disabled={available.length === 0}
-                title={available.length === 0 ? "Everyone on this project is already on a team" : undefined}
               >
                 <IPlus size={15} /> Add labour
               </button>
+            ) : null}
+            {/* Said on the screen, not in a hover title a phone never shows:
+                a disabled button with no reason is a dead end. */}
+            {mayManage && available.length === 0 ? (
+              <p className="text-[0.74rem] leading-relaxed text-[var(--wf-muted)]">
+                Nobody on {project?.name ?? "this project"} is free to add —
+                they are all on a team already, or nobody is assigned to the
+                project yet.{" "}
+                <Link
+                  href={`/manager/project?id=${team.projectId}&tab=team`}
+                  className="font-semibold text-[var(--wf-amber)]"
+                >
+                  Assign people to the project
+                </Link>
+              </p>
             ) : null}
 
             <div className="flex flex-col gap-2">
@@ -361,7 +386,13 @@ export default function TeamPage() {
 
 
       {/* add labour */}
-      <BottomSheet open={adding} onClose={() => setAdding(false)} title="Add labour" tall fill>
+      <BottomSheet
+        open={adding && mayManage && available.length > 0}
+        onClose={() => setAdding(false)}
+        title="Add labour"
+        tall
+        fill
+      >
         <div className="flex min-h-0 flex-1 flex-col gap-3">
           <p className="text-[0.78rem] leading-snug text-[var(--wf-muted)]">
             Workers on {project?.name ?? "this project"} who are not already on a team.

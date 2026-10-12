@@ -27,7 +27,9 @@ function TeamEditScreen() {
   const { state } = useWorkforce();
   const id = params.get("id");
   const team = id ? (state.labourTeams?.find((t) => t.id === id) ?? null) : null;
-  const projectId = team?.projectId ?? params.get("project") ?? state.activeProjectId ?? "";
+  // `||` for the parameter: "?project=" is empty, not absent, and must fall
+  // back like a missing one rather than name no project at all.
+  const projectId = team?.projectId ?? (params.get("project") || state.activeProjectId || "");
 
   if (id && !team) {
     return (
