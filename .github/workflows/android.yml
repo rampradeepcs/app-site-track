@@ -34,14 +34,29 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
+      # v4: v3 still installs the legacy `tools` package, which Google stopped
+      # serving in September 2026 ("Failed to find package 'tools'"), and that
+      # took every build down at this step.
+      - uses: android-actions/setup-android@v4
 
       - name: Sync Capacitor
         run: npx cap sync android
 
       - name: Assemble debug APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon 2>&1 | tee gradle.log
+
+      # The run log is only readable signed in; an annotation is readable by
+      # anyone who can see the run. So a failed build says why up there too.
+      - name: Say why the build failed
+        if: failure()
+        run: |
+          [ -f android/gradle.log ] || exit 0
+          why=$(grep -E -A4 "What went wrong|^e: |error:" android/gradle.log | head -60)
+          why=${why//'%'/'%25'}; why=${why//$'\r'/'%0D'}; why=${why//$'\n'/'%0A'}
+          echo "::error title=Gradle build failed::${why:-see the Assemble debug APK step}"
 
       # Artifact upload is best-effort: it fails outright when the account's
       # Actions storage quota is full, and that must not fail a green build.
