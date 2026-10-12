@@ -144,7 +144,7 @@
 				C0CA0475C12D5CD66F1F38CA /* WatchPlugin.swift */,
 			);
 			name = Watch;
-			path = App/Watch;
+			path = Watch;
 			sourceTree = "<group>";
 		};
 		B472E730DC7DC4B13E034E82 /* Biometric */ = {
@@ -173,7 +173,7 @@
 				3193AAD6BEEA57117E6D6ED2 /* WorkfenceWatchApp.swift */,
 			);
 			name = WorkfenceWatch;
-			path = WorkfenceWatch/Sources;
+			path = ../WorkfenceWatch/Sources;
 			sourceTree = SOURCE_ROOT;
 		};
 /* End PBXGroup section */
