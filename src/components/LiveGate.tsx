@@ -41,7 +41,7 @@ import {
   serverGateNotice,
   subscribeGateNotice,
 } from "@/lib/gate-notice";
-import { DEMO_EMAIL, leaveDemoFor } from "@/lib/demo/mode";
+import { DEMO_EMAIL, demoActive, leaveDemoFor } from "@/lib/demo/mode";
 import { PersonaChooser } from "@/components/demo/PersonaPicker";
 import { consumeSignInDirect, landingFor } from "@/lib/routes";
 import { useTenant } from "@/lib/tenant";
@@ -162,7 +162,13 @@ export default function LiveGate() {
     const role = state.session.role;
     // This gate only exists in live mode, so the question is the role: the
     // platform owner belongs to no company and is never asked to choose one.
-    if (role === "superadmin") {
+    //
+    // Nor is a demonstration persona: its company is fictional and lives on
+    // this device, so asking the real backend which companies it belongs to
+    // finds none and parks it on an empty chooser. The phone apps come
+    // through here on every persona pick — the WebView answers the full load
+    // of /admin with the root page — so without this the demo never opened.
+    if (role === "superadmin" || demoActive()) {
       router.replace(landingFor(role));
       return;
     }
