@@ -39,6 +39,9 @@ export function dashboardStats(s: WorkforceState, now = Date.now()): DashboardSt
   const employees = s.users.filter((u) => u.role === "employee" && u.status === "active");
   const todays = s.attendance.filter((a) => a.date === today);
   const withIn = todays.filter((a) => a.checkIn);
+  // People, not rows: a second check-in the same day is still one person
+  // present, and counting rows pushed attendance past 100%.
+  const peopleIn = new Set(withIn.map((a) => a.employeeId)).size;
   const out = withIn.filter((a) => a.checkOut);
   const working = withIn.filter((a) => !a.checkOut && !a.autoClosed);
   const closed = s.attendance.filter((a) => a.workedMinutes != null && a.date === today);
@@ -50,15 +53,15 @@ export function dashboardStats(s: WorkforceState, now = Date.now()): DashboardSt
     totalProjects: s.projects.length,
     activeProjects: s.projects.filter((p) => p.status === "active").length,
     workforce: employees.length,
-    presentToday: withIn.length,
-    checkedIn: withIn.length,
+    presentToday: peopleIn,
+    checkedIn: peopleIn,
     checkedOut: out.length,
     currentlyWorking: working.length,
     lateToday: todays.filter((a) => a.status === "late").length,
     earlyOutToday: todays.filter((a) => a.status === "early-checkout").length,
     missingCheckout: s.attendance.filter((a) => a.status === "missing-checkout").length,
     absentToday: todays.filter((a) => a.status === "absent").length,
-    attendancePct: employees.length ? (withIn.length / employees.length) * 100 : 0,
+    attendancePct: employees.length ? Math.min(100, (peopleIn / employees.length) * 100) : 0,
     avgWorkedMinutes: avg,
     updatesToday: s.updates.filter((u) => u.date === today).length,
   };
@@ -88,7 +91,9 @@ export function attendanceTrend(
     const worked = recs.filter((a) => a.workedMinutes != null);
     out.push({
       date,
-      presentPct: pool.length ? (recs.length / pool.length) * 100 : 0,
+      presentPct: pool.length
+        ? Math.min(100, (new Set(recs.map((a) => a.employeeId)).size / pool.length) * 100)
+        : 0,
       avgHours: worked.length
         ? worked.reduce((t, a) => t + (a.workedMinutes ?? 0), 0) / worked.length / 60
         : 0,
@@ -288,7 +293,9 @@ export function performanceFor(
     : 0;
   const hours = expected ? Math.min(100, (avgWorked / expected) * 100) : 0;
   const updates = Math.min(100, (ups.length / (present.length || 1)) * 65);
-  const supervisor = ((user.supervisorRating ?? 3.5) / 5) * 100;
+  // Ratings are stored out of 100 (the seed, the platform console and the
+  // type all agree); reading them as out of 5 put scores in the thousands.
+  const supervisor = Math.min(100, Math.max(0, user.supervisorRating ?? 70));
 
   const overall =
     attendance * PERFORMANCE_WEIGHTS.attendance +
@@ -428,12 +435,15 @@ export function attendanceSources(
   projectId?: string,
 ): AttendanceSources {
   const day = date ?? todayISO();
-  const rows = s.attendance.filter(
-    (a) =>
-      a.date === day &&
-      !!a.checkIn &&
-      (!projectId || a.projectId === projectId),
-  );
+  // One row per person — their first check-in of the day decides how they
+  // were marked — so the total really is "no double counting".
+  const firstIn = new Map<string, (typeof s.attendance)[number]>();
+  for (const a of s.attendance) {
+    if (a.date !== day || !a.checkIn || (projectId && a.projectId !== projectId)) continue;
+    const seen = firstIn.get(a.employeeId);
+    if (!seen || a.checkIn.at < seen.checkIn!.at) firstIn.set(a.employeeId, a);
+  }
+  const rows = [...firstIn.values()];
   let group = 0;
   let manual = 0;
   for (const a of rows) {

@@ -21,8 +21,11 @@ import {
   fmtTime,
 } from "@/lib/format";
 import {
+  canRunPayroll,
+  canSeePay,
   dayPay,
   fmtINR,
+  monthLocked,
   monthSummary,
   periodSummary,
   payrollCSV,
@@ -102,7 +105,9 @@ export default function ManagerPayroll() {
    */
   const [period, setPeriod] = useState<Period>("month");
   const [anchor, setAnchor] = useState(() => dateISO(new Date()));
-  const [detail, setDetail] = useState<{ user: User; summary: MonthSummary } | null>(null);
+  // The person, not a snapshot of their month: the sheet recomputes on every
+  // render, so an adjustment recorded while it is open shows up in it.
+  const [detail, setDetail] = useState<User | null>(null);
   const [dayDetail, setDayDetail] = useState<Attendance | null>(null);
   const [adjusting, setAdjusting] = useState<User | null>(null);
 
@@ -122,18 +127,30 @@ export default function ManagerPayroll() {
     [people, state, month],
   );
 
+  const role = wf.currentUser?.role;
+  const seePay = canSeePay(role, state.payPolicy);
+  const runsPayroll = canRunPayroll(role);
+
+  // A month nobody worked in is empty, not forty rows of ₹0.
+  const anyWorked = rows.some((r) => r.summary.presentDays > 0);
+  const shownRows = anyWorked ? rows : rows.filter((r) => r.summary.adjustments !== 0);
+  const detailSummary = useMemo(
+    () => (detail ? monthSummary(state, detail.id, month) : null),
+    [detail, state, month],
+  );
+
   const run = runFor(state, month);
   const status: PayrollStatus = run?.status ?? "draft";
   const locked = status === "locked";
 
   const totals = useMemo(
     () => ({
-      net: rows.reduce((t, r) => t + r.summary.netPay, 0),
-      ot: rows.reduce((t, r) => t + r.summary.overtimePay, 0),
-      otMinutes: rows.reduce((t, r) => t + r.summary.paidOvertimeMinutes, 0),
-      deductions: rows.reduce((t, r) => t + r.summary.deductions, 0),
+      net: shownRows.reduce((t, r) => t + r.summary.netPay, 0),
+      ot: shownRows.reduce((t, r) => t + r.summary.overtimePay, 0),
+      otMinutes: shownRows.reduce((t, r) => t + r.summary.paidOvertimeMinutes, 0),
+      deductions: shownRows.reduce((t, r) => t + r.summary.deductions, 0),
     }),
-    [rows],
+    [shownRows],
   );
 
   /* OT decisions waiting on a manager, any month — surfaced here. */
@@ -143,6 +160,17 @@ export default function ManagerPayroll() {
         .filter((a) => a.overtime?.status === "pending")
         .sort((a, b) => (a.date < b.date ? 1 : -1)),
     [state.attendance],
+  );
+
+  /* Approving OT in a closed month would move a signed-off total, so the
+     bulk action covers only the records it can still settle. */
+  const meId = wf.currentUser?.id;
+  const approvableOT = useMemo(
+    () =>
+      pendingOT.filter(
+        (a) => a.employeeId !== meId && !monthLocked(state, a.date.slice(0, 7)),
+      ),
+    [pendingOT, state, meId],
   );
 
   const shiftMonth = (delta: number) => {
@@ -191,6 +219,17 @@ export default function ManagerPayroll() {
     const d = new Date(`${anchor}T00:00:00`);
     d.setDate(d.getDate() + delta * (period === "week" ? 7 : 1));
     setAnchor(dateISO(d));
+    // The header names the run, so it follows the day being looked at.
+    setMonth(monthISO(d));
+  };
+
+  const choosePeriod = (next: Period) => {
+    // Coming from the month lens, start on a day inside that month.
+    if (next !== "month" && !anchor.startsWith(month)) {
+      const today = dateISO(new Date());
+      setAnchor(today.startsWith(month) ? today : `${month}-01`);
+    }
+    setPeriod(next);
   };
 
   const monthLabel = new Date(`${month}-01T00:00:00`).toLocaleDateString("en-IN", {
@@ -221,7 +260,7 @@ export default function ManagerPayroll() {
   const nextStatus = STATUS_FLOW[STATUS_FLOW.indexOf(status) + 1];
 
   /* Export — three formats off the same table, each logged (spec §25). */
-  const employeeIds = rows.map((r) => r.user.id);
+  const employeeIds = shownRows.map((r) => r.user.id);
   const exportCSV = () => {
     downloadCSV(`payroll-${month}.csv`, payrollCSV(state, month, employeeIds), `Payroll — ${month}`);
     wf.logAudit("payroll.export", month, "CSV");
@@ -269,39 +308,67 @@ export default function ManagerPayroll() {
           180px and broke "August 2026 · Draft" across two lines. They get
           their own row, beside the data they export. */}
       <ScreenHeader
-        title="Payroll"
-        sub={`${monthLabel} · ${STATUS_LABEL[status]}`}
+        title={seePay ? "Payroll" : "Overtime approvals"}
+        sub={
+          seePay
+            ? `${monthLabel} · ${STATUS_LABEL[status]}`
+            : "Pay figures are visible to payroll admins"
+        }
         back
         /* Moving a month along is what this screen is for, and it used to be
            a small button inside a card explaining the pipeline — reachable
-           only after scrolling past the whole run. */
+           only after scrolling past the whole run. Only on the month lens,
+           which is the only one the run belongs to, and only for the people
+           who run payroll. */
         action={
-          nextStatus && !locked ? (
-            <button
-              className={`wf-btn ${nextStatus === "locked" ? "wf-btn-danger" : "wf-btn-primary"}`}
-              onClick={() => wf.setPayrollStatus(month, nextStatus)}
-            >
-              {nextStatus === "locked" ? (
-                <>
-                  <ILock size={15} /> Lock payroll
-                </>
-              ) : (
-                <>
-                  <ICheckCircle size={15} /> Mark {STATUS_LABEL[nextStatus].toLowerCase()}
-                </>
-              )}
-            </button>
+          seePay && runsPayroll && period === "month" && nextStatus && !locked ? (
+            nextStatus === "locked" ? (
+              // Locking cannot be undone, so the tap arms rather than commits.
+              <CountdownButton
+                className="wf-btn wf-btn-danger"
+                tone="danger"
+                label={
+                  <>
+                    <ILock size={15} /> Lock payroll
+                  </>
+                }
+                armedLabel="Cancel lock"
+                onCommit={() => wf.setPayrollStatus(month, nextStatus)}
+              />
+            ) : (
+              <button
+                className="wf-btn wf-btn-primary"
+                onClick={() => wf.setPayrollStatus(month, nextStatus)}
+              >
+                <ICheckCircle size={15} /> Mark {STATUS_LABEL[nextStatus].toLowerCase()}
+              </button>
+            )
           ) : null
         }
       />
 
       <div className="flex flex-col gap-4 px-4">
         <FeatureGate feature="payroll">
+          {!seePay ? (
+            <>
+              <p className="wf-inset px-3.5 py-3 text-[0.78rem] leading-snug text-[var(--wf-muted)]">
+                Your organisation&apos;s pay policy keeps salaries and pay
+                totals with payroll admins. You can still settle overtime for
+                your crew here.
+              </p>
+              <PendingOvertime
+                pendingOT={pendingOT}
+                approvableOT={approvableOT}
+                showPay={false}
+              />
+            </>
+          ) : (
+          <>
           <Segmented<Period>
             ariaLabel="Payroll period"
             size="sm"
             value={period}
-            onChange={setPeriod}
+            onChange={choosePeriod}
             options={[
               { value: "day", label: "Day" },
               { value: "week", label: "Week" },
@@ -387,50 +454,7 @@ export default function ManagerPayroll() {
             )}
           </div>
 
-          {/* pending overtime approvals */}
-          {pendingOT.length > 0 ? (
-            <div className="wf-card p-4">
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <h2 className="wf-display text-sm">
-                  Pending overtime approvals ({pendingOT.length})
-                </h2>
-                {/* Deciding a month of a large crew one row at a time is not
-                    review, it is data entry. Both bulk actions arm for three
-                    seconds like the per-row ones — more so here, since one
-                    tap settles every outstanding record. */}
-                <div className="ml-auto flex gap-2">
-                  <CountdownButton
-                    className="wf-btn wf-btn-success wf-btn-sm"
-                    label={`Approve all (${pendingOT.length})`}
-                    armedLabel="Cancel"
-                    onCommit={() =>
-                      wf.decideOvertimeMany(
-                        pendingOT.map((a) => a.id),
-                        "approved",
-                      )
-                    }
-                  />
-                  <CountdownButton
-                    className="wf-btn wf-btn-ghost wf-btn-sm wf-btn-danger-text"
-                    tone="danger"
-                    label="Reject all"
-                    armedLabel="Cancel"
-                    onCommit={() =>
-                      wf.decideOvertimeMany(
-                        pendingOT.map((a) => a.id),
-                        "rejected",
-                      )
-                    }
-                  />
-                </div>
-              </div>
-              <div className="flex flex-col gap-3">
-                {pendingOT.map((a) => (
-                  <OvertimeApprovalRow key={a.id} att={a} />
-                ))}
-              </div>
-            </div>
-          ) : null}
+          <PendingOvertime pendingOT={pendingOT} approvableOT={approvableOT} showPay />
 
           {period !== "month" ? (
             <div className="wf-card overflow-hidden">
@@ -505,11 +529,11 @@ export default function ManagerPayroll() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map(({ user, summary }) => (
+                  {shownRows.map(({ user, summary }) => (
                     <tr
                       key={user.id}
                       data-clickable="true"
-                      onClick={() => setDetail({ user, summary })}
+                      onClick={() => setDetail(user)}
                     >
                       <td>
                         <span className="flex items-center gap-2.5">
@@ -549,10 +573,10 @@ export default function ManagerPayroll() {
                       </td>
                     </tr>
                   ))}
-                  {rows.length === 0 ? (
+                  {shownRows.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="py-8 text-center text-[var(--wf-muted)]">
-                        No attendance this month yet.
+                        No attendance in {monthLabel}.
                       </td>
                     </tr>
                   ) : null}
@@ -578,7 +602,10 @@ export default function ManagerPayroll() {
               <p className="mt-0.5 text-[0.76rem] text-[var(--wf-muted)]">
                 {locked
                   ? "Corrections now require an adjustment, which is recorded in the audit trail."
-                  : "Draft → Calculated → Manager review → Approved → Locked. Locking freezes the month."}
+                  : status === "approved"
+                    ? "Approved totals are frozen — overtime and travel for this month can no longer be approved. Locking is final."
+                    : "Draft → Calculated → Manager review → Approved → Locked. Locking freezes the month."}
+                {!runsPayroll ? " Only a payroll admin can move it along." : ""}
               </p>
             </div>
 
@@ -608,6 +635,8 @@ export default function ManagerPayroll() {
               </div>
             </div>
           ) : null}
+          </>
+          )}
         </FeatureGate>
       </div>
 
@@ -615,17 +644,20 @@ export default function ManagerPayroll() {
       <BottomSheet
         open={!!detail}
         onClose={() => setDetail(null)}
-        title={detail ? `${detail.user.name} — ${monthLabel}` : ""}
+        title={detail ? `${detail.name} — ${monthLabel}` : ""}
         tall
       >
-        {detail ? (
+        {detail && detailSummary ? (
           <MonthDetail
-            user={detail.user}
-            summary={detail.summary}
+            user={detail}
+            summary={detailSummary}
             onDay={(att) => setDayDetail(att)}
-            onAdjust={() => {
-              setAdjusting(detail.user);
-            }}
+            onAdjust={
+              // Adjusting pay is a payroll admin's job, and never their own.
+              runsPayroll && detail.id !== wf.currentUser?.id
+                ? () => setAdjusting(detail)
+                : undefined
+            }
           />
         ) : null}
       </BottomSheet>
@@ -650,7 +682,7 @@ export default function ManagerPayroll() {
           <AdjustmentForm
             month={month}
             employeeId={adjusting.id}
-            afterLock={locked}
+            afterLock={locked || status === "approved"}
             onDone={() => setAdjusting(null)}
           />
         ) : null}
@@ -661,7 +693,83 @@ export default function ManagerPayroll() {
 
 /* ------------------------------------------------------- OT approvals */
 
-function OvertimeApprovalRow({ att }: { att: Attendance }) {
+function PendingOvertime({
+  pendingOT,
+  approvableOT,
+  showPay,
+}: {
+  pendingOT: Attendance[];
+  approvableOT: Attendance[];
+  showPay: boolean;
+}) {
+  const wf = useWorkforce();
+  // Your own overtime waits for someone else, in bulk as one by one.
+  const decidable = pendingOT.filter((a) => a.employeeId !== wf.currentUser?.id);
+  if (pendingOT.length === 0) {
+    return showPay ? null : (
+      <p className="wf-card2 p-4 text-[0.8rem] text-[var(--wf-muted)]">
+        No overtime waiting on a decision.
+      </p>
+    );
+  }
+  const closed = pendingOT.length - approvableOT.length;
+  return (
+    <div className="wf-card p-4">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <h2 className="wf-display text-sm">
+          Pending overtime approvals ({pendingOT.length})
+        </h2>
+        {/* Deciding a month of a large crew one row at a time is not
+            review, it is data entry. Both bulk actions arm for three
+            seconds like the per-row ones — more so here, since one
+            tap settles every outstanding record. */}
+        <div className="ml-auto flex gap-2">
+          {approvableOT.length > 0 ? (
+            <CountdownButton
+              className="wf-btn wf-btn-success wf-btn-sm"
+              label={`Approve all (${approvableOT.length})`}
+              armedLabel="Cancel"
+              onCommit={() =>
+                wf.decideOvertimeMany(
+                  approvableOT.map((a) => a.id),
+                  "approved",
+                )
+              }
+            />
+          ) : null}
+          {decidable.length > 0 ? (
+            <CountdownButton
+              className="wf-btn wf-btn-ghost wf-btn-sm wf-btn-danger-text"
+              tone="danger"
+              label="Reject all"
+              armedLabel="Cancel"
+              onCommit={() =>
+                wf.decideOvertimeMany(
+                  decidable.map((a) => a.id),
+                  "rejected",
+                )
+              }
+            />
+          ) : null}
+        </div>
+      </div>
+      {closed > 0 ? (
+        <p className="mb-3 text-[0.74rem] leading-snug text-[var(--wf-amber-hi)]">
+          {closed} {closed === 1 ? "record falls" : "records fall"} in a month
+          whose payroll is already approved or locked. They can be rejected,
+          but paying them needs an adjustment on that month.
+        </p>
+      ) : null}
+      <div className="flex flex-col gap-3">
+        {pendingOT.map((a) => (
+          <OvertimeApprovalRow key={a.id} att={a} showPay={showPay} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OvertimeApprovalRow({ att, showPay }: { att: Attendance; showPay: boolean }) {
   const wf = useWorkforce();
   const { state } = wf;
   const user = state.users.find((u) => u.id === att.employeeId);
@@ -670,6 +778,10 @@ function OvertimeApprovalRow({ att }: { att: Attendance }) {
   const shift = shiftFor(state, att.employeeId, att.date);
   const [minutes, setMinutes] = useState(att.overtime?.minutes ?? 0);
   if (!att.overtime || !user) return null;
+  const claimed = att.overtime.minutes;
+  const valid = Number.isFinite(minutes) && minutes >= 0 && minutes <= claimed;
+  const closed = monthLocked(state, att.date.slice(0, 7));
+  const own = att.employeeId === wf.currentUser?.id;
 
   // What the OT would pay if approved as edited — shown before deciding.
   const estimate =
@@ -717,12 +829,14 @@ function OvertimeApprovalRow({ att }: { att: Attendance }) {
             {att.checkOut ? fmtTime(att.checkOut.at) : "—"}
           </span>
         </span>
-        <span>
-          Est. amount{" "}
-          <span className="whitespace-nowrap text-[0.8rem] font-semibold text-[var(--wf-green)]">
-            {fmtINR(estimate)}
+        {showPay ? (
+          <span>
+            Est. amount{" "}
+            <span className="whitespace-nowrap text-[0.8rem] font-semibold text-[var(--wf-green)]">
+              {valid ? fmtINR(estimate) : "—"}
+            </span>
           </span>
-        </span>
+        ) : null}
       </div>
       {/* The minutes box, its unit, and two 104px buttons do not fit one
           phone line. Wrapping keeps the pair together on a second row
@@ -732,10 +846,12 @@ function OvertimeApprovalRow({ att }: { att: Attendance }) {
           className="wf-input wf-input-num shrink-0"
           type="number"
           min={0}
-          max={att.overtime.minutes}
+          max={claimed}
           aria-label="Approved overtime minutes"
-          value={minutes}
-          onChange={(e) => setMinutes(Number(e.target.value) || 0)}
+          aria-invalid={!valid}
+          disabled={closed}
+          value={Number.isNaN(minutes) ? "" : minutes}
+          onChange={(e) => setMinutes(e.target.value === "" ? NaN : Number(e.target.value))}
         />
         <span className="text-[0.74rem] text-[var(--wf-muted)]">min</span>
         <div className="ml-auto flex gap-2">
@@ -747,6 +863,7 @@ function OvertimeApprovalRow({ att }: { att: Attendance }) {
           className="wf-btn wf-btn-success wf-btn-sm"
           label="Approve"
           armedLabel="Cancel"
+          disabled={!valid || closed || own}
           onCommit={() =>
             wf.decideOvertime(
               att.id,
@@ -761,10 +878,24 @@ function OvertimeApprovalRow({ att }: { att: Attendance }) {
           tone="danger"
           label="Reject"
           armedLabel="Cancel"
+          disabled={own}
           onCommit={() => wf.decideOvertime(att.id, "rejected")}
         />
         </div>
       </div>
+      {own ? (
+        <p className="mt-2 text-[0.72rem] text-[var(--wf-muted)]">
+          Your own overtime — another manager decides it.
+        </p>
+      ) : closed ? (
+        <p className="mt-2 text-[0.72rem] text-[var(--wf-amber-hi)]">
+          Payroll for this month is closed — pay it through an adjustment.
+        </p>
+      ) : !valid ? (
+        <p className="mt-2 text-[0.72rem] text-[var(--wf-red)]">
+          Approve between 0 and {claimed} minutes — the overtime claimed.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -780,7 +911,8 @@ function MonthDetail({
   user: User;
   summary: MonthSummary;
   onDay: (att: Attendance) => void;
-  onAdjust: () => void;
+  /** Absent when this viewer may not adjust this person's pay. */
+  onAdjust?: () => void;
 }) {
   const rows: Array<[string, string]> = [
     [
@@ -789,7 +921,7 @@ function MonthDetail({
         ? `${fmtINR(summary.comp.amount)} / ${summary.comp.type}`
         : "Not configured",
     ],
-    ["Attendance", `${summary.presentDays} of ${summary.workingDays} days`],
+    ["Attendance", `${summary.presentDays} of ${summary.workingDays} scheduled days`],
     ["Late", fmtDuration(summary.lateMinutes)],
     ["Break", fmtDuration(summary.breakMinutes)],
     ["Unpaid break", fmtDuration(summary.unpaidBreakMinutes)],
@@ -842,9 +974,11 @@ function MonthDetail({
         </div>
       </div>
 
-      <button className="wf-btn wf-btn-ghost" onClick={onAdjust}>
-        Add adjustment
-      </button>
+      {onAdjust ? (
+        <button className="wf-btn wf-btn-ghost" onClick={onAdjust}>
+          Add adjustment
+        </button>
+      ) : null}
 
       <div>
         <h3 className="wf-display mb-2 text-sm">Days</h3>
@@ -861,6 +995,7 @@ function MonthDetail({
                 </span>
                 <span className="block text-[0.7rem] tabular-nums text-[var(--wf-muted)]">
                   {fmtDuration(pay.metrics.netMinutes)} net
+                  {pay.metrics.missingCheckout ? " · no checkout" : ""}
                   {pay.metrics.overtimeMinutes > 0.5
                     ? ` · ${fmtDuration(pay.metrics.overtimeMinutes)} OT`
                     : ""}
@@ -893,7 +1028,14 @@ function DayDetail({ att }: { att: Attendance }) {
         : `${fmtShiftTime(m.shift.startMinute)} – ${fmtShiftTime(m.shift.endMinute)}`,
     ],
     ["Check-in", att.checkIn ? fmtTime(att.checkIn.at) : "—"],
-    ["Check-out", att.checkOut ? fmtTime(att.checkOut.at) : "still open"],
+    [
+      "Check-out",
+      att.checkOut
+        ? fmtTime(att.checkOut.at)
+        : m.missingCheckout
+          ? "missing — counted to shift end"
+          : "still open",
+    ],
     ["Break", fmtDuration(m.breaks.totalMinutes)],
     ["Net working", fmtDuration(m.netMinutes)],
     ["Late", m.lateMinutes > 0.5 ? fmtDuration(m.lateMinutes) : "—"],
@@ -971,12 +1113,14 @@ function AdjustmentForm({
   const wf = useWorkforce();
   const [amount, setAmount] = useState(0);
   const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
   return (
     <div className="flex flex-col gap-4">
       {afterLock ? (
         <p className="wf-inset px-3.5 py-3 text-[0.78rem] leading-snug text-[var(--wf-amber-hi)]">
-          This month is locked. The adjustment is allowed — it becomes the
-          correction record, and lands in the audit trail as made after lock.
+          This month is approved or locked. The adjustment is allowed — it
+          becomes the correction record, and lands in the audit trail as made
+          after lock.
         </p>
       ) : null}
       <Field label="Amount (₹, negative deducts)" required>
@@ -995,12 +1139,18 @@ function AdjustmentForm({
           onChange={(e) => setNote(e.target.value)}
         />
       </Field>
+      {error ? (
+        <p role="alert" className="text-[0.78rem] text-[var(--wf-red)]">
+          {error}
+        </p>
+      ) : null}
       <button
         className="wf-btn wf-btn-primary wf-btn-lg"
         disabled={amount === 0 || !note.trim()}
         onClick={() => {
-          wf.addPayrollAdjustment(month, employeeId, amount, note.trim());
-          onDone();
+          const res = wf.addPayrollAdjustment(month, employeeId, amount, note.trim());
+          if (res.ok) onDone();
+          else setError(res.reason ?? "The adjustment was not recorded.");
         }}
       >
         Record adjustment

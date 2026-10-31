@@ -27,6 +27,7 @@ import {
 import { TripDetail } from "@/app/employee/travel/page";
 import {
   VEHICLE_LABEL,
+  currentPetrolRules,
   dayAllowances,
   fmtKmLabel,
   fmtMinute,
@@ -37,7 +38,8 @@ import {
 } from "@/lib/allowances";
 import { fmtDateLong, fmtTime, todayISO } from "@/lib/format";
 import { StatusPills, countByStatus } from "@/components/StatusPills";
-import { fmtINR } from "@/lib/payroll";
+import { fmtINR, monthLocked } from "@/lib/payroll";
+import { confirmDestructive } from "@/lib/confirm";
 import { downloadCSV, toCSV } from "@/lib/reports";
 import { useWorkforce } from "@/lib/store";
 import {
@@ -220,7 +222,13 @@ function ReviewSheet({ trip, onDone }: { trip: TravelAllowance; onDone: () => vo
   const { state } = wf;
   const user = state.users.find((u) => u.id === trip.session.employeeId);
   const [km, setKm] = useState(() => Number((trip.meters / 1000).toFixed(1)));
-  const edited = Math.abs(km - trip.meters / 1000) > 0.05;
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState("");
+  const validKm = Number.isFinite(km) && km >= 0;
+  const edited = validKm && Math.abs(km - trip.meters / 1000) > 0.05;
+  // A closed month's pay cannot move; say so before anyone decides.
+  const closed = monthLocked(state, trip.session.date.slice(0, 7));
+  const own = trip.session.employeeId === wf.currentUser?.id;
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
@@ -238,43 +246,94 @@ function ReviewSheet({ trip, onDone }: { trip: TravelAllowance; onDone: () => vo
       </div>
 
       <TripDetail trip={trip}>
-        <div className="flex items-center gap-2 border-t border-[var(--wf-line)] pt-4">
-          <Field label="Approved distance (km)">
-            <input
-              className="wf-input wf-input-num shrink-0"
-              type="number"
-              min={0}
-              step={0.1}
-              value={km}
-              onChange={(e) => setKm(Number(e.target.value) || 0)}
-            />
-          </Field>
-          <div className="ml-auto flex gap-2 self-end">
-            <button
-              className="wf-btn wf-btn-success"
-              onClick={() => {
-                wf.decideTravel(
-                  trip.session.id,
-                  "approved",
-                  edited ? km : undefined,
-                  edited ? "Distance adjusted on approval" : undefined,
-                );
-                onDone();
-              }}
-            >
-              Approve{edited ? ` ${km.toFixed(1)} km` : ""}
-            </button>
-            <button
-              className="wf-btn wf-btn-ghost wf-btn-danger-text"
-              onClick={() => {
-                wf.decideTravel(trip.session.id, "rejected");
-                onDone();
-              }}
-            >
-              Reject
-            </button>
+        {own ? (
+          <p className="wf-inset px-3.5 py-3 text-[0.78rem] leading-snug text-[var(--wf-muted)]">
+            This is your own trip — another manager decides it.
+          </p>
+        ) : closed ? (
+          <p className="wf-inset px-3.5 py-3 text-[0.78rem] leading-snug text-[var(--wf-amber-hi)]">
+            Payroll for this month is already approved or locked, so this trip
+            can no longer be approved. Pay it through an adjustment on that
+            month instead.
+          </p>
+        ) : null}
+        {rejecting ? (
+          /* Rejecting is final and the worker is told, so it asks why — the
+             reason travels with the notification and stays on the trip. */
+          <div className="flex flex-col gap-3 border-t border-[var(--wf-line)] pt-4">
+            <Field label="Reason for rejecting" required>
+              <input
+                className="wf-input"
+                autoFocus
+                placeholder="e.g. Personal trip, not site work"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </Field>
+            <div className="flex gap-2">
+              <button className="wf-btn wf-btn-ghost flex-1" onClick={() => setRejecting(false)}>
+                Back
+              </button>
+              <button
+                className="wf-btn wf-btn-danger flex-1"
+                disabled={!reason.trim()}
+                onClick={() => {
+                  wf.decideTravel(trip.session.id, "rejected", undefined, reason.trim());
+                  onDone();
+                }}
+              >
+                Reject trip
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex flex-col gap-2 border-t border-[var(--wf-line)] pt-4">
+            <div className="flex items-center gap-2">
+              <Field label="Approved distance (km)">
+                <input
+                  aria-label="Approved distance (km)"
+                  className="wf-input wf-input-num shrink-0"
+                  type="number"
+                  min={0}
+                  step={0.1}
+                  aria-invalid={!validKm}
+                  disabled={closed || own}
+                  value={Number.isNaN(km) ? "" : km}
+                  onChange={(e) => setKm(e.target.value === "" ? NaN : Number(e.target.value))}
+                />
+              </Field>
+              <div className="ml-auto flex gap-2 self-end">
+                <button
+                  className="wf-btn wf-btn-success"
+                  disabled={!validKm || closed || own}
+                  onClick={() => {
+                    wf.decideTravel(
+                      trip.session.id,
+                      "approved",
+                      edited ? km : undefined,
+                      edited ? "Distance adjusted on approval" : undefined,
+                    );
+                    onDone();
+                  }}
+                >
+                  Approve{edited ? ` ${km.toFixed(1)} km` : ""}
+                </button>
+                <button
+                  className="wf-btn wf-btn-ghost wf-btn-danger-text"
+                  disabled={own || (closed && trip.payable)}
+                  onClick={() => setRejecting(true)}
+                >
+                  Reject
+                </button>
+              </div>
+            </div>
+            {!validKm ? (
+              <p className="text-[0.74rem] text-[var(--wf-red)]">
+                Enter a distance of 0 km or more.
+              </p>
+            ) : null}
+          </div>
+        )}
       </TripDetail>
     </div>
   );
@@ -289,7 +348,9 @@ function RulesTab() {
   const [petrolSheet, setPetrolSheet] = useState<PetrolRule | "new" | null>(null);
   const [foodSheet, setFoodSheet] = useState<FoodRule | "new" | null>(null);
 
-  const petrol = state.petrolRules.filter((r) => r.status === "active");
+  // One line per rule: earlier versions stay on the record to price the
+  // trips made under them, but they are not rules anyone can edit now.
+  const petrol = currentPetrolRules(state.petrolRules);
   const food = state.foodRules.filter((r) => r.status === "active");
 
   return (
@@ -369,7 +430,10 @@ function RulesTab() {
                   aria-label={`Archive ${r.name}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    wf.archiveAllowanceRule("petrol", r.id);
+                    confirmDestructive(
+                      `Archive “${r.name}”? It stops pricing trips from today. Trips it has already priced keep their amounts.`,
+                      () => wf.archiveAllowanceRule("petrol", r.id),
+                    );
                   }}
                 >
                   <ITrash size={14} />
@@ -426,7 +490,10 @@ function RulesTab() {
                     aria-label={`Archive ${r.name}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      wf.archiveAllowanceRule("food", r.id);
+                      confirmDestructive(
+                        `Archive “${r.name}”? Check-ins stop earning this allowance.`,
+                        () => wf.archiveAllowanceRule("food", r.id),
+                      );
                     }}
                   >
                     <ITrash size={14} />
@@ -478,8 +545,27 @@ function PetrolRuleForm({ base, onDone }: { base: PetrolRule | null; onDone: () 
   const [maxAmount, setMaxAmount] = useState<number | null>(base?.maxDailyAmount ?? null);
   const [approval, setApproval] = useState<"auto" | "manager">(base?.approval ?? "manager");
   const [projectIds, setProjectIds] = useState<string[]>(base?.projectIds ?? []);
+  // A rule that has priced trips keeps who it covers; a new rate starts a
+  // new version from today rather than repricing the past.
+  const inForce = !!base && base.effectiveFrom < todayISO();
+  const problem = !name.trim()
+    ? "Give the rule a name."
+    : !(rate > 0)
+      ? "The rate must be more than ₹0 per km."
+      : maxKm != null && !(maxKm >= 0)
+        ? "Max km a day cannot be negative — leave it blank for no cap."
+        : maxAmount != null && !(maxAmount >= 0)
+          ? "Max ₹ a day cannot be negative — leave it blank for no cap."
+          : null;
   return (
     <div className="flex flex-col gap-4">
+      {inForce ? (
+        <p className="wf-inset px-3.5 py-3 text-[0.76rem] leading-snug text-[var(--wf-muted)]">
+          In force since {fmtDateLong(base!.effectiveFrom)}. A new rate or limit
+          applies from today; trips before today keep the amounts they were
+          priced at. To cover different vehicles or projects, create a new rule.
+        </p>
+      ) : null}
       <Field label="Rule name" required>
         <input
           className="wf-input"
@@ -494,7 +580,7 @@ function PetrolRuleForm({ base, onDone }: { base: PetrolRule | null; onDone: () 
             size="sm"
             ariaLabel="Vehicle type"
             value={vehicleType}
-            onChange={(v) => setVehicleType(v as VehicleType)}
+            onChange={(v) => !inForce && setVehicleType(v as VehicleType)}
             options={[
               { value: "two-wheeler", label: "Two wheeler" },
               { value: "four-wheeler", label: "Four wheeler" },
@@ -507,6 +593,7 @@ function PetrolRuleForm({ base, onDone }: { base: PetrolRule | null; onDone: () 
             type="number"
             min={0}
             step={0.5}
+            aria-invalid={!(rate > 0)}
             value={rate}
             onChange={(e) => setRate(Number(e.target.value) || 0)}
           />
@@ -518,6 +605,7 @@ function PetrolRuleForm({ base, onDone }: { base: PetrolRule | null; onDone: () 
             className="wf-input"
             type="number"
             min={0}
+            aria-invalid={maxKm != null && maxKm < 0}
             value={maxKm ?? ""}
             onChange={(e) => setMaxKm(e.target.value === "" ? null : Number(e.target.value) || 0)}
           />
@@ -527,6 +615,7 @@ function PetrolRuleForm({ base, onDone }: { base: PetrolRule | null; onDone: () 
             className="wf-input"
             type="number"
             min={0}
+            aria-invalid={maxAmount != null && maxAmount < 0}
             value={maxAmount ?? ""}
             onChange={(e) =>
               setMaxAmount(e.target.value === "" ? null : Number(e.target.value) || 0)
@@ -552,6 +641,7 @@ function PetrolRuleForm({ base, onDone }: { base: PetrolRule | null; onDone: () 
             <button
               key={p.id}
               className="wf-btn wf-btn-sm w-full justify-start"
+              disabled={inForce}
               style={{
                 background: projectIds.includes(p.id) ? "var(--wf-amber)" : "var(--wf-fill-3)",
                 color: projectIds.includes(p.id) ? "var(--wf-on-amber)" : "var(--wf-fg)",
@@ -567,9 +657,12 @@ function PetrolRuleForm({ base, onDone }: { base: PetrolRule | null; onDone: () 
           ))}
         </div>
       </Field>
+      {problem ? (
+        <p className="text-[0.76rem] text-[var(--wf-red)]">{problem}</p>
+      ) : null}
       <button
         className="wf-btn wf-btn-primary wf-btn-lg"
-        disabled={!name.trim() || rate <= 0}
+        disabled={!!problem}
         onClick={() => {
           wf.savePetrolRule(
             {
@@ -604,6 +697,14 @@ function FoodRuleForm({ base, onDone }: { base: FoodRule | null; onDone: () => v
   const [projectIds, setProjectIds] = useState<string[]>(base?.projectIds ?? []);
   const [shiftIds, setShiftIds] = useState<string[]>(base?.shiftIds ?? []);
   const shifts = state.shifts.filter((x) => x.status === "active");
+  const overnight = end < start;
+  const problem = !name.trim()
+    ? "Give the rule a name."
+    : !(amount > 0)
+      ? "The amount must be more than ₹0."
+      : end === start
+        ? "The window has to open and close at different times."
+        : null;
   return (
     <div className="flex flex-col gap-4">
       <Field label="Rule name" required>
@@ -647,7 +748,7 @@ function FoodRuleForm({ base, onDone }: { base: FoodRule | null; onDone: () => v
             onChange={(e) => setStart(fromHM(e.target.value, start))}
           />
         </Field>
-        <Field label="Window closes">
+        <Field label="Window closes" hint={overnight ? "Next day — crosses midnight" : undefined}>
           <input
             className="wf-input"
             type="time"
@@ -720,9 +821,12 @@ function FoodRuleForm({ base, onDone }: { base: FoodRule | null; onDone: () => v
           </div>
         </Field>
       ) : null}
+      {problem ? (
+        <p className="text-[0.76rem] text-[var(--wf-red)]">{problem}</p>
+      ) : null}
       <button
         className="wf-btn wf-btn-primary wf-btn-lg"
-        disabled={!name.trim() || amount <= 0 || end <= start}
+        disabled={!!problem}
         onClick={() => {
           wf.saveFoodRule(
             {
@@ -764,7 +868,7 @@ function ReportsTab() {
     return dates
       .flatMap((key) => {
         const [employeeId, date] = key.split("|");
-        return travelAllowancesForDay(state, employeeId, date);
+        return travelAllowancesForDay(state, employeeId, date, { includeRejected: true });
       })
       .sort((a, b) => b.session.start.at - a.session.start.at);
   }, [state, month]);
@@ -800,7 +904,7 @@ function ReportsTab() {
             (t.meters / 1000).toFixed(1),
             (t.eligibleMeters / 1000).toFixed(1),
             t.ratePerKm,
-            t.amount,
+            t.payable ? t.amount : 0,
             t.session.status,
           ];
         }),
@@ -912,7 +1016,9 @@ function ReportsTab() {
                       <td className="text-right tabular-nums">
                         {(t.eligibleMeters / 1000).toFixed(1)}
                       </td>
-                      <td className="text-right font-semibold tabular-nums">{fmtINR(t.amount)}</td>
+                      <td className="text-right font-semibold tabular-nums">
+                        {t.payable ? fmtINR(t.amount) : t.session.status === "rejected" ? "—" : `≈ ${fmtINR(t.amount)}`}
+                      </td>
                       <td>
                         <Chip
                           tone={

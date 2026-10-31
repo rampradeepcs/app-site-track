@@ -140,6 +140,34 @@ export function travelPoints(
     .sort((a, b) => a.at - b.at);
 }
 
+/**
+ * Measure one run from where it started.
+ *
+ * The trail only holds fixes taken after Start was pressed, so measuring the
+ * trail alone dropped the first leg — from the start anchor to the first
+ * fix — and a short run could close at 0 km after the worker had plainly
+ * moved. The anchor is the run's first point.
+ */
+export function runTrack(
+  s: Pick<WorkforceState, "points">,
+  session: TravelSession,
+): SanitisedTrack {
+  const anchor: LocationPoint = {
+    id: `${session.id}-start`,
+    attendanceId: session.attendanceId ?? "",
+    employeeId: session.employeeId,
+    projectId: session.projectId,
+    lat: session.start.coords.lat,
+    lng: session.start.coords.lng,
+    accuracy: 0,
+    speed: 0,
+    heading: 0,
+    at: session.start.at,
+    travelSessionId: session.id,
+  };
+  return sanitiseTrack([anchor, ...travelPoints(s, session.id)]);
+}
+
 /* ---------------------------------------------------------------- lookups */
 
 /** Whether a rule's scope covers this person on this project. */
@@ -169,12 +197,21 @@ export function petrolRuleFor(
   vehicleType: VehicleType,
   date: string,
 ): PetrolRule | null {
-  const candidates = (s.petrolRules ?? []).filter(
+  const matching = (s.petrolRules ?? []).filter(
     (r) =>
-      r.status === "active" &&
       r.effectiveFrom <= date &&
       r.vehicleType === vehicleType &&
       scopeCovers(r, employeeId, projectId),
+  );
+  // Only the newest version of each rule in force on that date counts, and
+  // an archived version ends its line from its own date — older trips keep
+  // the version that priced them (see `savePetrolRule`).
+  const candidates = matching.filter(
+    (r) =>
+      r.status === "active" &&
+      !matching.some(
+        (q) => q !== r && sameRuleLine(q, r) && q.effectiveFrom > r.effectiveFrom,
+      ),
   );
   if (candidates.length === 0) return null;
   const specificity = (r: PetrolRule) =>
@@ -184,6 +221,35 @@ export function petrolRuleFor(
       specificity(b) - specificity(a) ||
       (a.effectiveFrom < b.effectiveFrom ? 1 : -1),
   )[0];
+}
+
+const scopeKey = (ids: string[]) => [...ids].sort().join(",");
+
+/** Two petrol rules are versions of one line when they cover exactly the same people. */
+export function sameRuleLine(a: PetrolRule, b: PetrolRule): boolean {
+  return (
+    a.vehicleType === b.vehicleType &&
+    scopeKey(a.projectIds) === scopeKey(b.projectIds) &&
+    scopeKey(a.employeeIds) === scopeKey(b.employeeIds)
+  );
+}
+
+/**
+ * The petrol rules in force today — one per line, the newest version.
+ * Earlier versions stay on the record to price the trips made under them.
+ */
+export function currentPetrolRules(
+  rules: PetrolRule[],
+  today = todayISO(),
+): PetrolRule[] {
+  const started = rules.filter((r) => r.effectiveFrom <= today);
+  return rules.filter(
+    (r) =>
+      r.status === "active" &&
+      !started.some(
+        (q) => q !== r && sameRuleLine(q, r) && q.effectiveFrom > r.effectiveFrom,
+      ),
+  );
 }
 
 /** Food rules that could apply to this person, project and shift on a date. */
@@ -251,6 +317,7 @@ export function travelAllowance(
   s: Pick<WorkforceState, "petrolRules">,
   session: TravelSession,
   priorMetersToday = 0,
+  liveMeters?: number,
 ): TravelAllowance {
   const rule = petrolRuleFor(
     s,
@@ -259,7 +326,28 @@ export function travelAllowance(
     session.vehicleType,
     session.date,
   );
-  const meters = session.approvedMeters ?? session.distanceMeters;
+  // A run still going has no stored distance yet; the caller measures it
+  // live so the page and the shift screen show the same number.
+  const meters =
+    session.status === "active" && liveMeters != null
+      ? liveMeters
+      : (session.approvedMeters ?? session.distanceMeters);
+
+  if (session.status === "rejected") {
+    // Kept on the record so the worker and the reports can see it and why;
+    // it earns nothing and takes nothing from the day's cap.
+    return {
+      session,
+      rule,
+      meters,
+      eligibleMeters: 0,
+      ratePerKm: rule?.ratePerKm ?? 0,
+      amount: 0,
+      cappedBy: null,
+      payable: false,
+      why: `Not approved${session.decisionNote ? ` — ${session.decisionNote}` : ""}`,
+    };
+  }
 
   if (!rule) {
     return {
@@ -320,22 +408,38 @@ export function travelAllowance(
   };
 }
 
-/** Every travel session on one date for one person, priced in order. */
+/**
+ * Every travel session on one date for one person, priced in order.
+ *
+ * Rejected runs are left out of the money by default; the history and the
+ * reports ask for them with `includeRejected`, so a decision never makes a
+ * trip vanish from the record (they price at zero and use none of the cap).
+ * Pass `points` to measure a run that is still going.
+ */
 export function travelAllowancesForDay(
-  s: Pick<WorkforceState, "petrolRules" | "travelSessions">,
+  s: Pick<WorkforceState, "petrolRules" | "travelSessions"> &
+    Partial<Pick<WorkforceState, "points">>,
   employeeId: string,
   date: string,
+  opts: { includeRejected?: boolean } = {},
 ): TravelAllowance[] {
   const sessions = (s.travelSessions ?? [])
     .filter(
-      (t) => t.employeeId === employeeId && t.date === date && t.status !== "rejected",
+      (t) =>
+        t.employeeId === employeeId &&
+        t.date === date &&
+        (opts.includeRejected || t.status !== "rejected"),
     )
     .sort((a, b) => a.start.at - b.start.at);
 
   const out: TravelAllowance[] = [];
   let prior = 0;
   for (const session of sessions) {
-    const a = travelAllowance(s, session, prior);
+    const live =
+      session.status === "active" && s.points
+        ? runTrack({ points: s.points }, session).meters
+        : undefined;
+    const a = travelAllowance(s, session, prior, live);
     prior += a.eligibleMeters;
     out.push(a);
   }
@@ -408,7 +512,12 @@ export function foodAllowancesFor(
     }
 
     const minute = minuteOfDay(mark.at);
-    const inWindow = minute >= rule.startMinute && minute <= rule.endMinute;
+    // A window that closes "before" it opens runs across midnight — a night
+    // meal from 11 pm to 1 am.
+    const inWindow =
+      rule.endMinute >= rule.startMinute
+        ? minute >= rule.startMinute && minute <= rule.endMinute
+        : minute >= rule.startMinute || minute <= rule.endMinute;
     if (!inWindow) {
       return {
         rule,
@@ -480,10 +589,26 @@ export function dayAllowances(
     | "shifts"
     | "shiftAssignments"
     | "users"
-  >,
+  > &
+    Partial<Pick<WorkforceState, "attendance">>,
   att: Attendance,
 ): DayAllowances {
-  const travel = travelAllowancesForDay(s, att.employeeId, att.date);
+  // The cap is daily, so the whole day is priced in order — but each run
+  // belongs to the shift it happened in. A second check-in the same day
+  // used to show (and pay) the morning's travel again on the evening shift.
+  const sameDay = (s.attendance ?? [])
+    .filter((a) => a.employeeId === att.employeeId && a.date === att.date)
+    .sort((a, b) => (a.checkIn?.at ?? 0) - (b.checkIn?.at ?? 0));
+  const known = new Set(sameDay.map((a) => a.id));
+  const scoped = known.has(att.id);
+  const ownsUntagged = sameDay[0]?.id === att.id;
+  const travel = travelAllowancesForDay(s, att.employeeId, att.date).filter(
+    (t) =>
+      !scoped ||
+      (t.session.attendanceId && known.has(t.session.attendanceId)
+        ? t.session.attendanceId === att.id
+        : ownsUntagged),
+  );
   const food = foodAllowancesFor(s, att);
   const travelAmount = travel
     .filter((t) => t.payable)

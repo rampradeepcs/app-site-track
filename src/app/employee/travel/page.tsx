@@ -14,15 +14,19 @@ import { ScreenHeader } from "@/components/shell";
 import { BottomSheet, Chip, EmptyState } from "@/components/ui";
 import { SiteMap, type MapMarker } from "@/components/SiteMap";
 import {
+  dayAllowances,
   fmtKmLabel,
+  fmtMinute,
+  runTrack,
   travelAllowancesForDay,
-  travelPoints,
+  type FoodAllowance,
   type TravelAllowance,
 } from "@/lib/allowances";
 import { fmtDateLong, fmtDuration, fmtTime } from "@/lib/format";
+import { fmtINR } from "@/lib/payroll";
 import { useWorkforce } from "@/lib/store";
 import type { TravelSession } from "@/lib/types";
-import { INav } from "@/components/WfIcons";
+import { ICoffee, INav } from "@/components/WfIcons";
 
 const STATUS_TONE: Record<TravelSession["status"], "blue" | "amber" | "green" | "red"> = {
   active: "blue",
@@ -31,22 +35,42 @@ const STATUS_TONE: Record<TravelSession["status"], "blue" | "amber" | "green" | 
   rejected: "red",
 };
 
+const FOOD_TONE: Record<FoodAllowance["status"], "amber" | "green" | "red"> = {
+  auto: "green",
+  approved: "green",
+  pending: "amber",
+  rejected: "red",
+  "not-eligible": "red",
+};
+
 export default function EmployeeTravel() {
   const { state, currentUser } = useWorkforce();
   const [selected, setSelected] = useState<TravelAllowance | null>(null);
 
   const byDay = useMemo(() => {
     if (!currentUser) return [];
+    // Food allowances live here too — this is the one place a worker can
+    // see what their day earned beyond the wage, and whether it is settled.
+    const food = new Map<string, FoodAllowance[]>();
+    for (const att of state.attendance) {
+      if (att.employeeId !== currentUser.id || !att.checkIn) continue;
+      const earned = dayAllowances(state, att).food.filter((f) => f.eligible);
+      if (earned.length) food.set(att.date, [...(food.get(att.date) ?? []), ...earned]);
+    }
     const dates = [
-      ...new Set(
-        state.travelSessions
+      ...new Set([
+        ...state.travelSessions
           .filter((t) => t.employeeId === currentUser.id)
           .map((t) => t.date),
-      ),
+        ...food.keys(),
+      ]),
     ].sort((a, b) => (a < b ? 1 : -1));
     return dates.map((date) => ({
       date,
-      trips: travelAllowancesForDay(state, currentUser.id, date),
+      // Rejected runs stay listed with their reason; a decision never makes
+      // a trip disappear from the person it was about.
+      trips: travelAllowancesForDay(state, currentUser.id, date, { includeRejected: true }),
+      food: food.get(date) ?? [],
     }));
   }, [state, currentUser]);
 
@@ -56,7 +80,7 @@ export default function EmployeeTravel() {
     <div>
       <ScreenHeader
         title="Travel"
-        sub="Your work runs and what they earned"
+        sub="Your work runs, meal allowances and what they earned"
         back="/employee/more"
       />
       <div className="flex flex-col gap-4 px-4">
@@ -67,17 +91,22 @@ export default function EmployeeTravel() {
             body="When your manager enables travel on a project, Start Travel appears on your shift screen — the route and allowance are worked out for you."
           />
         ) : (
-          byDay.map(({ date, trips }) => (
+          byDay.map(({ date, trips, food }) => {
+            const counted = trips.filter((t) => t.session.status !== "rejected");
+            const earned =
+              trips.filter((t) => t.payable).reduce((t, a) => t + a.amount, 0) +
+              food.filter((f) => f.payable).reduce((t, f) => t + f.amount, 0);
+            return (
             <div key={date} className="wf-card overflow-hidden">
               <div className="flex items-center justify-between px-4 pb-2 pt-3.5">
                 <h2 className="wf-display text-[0.95rem]">
                   {fmtDateLong(date)}
                 </h2>
                 <p className="text-[0.74rem] tabular-nums text-[var(--wf-muted)]">
-                  {fmtKmLabel(trips.reduce((t, a) => t + a.meters, 0))}
-                  {trips.some((t) => t.payable) ? (
+                  {counted.length ? fmtKmLabel(counted.reduce((t, a) => t + a.meters, 0)) : ""}
+                  {earned > 0 ? (
                     <span className="ml-2 font-semibold text-[var(--wf-green)]">
-                      ₹{trips.filter((t) => t.payable).reduce((t, a) => t + a.amount, 0).toLocaleString("en-IN")}
+                      {fmtINR(earned)}
                     </span>
                   ) : null}
                 </p>
@@ -98,7 +127,13 @@ export default function EmployeeTravel() {
                         {trip.session.end ? ` → ${fmtTime(trip.session.end.at)}` : " → …"}
                         {" · "}
                         {fmtKmLabel(trip.meters)}
-                        {trip.amount > 0 && trip.payable ? ` · ₹${trip.amount.toLocaleString("en-IN")}` : ""}
+                        {trip.amount > 0
+                          ? trip.payable
+                            ? ` · ${fmtINR(trip.amount)}`
+                            : trip.session.status === "pending"
+                              ? ` · ≈ ${fmtINR(trip.amount)} if approved`
+                              : ""
+                          : ""}
                       </span>
                     </span>
                     <Chip tone={STATUS_TONE[trip.session.status]}>
@@ -106,9 +141,30 @@ export default function EmployeeTravel() {
                     </Chip>
                   </button>
                 ))}
+                {food.map((f) => (
+                  <div key={f.rule.id} className="wf-row">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[var(--wf-fill-2)]">
+                      <ICoffee size={15} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[0.88rem] font-semibold">
+                        {f.rule.meal} allowance
+                      </span>
+                      <span className="block truncate text-[0.72rem] tabular-nums text-[var(--wf-muted)]">
+                        Check-in {fmtMinute(f.rule.startMinute)} – {fmtMinute(f.rule.endMinute)}
+                        {" · "}
+                        {fmtINR(f.amount)}
+                      </span>
+                    </span>
+                    <Chip tone={FOOD_TONE[f.status]}>
+                      {f.status === "auto" ? "approved" : f.status}
+                    </Chip>
+                  </div>
+                ))}
               </div>
             </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -135,8 +191,12 @@ export function TripDetail({
 }) {
   const { state } = useWorkforce();
   const s = trip.session;
-  const points = useMemo(() => travelPoints(state, s.id), [state, s.id]);
+  // The drawn route starts at the start anchor, the same as the measured one.
+  const points = useMemo(() => runTrack(state, s).points, [state, s]);
   const project = state.projects.find((p) => p.id === s.projectId);
+  const measured =
+    s.status === "active" ? runTrack(state, s).meters : s.distanceMeters;
+  const adjusted = s.approvedMeters != null && Math.abs(s.approvedMeters - measured) >= 50;
 
   const markers: MapMarker[] = [
     {
@@ -167,18 +227,33 @@ export function TripDetail({
         durationMin != null ? ` (${fmtDuration(durationMin)})` : ""
       }`,
     ],
-    ["Distance travelled", fmtKmLabel(trip.meters)],
-    ["Eligible distance", fmtKmLabel(trip.eligibleMeters)],
+    // What the phone measured stays on the record; a manager's settled
+    // figure sits under it, never over it.
+    ["Distance travelled", fmtKmLabel(measured)],
+    ...(adjusted
+      ? ([["Approved distance", fmtKmLabel(s.approvedMeters!)]] as Array<[string, string]>)
+      : []),
+    ...(s.status === "rejected"
+      ? []
+      : ([["Eligible distance", fmtKmLabel(trip.eligibleMeters)]] as Array<[string, string]>)),
     [
       "Allowance",
-      trip.rule
-        ? trip.payable
-          ? `₹${trip.amount.toLocaleString("en-IN")}`
-          : s.status === "pending"
-            ? "Pending approval"
-            : "—"
-        : "—",
+      s.status === "rejected"
+        ? "Not approved"
+        : trip.rule
+          ? trip.payable
+            ? fmtINR(trip.amount)
+            : s.status === "pending"
+              ? `≈ ${fmtINR(trip.amount)} · pending approval`
+              : s.status === "active"
+                ? `≈ ${fmtINR(trip.amount)} so far`
+                : "—"
+          : "—",
     ],
+    // A rejection's reason is already the line under the facts.
+    ...(s.decisionNote && s.status !== "rejected"
+      ? ([["Manager's note", s.decisionNote]] as Array<[string, string]>)
+      : []),
   ];
 
   return (
@@ -192,11 +267,12 @@ export function TripDetail({
           segmentStart: pt.segmentStart,
         }))}
         markers={markers}
-        fit={
-          points.length > 1
-            ? points.map((pt) => ({ lat: pt.lat, lng: pt.lng }))
-            : [s.start.coords]
-        }
+        // The whole run and both ends, so neither anchor is ever off-screen.
+        fit={[
+          s.start.coords,
+          ...points.map((pt) => ({ lat: pt.lat, lng: pt.lng })),
+          ...(s.end ? [s.end.coords] : []),
+        ]}
         heightClass="h-[260px]"
       />
 

@@ -36,9 +36,10 @@ import {
   todayISO,
 } from "@/lib/format";
 import { dayMetrics, shiftFor } from "@/lib/payroll";
-import { dayAllowances, fmtKmLabel, sanitiseTrack, travelPoints, vehicleOf } from "@/lib/allowances";
+import { dayAllowances, fmtKmLabel, runTrack, vehicleOf } from "@/lib/allowances";
 import { TRAVEL_PURPOSES, type TravelPurpose } from "@/lib/types";
-import { resolvePlace } from "@/lib/geo";
+import { checkGeofence, distanceMeters, resolvePlace } from "@/lib/geo";
+import { liveBoard } from "@/lib/metrics";
 import {
   assignedPremises,
   nearestPremise,
@@ -47,7 +48,14 @@ import {
 } from "@/lib/premises";
 import type { Project } from "@/lib/types";
 import { useWorkforce, type SimScenario } from "@/lib/store";
-import { IAlert, ICamera, ICheckCircle, IClipboard, IClock, ICoffee, ICrosshair, IMapPin, INav, IRoute, IShield } from "@/components/WfIcons";
+import { IAlert, ICamera, ICheckCircle, IClipboard, IClock, ICoffee, ICrosshair, IEye, IMapPin, INav, IRoute, IShield, IUsers } from "@/components/WfIcons";
+
+/** Remembers, on this phone, whether co-workers are drawn on the shift map. */
+const CREW_PREF = "workfence.map.crew";
+/** A fix older than this is drawn faded, with how long ago it was. */
+const CREW_STALE_MIN = 10;
+/** Co-workers closer together than this share one pin. */
+const CREW_GROUP_M = 20;
 
 type Flow =
   | null
@@ -141,12 +149,52 @@ export default function EmployeeHome() {
   const travelEnabled = travelAllowed && hasVehicle;
   const liveTravelMeters = useMemo(() => {
     if (!activeTravel) return 0;
-    return sanitiseTrack(travelPoints(state, activeTravel.id)).meters;
+    return runTrack(state, activeTravel).meters;
   }, [state, activeTravel]);
   const allowances = useMemo(
     () => (openShift ? dayAllowances(state, openShift) : null),
     [state, openShift],
   );
+
+  /*
+   * Who else is on this site right now, for the on-shift map.
+   *
+   * Only while you are checked in yourself, only people checked in to the
+   * same project, and only people whose last fix is inside the boundary. A
+   * project tracked `outside-only` records nobody inside the boundary, so the
+   * only fixes it has are people away from site — which is exactly what a
+   * co-worker has no business seeing — and it shows no crew at all. The
+   * choice to hide them is the viewer's and stays on this phone.
+   */
+  const [showCrew, setShowCrew] = useState(() => {
+    try {
+      return localStorage.getItem(CREW_PREF) !== "0";
+    } catch {
+      return true;
+    }
+  });
+  const toggleCrew = () => {
+    const next = !showCrew;
+    setShowCrew(next);
+    try {
+      localStorage.setItem(CREW_PREF, next ? "1" : "0");
+    } catch {
+      /* private mode — the choice lasts this visit */
+    }
+  };
+  const crew = useMemo(() => {
+    const pid = openShift?.checkIn ? openShift.projectId : null;
+    const site = pid ? state.projects.find((p) => p.id === pid) : null;
+    if (!site || !currentUser || site.trackingMode === "outside-only") return [];
+    // Inside the boundary only: someone out on a material run is still on
+    // shift, but where they are on the road is not the crew's to watch.
+    return liveBoard(state, site.id, now).filter((b) => {
+      if (b.user.id === currentUser.id || b.state !== "working") return false;
+      if (b.attendance?.projectId !== site.id || !b.attendance.checkIn) return false;
+      const at = b.lastPoint ?? b.attendance.checkIn.coords;
+      return checkGeofence({ lat: at.lat, lng: at.lng }, site.geofence).inside;
+    });
+  }, [state, openShift, currentUser, now]);
 
   if (!currentUser || !project) {
     return (
@@ -315,6 +363,56 @@ export default function EmployeeHome() {
   };
 
   const markers: MapMarker[] = [];
+  // Crew first, so your own pin draws over anyone standing beside you.
+  if (showCrew) {
+    const pins: (MapMarker & { name: string })[] = crew.map((b) => {
+      const pin = {
+        id: `crew-${b.user.id}`,
+        name: b.user.name.split(" ")[0],
+        kind: "worker" as const,
+        hue: b.user.avatarHue,
+        initials: initialsOf(b.user.name),
+      };
+      if (!b.lastPoint) {
+        // No fix since they checked in: where they checked in is the one
+        // place we know they were. No pulse, and the label says that is all
+        // it is.
+        const inAt = b.attendance!.checkIn!;
+        return { ...pin, coords: inAt.coords, sub: `checked in here ${fmtTime(inAt.at)}` };
+      }
+      const ago = Math.round((now - b.lastPoint.at) / 60000);
+      const stale = ago >= CREW_STALE_MIN;
+      return {
+        ...pin,
+        coords: { lat: b.lastPoint.lat, lng: b.lastPoint.lng },
+        sub: stale
+          ? `${b.place} · seen ${ago < 60 ? `${ago} min` : `${Math.floor(ago / 60)} h`} ago`
+          : b.place,
+        dim: stale,
+        pulse: !stale,
+      };
+    });
+    /* A crew arrives together and checks in at the same gate, and a stack of
+       pins on one spot reads as one person. Pins this close share one marker
+       that names the first and counts the rest. */
+    const groups: (typeof pins)[] = [];
+    for (const pin of pins) {
+      const near = groups.find((g) => distanceMeters(g[0].coords, pin.coords) < CREW_GROUP_M);
+      if (near) near.push(pin);
+      else groups.push([pin]);
+    }
+    for (const g of groups) {
+      const lead = g.find((p) => p.pulse) ?? g[0];
+      markers.push({
+        ...lead,
+        id: g.length > 1 ? `crew-group-${lead.id}` : lead.id,
+        label: g.length > 1 ? `${lead.name} +${g.length - 1}` : lead.name,
+        sub: g.length > 1 ? g.map((p) => p.name).join(", ") : lead.sub,
+        pulse: g.some((p) => p.pulse),
+        dim: g.every((p) => p.dim),
+      });
+    }
+  }
   if (fix) {
     markers.push({
       id: "me",
@@ -413,7 +511,21 @@ export default function EmployeeHome() {
           follow={fix?.coords ?? null}
           accuracy={fix?.accuracy}
           heightClass="h-[300px]"
-        />
+        >
+          {crew.length > 0 && (
+            <button
+              type="button"
+              aria-pressed={showCrew}
+              onClick={toggleCrew}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="absolute left-2.5 top-2.5 z-10 flex cursor-pointer items-center gap-1.5 rounded-full border border-[var(--wf-line)] px-3 py-1.5 text-[0.72rem] font-semibold shadow-md transition hover:brightness-110"
+              style={{ background: "color-mix(in srgb, var(--wf-surface) 92%, transparent)" }}
+            >
+              {showCrew ? <IUsers size={14} /> : <IEye size={14} />}
+              {showCrew ? `${crew.length} on site · Hide` : `Show crew (${crew.length})`}
+            </button>
+          )}
+        </SiteMap>
 
         <div className="grid grid-cols-3 gap-2.5">
           <ShiftStat

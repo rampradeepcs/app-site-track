@@ -30,7 +30,7 @@ import {
 import { useWorkforce } from "@/lib/store";
 import { isForMe } from "@/lib/notify";
 import { useNotificationPrefs, wants } from "@/lib/notification-prefs";
-import { fmtINR, todayShiftKpis } from "@/lib/payroll";
+import { canSeePay, fmtINR, todayShiftKpis } from "@/lib/payroll";
 import { useFeature } from "@/components/FeatureGate";
 import {
   IAlert,
@@ -159,7 +159,7 @@ export default function ManagerDashboard() {
             tone={shiftKpis.pendingApprovals ? "amber" : "neutral"}
             sub="awaiting decision"
           />
-          {payrollOn ? (
+          {payrollOn && canSeePay(currentUser?.role, state.payPolicy) ? (
             <KpiCard
               label="Today's labour cost"
               value={fmtINR(shiftKpis.labourCostToday)}
@@ -173,7 +173,15 @@ export default function ManagerDashboard() {
 
         {/* The manager's own set: their four tabs are Projects, Workforce
             and Attendance, so these are the rest of the day's work. */}
-        <QuickActions actions={MANAGER_SHORTCUTS} />
+        <QuickActions
+          actions={
+            canSeePay(currentUser?.role, state.payPolicy)
+              ? MANAGER_SHORTCUTS
+              : MANAGER_SHORTCUTS.map((q) =>
+                  q.href === "/manager/payroll" ? { ...q, label: "Overtime" } : q,
+                )
+          }
+        />
 
         {/* live map + working list */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-5">

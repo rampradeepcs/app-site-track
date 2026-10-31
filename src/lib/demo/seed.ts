@@ -18,6 +18,7 @@
  */
 
 import { DEFAULT_OVERTIME, DEFAULT_PAY_POLICY, creditedOvertime } from "../payroll";
+import { sanitiseTrack } from "../allowances";
 import { SEED_VERSION, makeSelfie } from "../seed";
 import { DEMO_EMAIL, DEMO_IDS } from "./mode";
 import type {
@@ -924,11 +925,39 @@ export function buildDemoData(now = Date.now()): DemoData {
         "Other Project Site",
       ] as const;
       const purpose = pick(r, purposes);
-      const startAt = at(iso, 6 * 60 + 42);
-      const endAt = at(iso, 9 * 60 + intBetween(r, 5, 50));
-      const km = between(r, 14, 46);
+      // Done before the 08:30 shift starts, so the run ends at the gate
+      // before the check-in there rather than an hour after it.
+      const startAt = at(iso, 6 * 60 + 25);
+      const endAt = at(iso, 7 * 60 + intBetween(r, 35, 58));
       const sessionId = `demo-travel-${iso}`;
       const gate = metro.zones.find((z) => z.id === "main-gate")!;
+      const from = offset(CENTRES.metro, -6400, -5200);
+
+      // The route goes by way of the errand — a supplier or office off the
+      // straight line — and the claimed distance is measured from exactly
+      // this route, so the map and the number always agree.
+      const via = offset(CENTRES.metro, intBetween(r, -7800, -1500), intBetween(r, -900, 2600));
+      const steps = 60;
+      const runPoints: LocationPoint[] = [];
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const [a, b, u] = t < 0.5 ? [from, via, t * 2] : [via, gate.center, (t - 0.5) * 2];
+        runPoints.push({
+          id: `${sessionId}-pt-${i}`,
+          attendanceId: `demo-att-${DEMO_IDS.traveller}-${iso}`,
+          employeeId: DEMO_IDS.traveller,
+          projectId: metro.id,
+          lat: a.lat + (b.lat - a.lat) * u + between(r, -0.00012, 0.00012),
+          lng: a.lng + (b.lng - a.lng) * u + between(r, -0.00012, 0.00012),
+          accuracy: between(r, 5, 18),
+          speed: between(r, 4, 14),
+          heading: between(r, 0, 359),
+          at: startAt + (endAt - startAt) * t,
+          travelSessionId: sessionId,
+        });
+      }
+      points.push(...runPoints);
+      const measured = Math.round(sanitiseTrack(runPoints).meters);
       travelSessions.push({
         id: sessionId,
         employeeId: DEMO_IDS.traveller,
@@ -939,7 +968,7 @@ export function buildDemoData(now = Date.now()): DemoData {
           kind: "base",
           name: "Employee Base — Ambattur",
           address: "Ambattur, Chennai",
-          coords: offset(CENTRES.metro, -6400, -5200),
+          coords: from,
           at: startAt,
         },
         end: {
@@ -956,7 +985,7 @@ export function buildDemoData(now = Date.now()): DemoData {
             ? "Collect electrical materials from supplier."
             : undefined,
         vehicleType: "two-wheeler",
-        distanceMeters: Math.round(km * 1000),
+        distanceMeters: measured,
         flags:
           d === 4
             ? [
@@ -972,25 +1001,6 @@ export function buildDemoData(now = Date.now()): DemoData {
         decidedAt: d <= 1 ? undefined : endAt + 7_200_000,
       });
 
-      // A polyline for the run, so "View route" has a route.
-      const from = offset(CENTRES.metro, -6400, -5200);
-      const steps = 26;
-      for (let i = 0; i <= steps; i++) {
-        const t = i / steps;
-        points.push({
-          id: `${sessionId}-pt-${i}`,
-          attendanceId: `demo-att-${DEMO_IDS.traveller}-${iso}`,
-          employeeId: DEMO_IDS.traveller,
-          projectId: metro.id,
-          lat: from.lat + (gate.center.lat - from.lat) * t + between(r, -0.0006, 0.0006),
-          lng: from.lng + (gate.center.lng - from.lng) * t + between(r, -0.0006, 0.0006),
-          accuracy: between(r, 5, 18),
-          speed: between(r, 4, 14),
-          heading: between(r, 0, 359),
-          at: startAt + (endAt - startAt) * t,
-          travelSessionId: sessionId,
-        });
-      }
     }
   }
 
@@ -1003,18 +1013,26 @@ export function buildDemoData(now = Date.now()): DemoData {
    * exactly what an unfinished run looks like in production.
    */
   {
+    // Only on projects that record travel — a running trip on a project
+    // with travel switched off is exactly what the switch forbids.
+    const travelProject = (u: (typeof WORKERS)[number]) =>
+      projects.find(
+        (p) => u.projectIds.includes(p.id) && p.travelTracking && p.status !== "completed",
+      );
+    // Crew, not the personas: someone signing in as one should find the
+    // day the script describes, not a run they never started.
+    const personas = new Set<string>(Object.values(DEMO_IDS));
     const runners = WORKERS.filter(
-      (u) => u.role === "employee" && u.id !== DEMO_IDS.traveller,
+      (u) => u.role === "employee" && !personas.has(u.id) && travelProject(u),
     ).slice(0, 3);
     const iso = dateISO(new Date(now));
-    const gate = metro.zones.find((z) => z.id === "main-gate")!;
 
     runners.forEach((who, i) => {
-      const project = projects.find((p) => who.projectIds.includes(p.id)) ?? metro;
-      if (project.status === "completed") return;
+      const project = travelProject(who)!;
+      const gate = project.zones.find((z) => z.id === "main-gate")!;
       const startAt = now - intBetween(r, 28, 95) * 60_000;
       const sessionId = `demo-travel-live-${i}`;
-      const from = offset(CENTRES.metro, -5200 - i * 900, -4100 + i * 1300);
+      const from = offset(project.location, -5200 - i * 900, -4100 + i * 1300);
 
       travelSessions.push({
         id: sessionId,
@@ -1038,7 +1056,9 @@ export function buildDemoData(now = Date.now()): DemoData {
       });
 
       // Only the stretch already driven exists — the rest has not happened.
-      const steps = 14;
+      // A fix every two minutes or so: sparser than six and the sanitiser
+      // rightly reads each step as a gap and counts none of it.
+      const steps = Math.max(14, Math.ceil((now - startAt) / 120_000));
       for (let k = 0; k <= steps; k++) {
         const t = k / steps;
         points.push({

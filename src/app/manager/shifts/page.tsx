@@ -132,7 +132,7 @@ export default function ManagerShifts() {
                       {sh.kind === "flexible"
                         ? `${Math.round(sh.requiredMinutes / 60)} working hours`
                         : `${fmtShiftTime(sh.startMinute)} → ${fmtShiftTime(sh.endMinute)}`}
-                      {sh.kind === "overnight" ? (
+                      {sh.kind !== "flexible" && sh.endMinute < sh.startMinute ? (
                         <span className="ml-1 text-[0.72rem] text-[var(--wf-muted)]">
                           (+1 day)
                         </span>
@@ -309,9 +309,10 @@ function ShiftEditor({ base, onDone }: { base: ShiftDef | null; onDone: () => vo
   const [grace, setGrace] = useState(base?.graceMinutes ?? 15);
   const [days, setDays] = useState<number[]>(base?.workingDays ?? [1, 2, 3, 4, 5, 6]);
   const [breaks, setBreaks] = useState<BreakRule[]>(
-    base?.breakRules ?? [
-      { id: `brl_${Date.now()}`, name: "Lunch", startMinute: 13 * 60, endMinute: 13 * 60 + 45, durationMinutes: 45, paid: false },
-    ],
+    () =>
+      base?.breakRules ?? [
+        { id: `brl_${Date.now()}`, name: "Lunch", startMinute: 13 * 60, endMinute: 13 * 60 + 45, durationMinutes: 45, paid: false },
+      ],
   );
   const [maxBreaks, setMaxBreaks] = useState(base?.maxBreaksPerShift ?? 3);
   const [selfServe, setSelfServe] = useState(base?.employeeBreaksAllowed ?? true);
@@ -321,8 +322,34 @@ function ShiftEditor({ base, onDone }: { base: ShiftDef | null; onDone: () => vo
     base?.overtime ?? { ...DEFAULT_OVERTIME },
   );
 
+  // Said in words, not just a dead button: every one of these used to save
+  // silently and leave the engine to guess (a fixed 6 pm → 9 am shift was
+  // read as 15 hours overnight; 9 am → 9 am as a 24-hour day).
+  const namedBreaks = breaks.filter((b) => b.name.trim());
+  const problem = !name.trim()
+    ? "Give the shift a name."
+    : kind === "flexible" && !(requiredHours >= 1 && requiredHours <= 16)
+      ? "Required working hours must be between 1 and 16."
+      : kind !== "flexible" && start === end
+        ? "The shift has to end at a different time from when it starts."
+        : kind === "fixed" && end < start
+          ? "A fixed shift has to end after it starts — choose Overnight for a shift that runs past midnight."
+          : kind === "overnight" && end > start
+            ? "An overnight shift ends the next day — its end time comes before its start."
+            : !(grace >= 0 && grace <= 120)
+              ? "Grace period must be between 0 and 120 minutes."
+              : !(maxBreaks >= 0 && maxBreaks <= 10)
+                ? "Breaks allowed per shift must be between 0 and 10."
+                : days.length === 0
+                  ? "Pick at least one working day."
+                  : namedBreaks.some((b) => !(b.durationMinutes >= 5 && b.durationMinutes <= 240))
+                    ? "Each break must be between 5 and 240 minutes."
+                    : ot.enabled && !(ot.graceMinutes >= 0)
+                      ? "Overtime grace cannot be negative."
+                      : null;
+
   const save = () => {
-    if (!name.trim()) return;
+    if (problem) return;
     wf.saveShift(
       {
         name: name.trim(),
@@ -332,7 +359,7 @@ function ShiftEditor({ base, onDone }: { base: ShiftDef | null; onDone: () => vo
         requiredMinutes: requiredHours * 60,
         graceMinutes: grace,
         workingDays: days,
-        breakRules: breaks.filter((b) => b.name.trim()),
+        breakRules: namedBreaks,
         maxBreaksPerShift: maxBreaks,
         employeeBreaksAllowed: selfServe,
         overtime: ot,
@@ -377,8 +404,9 @@ function ShiftEditor({ base, onDone }: { base: ShiftDef | null; onDone: () => vo
             type="number"
             min={1}
             max={16}
+            aria-invalid={!(requiredHours >= 1 && requiredHours <= 16)}
             value={requiredHours}
-            onChange={(e) => setRequiredHours(Number(e.target.value) || 8)}
+            onChange={(e) => setRequiredHours(Number(e.target.value) || 0)}
           />
         </Field>
       ) : (
@@ -412,6 +440,7 @@ function ShiftEditor({ base, onDone }: { base: ShiftDef | null; onDone: () => vo
             type="number"
             min={0}
             max={120}
+            aria-invalid={!(grace >= 0 && grace <= 120)}
             value={grace}
             onChange={(e) => setGrace(Number(e.target.value) || 0)}
           />
@@ -468,7 +497,7 @@ function ShiftEditor({ base, onDone }: { base: ShiftDef | null; onDone: () => vo
           {breaks.map((b, i) => (
             <div key={b.id} className="flex items-center gap-2">
               <input
-                className="wf-input min-w-[6.5rem] flex-1"
+                className="wf-input min-w-0 flex-1"
                 placeholder="Name"
                 value={b.name}
                 onChange={(e) =>
@@ -478,9 +507,10 @@ function ShiftEditor({ base, onDone }: { base: ShiftDef | null; onDone: () => vo
                 }
               />
               <input
-                className="wf-input w-20 text-center"
+                className="wf-input w-16 shrink-0 text-center"
                 type="number"
                 min={5}
+                max={240}
                 aria-label="Break minutes"
                 value={b.durationMinutes}
                 onChange={(e) =>
@@ -492,7 +522,7 @@ function ShiftEditor({ base, onDone }: { base: ShiftDef | null; onDone: () => vo
                 }
               />
               <button
-                className="wf-btn wf-btn-ghost wf-btn-sm w-20"
+                className="wf-btn wf-btn-ghost wf-btn-sm w-[4.5rem] shrink-0 px-1"
                 onClick={() =>
                   setBreaks((all) =>
                     all.map((x, j) => (j === i ? { ...x, paid: !x.paid } : x)),
@@ -502,7 +532,7 @@ function ShiftEditor({ base, onDone }: { base: ShiftDef | null; onDone: () => vo
                 {b.paid ? "Paid" : "Unpaid"}
               </button>
               <button
-                className="cursor-pointer p-1.5 text-[var(--wf-faint)] hover:text-[var(--wf-red)]"
+                className="shrink-0 cursor-pointer p-1 text-[var(--wf-faint)] hover:text-[var(--wf-red)]"
                 aria-label="Remove break"
                 onClick={() => setBreaks((all) => all.filter((_, j) => j !== i))}
               >
@@ -749,9 +779,12 @@ function ShiftEditor({ base, onDone }: { base: ShiftDef | null; onDone: () => vo
         ) : null}
       </div>
 
+      {problem ? (
+        <p className="text-[0.76rem] text-[var(--wf-red)]">{problem}</p>
+      ) : null}
       <button
         className="wf-btn wf-btn-primary wf-btn-lg"
-        disabled={!name.trim()}
+        disabled={!!problem}
         onClick={save}
       >
         {base ? "Save shift" : "Create shift"}

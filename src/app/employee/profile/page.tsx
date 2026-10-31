@@ -18,9 +18,10 @@ import {
   Toggle,
   useNowTick,
 } from "@/components/ui";
-import { fmtDateLong, fmtDuration, fmtRelative, fmtShiftTime, pct } from "@/lib/format";
+import { fmtDateLong, fmtDuration, fmtRelative, fmtShiftTime, pct, todayISO } from "@/lib/format";
 import { PERFORMANCE_WEIGHTS, performanceFor, projectStandings } from "@/lib/metrics";
 import { SalaryAndShiftSection } from "@/components/SalarySection";
+import { isImplicitShift, shiftFor } from "@/lib/payroll";
 import { useWorkforce } from "@/lib/store";
 import type { Permissions } from "@/lib/types";
 import { ERASE_DEVICE, confirmDestructive } from "@/lib/confirm";
@@ -56,6 +57,10 @@ function ProfileInner() {
 
   const standings = useMemo(
     () => projectStandings(state, currentUser?.id ?? "", currentUser?.projectIds ?? [], 30, now),
+    [state, currentUser, now],
+  );
+  const myShift = useMemo(
+    () => (currentUser ? shiftFor(state, currentUser.id, todayISO(now)) : null),
     [state, currentUser, now],
   );
 
@@ -161,13 +166,22 @@ function ProfileInner() {
               {currentUser.projectIds.map((pid) => {
                 const p = state.projects.find((x) => x.id === pid);
                 if (!p) return null;
+                // An assigned shift is this person's hours; the project's
+                // site hours are only the fallback when none is assigned,
+                // so the two never disagree on the same tab.
+                const hours =
+                  myShift && !isImplicitShift(myShift.id)
+                    ? myShift.kind === "flexible"
+                      ? `${Math.round(myShift.requiredMinutes / 60)}h flexible`
+                      : `${fmtShiftTime(myShift.startMinute)}–${fmtShiftTime(myShift.endMinute)}`
+                    : `${fmtShiftTime(p.rules.shiftStart)}–${fmtShiftTime(p.rules.shiftEnd)}`;
                 const mine = standings.find((x) => x.projectId === pid);
                 return (
                   <div key={pid} className="flex flex-col gap-0.5 py-2">
                     <div className="flex items-center justify-between gap-3">
                       <span className="min-w-0 truncate text-sm font-semibold">{p.name}</span>
                       <span className="shrink-0 text-[0.74rem] tabular-nums text-[var(--wf-muted)]">
-                        {fmtShiftTime(p.rules.shiftStart)}–{fmtShiftTime(p.rules.shiftEnd)}
+                        {hours}
                       </span>
                     </div>
                     {/* What they have actually done here, not just that they are

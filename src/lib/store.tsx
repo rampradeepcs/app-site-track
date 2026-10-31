@@ -43,13 +43,15 @@ import { showToast } from "./toast";
 import {
   DEFAULT_OVERTIME,
   DEFAULT_PAY_POLICY,
+  canRunPayroll,
   dayMetrics,
   fmtHM,
   isImplicitShift,
   monthLocked,
+  runFor,
   shiftFor,
 } from "./payroll";
-import { fmtKmLabel, sanitiseTrack, travelPoints, vehicleOf } from "./allowances";
+import { fmtKmLabel, runTrack, travelAllowance, vehicleOf } from "./allowances";
 import {
   DEMO_EMAIL,
   clearDemoData,
@@ -548,7 +550,7 @@ interface StoreApi {
     employeeId: string,
     amount: number,
     note: string,
-  ) => void;
+  ) => { ok: boolean; reason?: string };
 
   /* mutations */
   submitWorkUpdate: (u: Partial<WorkUpdate> & { description: string }) => void;
@@ -2000,7 +2002,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       );
       let travelSessions = s.travelSessions ?? [];
       if (openTravel) {
-        const track = sanitiseTrack(travelPoints(s, openTravel.id));
+        const track = runTrack(s, openTravel);
         travelSessions = travelSessions.map((t) =>
           t.id === openTravel.id
             ? {
@@ -2438,9 +2440,30 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     ) => {
       const st = stateRef.current;
       if (!st || attendanceIds.length === 0) return;
-      const ids = new Set(attendanceIds);
-      const affected = st.attendance.filter((a) => ids.has(a.id) && a.overtime);
-      if (affected.length === 0) return;
+      const wanted = new Set(attendanceIds);
+      // Nobody settles their own overtime; another manager does.
+      const candidates = st.attendance.filter(
+        (a) => wanted.has(a.id) && a.overtime && a.employeeId !== st.session?.userId,
+      );
+      // An approved or locked month is frozen: approving now would change a
+      // total someone has already signed off. Those records are skipped and
+      // the correction goes through an adjustment instead. Rejecting a
+      // pending record changes no pay, so it is still allowed.
+      const frozen =
+        decision === "approved"
+          ? candidates.filter((a) => monthLocked(st, a.date.slice(0, 7)))
+          : [];
+      const affected = candidates.filter((a) => !frozen.includes(a));
+      if (affected.length === 0) {
+        if (frozen.length) {
+          showToast(
+            "Payroll for that month is closed — record an adjustment instead",
+            "danger",
+          );
+        }
+        return;
+      }
+      const ids = new Set(affected.map((a) => a.id));
 
       mutate((s) => ({
         ...s,
@@ -2493,7 +2516,9 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
       }
 
       showToast(
-        `${affected.length} overtime ${affected.length === 1 ? "record" : "records"} ${decision}`,
+        `${affected.length} overtime ${affected.length === 1 ? "record" : "records"} ${decision}${
+          frozen.length ? ` · ${frozen.length} skipped, payroll closed` : ""
+        }`,
         decision === "approved" ? "success" : "danger",
       );
     },
@@ -2509,8 +2534,27 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     ) => {
       const st = stateRef.current;
       const att = st?.attendance.find((a) => a.id === attendanceId);
-      if (!att?.overtime) return;
-      const worker = st?.users.find((u) => u.id === att.employeeId);
+      if (!st || !att?.overtime) return;
+      if (att.employeeId === st.session?.userId) {
+        showToast("Your own overtime is decided by another manager", "danger");
+        return;
+      }
+      if (decision === "approved" && monthLocked(st, att.date.slice(0, 7))) {
+        showToast(
+          "Payroll for that month is closed — record an adjustment instead",
+          "danger",
+        );
+        return;
+      }
+      // Approval can trim the overtime, never invent it: the claim is the
+      // ceiling and nothing below zero means anything.
+      if (approvedMinutes != null) {
+        approvedMinutes = Math.min(
+          att.overtime.minutes,
+          Math.max(0, Math.round(Number.isFinite(approvedMinutes) ? approvedMinutes : 0)),
+        );
+      }
+      const worker = st.users.find((u) => u.id === att.employeeId);
       mutate((s) => ({
         ...s,
         attendance: s.attendance.map((a) =>
@@ -2583,6 +2627,15 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
 
   const setPayrollStatus = useCallback(
     (month: string, status: PayrollStatus) => {
+      const st = stateRef.current;
+      if (!canRunPayroll(st?.session?.role)) {
+        showToast("Only a payroll admin can change the payroll status", "danger");
+        return;
+      }
+      if (st && runFor(st, month)?.status === "locked") {
+        showToast("This month is locked", "danger");
+        return;
+      }
       mutate((s) => {
         const orgId = currentOrgId(s);
         const existing = (s.payrollRuns ?? []).find(
@@ -2629,7 +2682,25 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
   );
 
   const addPayrollAdjustment = useCallback(
-    (month: string, employeeId: string, amount: number, note: string) => {
+    (
+      month: string,
+      employeeId: string,
+      amount: number,
+      note: string,
+    ): { ok: boolean; reason?: string } => {
+      const st = stateRef.current;
+      if (!canRunPayroll(st?.session?.role)) {
+        return { ok: false, reason: "Only a payroll admin can record an adjustment." };
+      }
+      if (st?.session?.userId === employeeId) {
+        return {
+          ok: false,
+          reason: "Nobody can adjust their own pay — ask another payroll admin.",
+        };
+      }
+      if (!Number.isFinite(amount) || amount === 0 || !note.trim()) {
+        return { ok: false, reason: "An adjustment needs an amount and a reason." };
+      }
       let savedRun: WorkforceState["payrollRuns"][number] | null = null;
       mutate((s) => {
         const orgId = currentOrgId(s);
@@ -2673,6 +2744,8 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
         const run = savedRun;
         persist("save the adjustment", () => upsertPayrollRun(run));
       }
+      showToast("Adjustment recorded");
+      return { ok: true };
     },
     [mutate],
   );
@@ -2769,7 +2842,7 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
 
     // Measure the run now, through the sanitiser: drift, jumps and gaps are
     // scored out here, once, and the flags kept for the reviewer (spec §8).
-    const track = sanitiseTrack(travelPoints(s, session.id));
+    const track = runTrack(s, session);
     const at = premiseAt(f.coords, assignedPremises(s.projects, user));
     const project = s.projects.find((p) => p.id === session.projectId);
     const ended: TravelSession = {
@@ -2827,8 +2900,28 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
     ) => {
       const st = stateRef.current;
       const session = (st?.travelSessions ?? []).find((t) => t.id === sessionId);
-      if (!session) return;
-      const worker = st?.users.find((u) => u.id === session.employeeId);
+      if (!st || !session || session.status === "active") return;
+      if (session.employeeId === st.session?.userId) {
+        showToast("Your own travel is decided by another manager", "danger");
+        return;
+      }
+      // Same rule as overtime: a decision that would move a closed month's
+      // pay is refused. Rejecting a trip that earns nothing yet is harmless.
+      if (
+        monthLocked(st, session.date.slice(0, 7)) &&
+        (decision === "approved" || travelAllowance(st, session).payable)
+      ) {
+        showToast(
+          "Payroll for that month is closed — record an adjustment instead",
+          "danger",
+        );
+        return;
+      }
+      if (approvedKm != null && !(Number.isFinite(approvedKm) && approvedKm >= 0)) {
+        showToast("Approved distance must be zero or more", "danger");
+        return;
+      }
+      const worker = st.users.find((u) => u.id === session.employeeId);
       mutate((s) => ({
         ...s,
         travelSessions: (s.travelSessions ?? []).map((t) =>
@@ -2890,15 +2983,69 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
 
   const savePetrolRule = useCallback(
     (patch: Partial<PetrolRule> & { name: string }, id?: string) => {
+      // Ceilings below zero are not ceilings; a rate of zero is no rule.
+      if (
+        (patch.ratePerKm != null && !(patch.ratePerKm > 0)) ||
+        (patch.maxDailyKm != null && !(patch.maxDailyKm >= 0)) ||
+        (patch.maxDailyAmount != null && !(patch.maxDailyAmount >= 0))
+      ) {
+        showToast("Rates and limits must be zero or more", "danger");
+        return;
+      }
+      const today = todayISO();
+      let savedIds: string[] = [];
       mutate((s) => {
-        if (id) {
+        const prev = id ? (s.petrolRules ?? []).find((r) => r.id === id) : undefined;
+        if (prev) {
+          /*
+           * A rule that has already priced trips is never rewritten: that
+           * would reprice months already approved and paid. A change to what
+           * it pays starts a new version from today; the old one keeps
+           * pricing everything before. Who it covers is fixed once in force
+           * — a different scope is a different rule.
+           */
+          const inForce = prev.effectiveFrom < today;
+          const edit: Partial<PetrolRule> = { ...patch };
+          if (inForce) {
+            delete edit.vehicleType;
+            delete edit.projectIds;
+            delete edit.employeeIds;
+          }
+          const repriced = (
+            ["ratePerKm", "maxDailyKm", "maxDailyAmount", "approval"] as const
+          ).some((k) => k in edit && edit[k] !== prev[k]);
+          if (inForce && repriced) {
+            const next: PetrolRule = {
+              ...prev,
+              ...edit,
+              id: uid(),
+              effectiveFrom: today,
+              status: "active",
+              createdAt: Date.now(),
+            };
+            savedIds = [next.id];
+            return {
+              ...s,
+              petrolRules: [...(s.petrolRules ?? []), next],
+              audit: [
+                auditLine(
+                  s,
+                  "allowance.petrol.version",
+                  prev.id,
+                  `${next.name} · ₹${prev.ratePerKm} → ₹${next.ratePerKm}/km from ${today}`,
+                ),
+                ...s.audit,
+              ].slice(0, 200),
+            };
+          }
+          savedIds = [prev.id];
           return {
             ...s,
             petrolRules: (s.petrolRules ?? []).map((r) =>
-              r.id === id ? { ...r, ...patch, id } : r,
+              r.id === prev.id ? { ...r, ...edit, id: prev.id } : r,
             ),
             audit: [
-              auditLine(s, "allowance.petrol.update", id, patch.name),
+              auditLine(s, "allowance.petrol.update", prev.id, patch.name),
               ...s.audit,
             ].slice(0, 200),
           };
@@ -2914,10 +3061,11 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           approval: patch.approval ?? "manager",
           projectIds: patch.projectIds ?? [],
           employeeIds: patch.employeeIds ?? [],
-          effectiveFrom: patch.effectiveFrom ?? todayISO(),
+          effectiveFrom: patch.effectiveFrom ?? today,
           status: "active",
           createdAt: Date.now(),
         };
+        savedIds = [created.id];
         return {
           ...s,
           petrolRules: [...(s.petrolRules ?? []), created],
@@ -2932,10 +3080,13 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ].slice(0, 200),
         };
       });
-      const saved = (stateRef.current?.petrolRules ?? []).find(
-        (r) => r.id === id || r.name === patch.name,
-      );
-      if (saved) persist("save the petrol rule", () => upsertPetrolRule(saved));
+      // By id: two versions of one rule share a name, so a name lookup
+      // could persist the wrong one.
+      for (const savedId of savedIds) {
+        const saved = (stateRef.current?.petrolRules ?? []).find((r) => r.id === savedId);
+        if (saved) persist("save the petrol rule", () => upsertPetrolRule(saved));
+      }
+      showToast(id ? "Petrol rule saved" : `${patch.name} created`);
     },
     [mutate],
   );
@@ -2986,43 +3137,68 @@ export function WorkforceProvider({ children }: { children: React.ReactNode }) {
           ].slice(0, 200),
         };
       });
-      const saved = (stateRef.current?.foodRules ?? []).find(
-        (r) => r.id === id || r.name === patch.name,
-      );
+      const saved = id
+        ? (stateRef.current?.foodRules ?? []).find((r) => r.id === id)
+        : (stateRef.current?.foodRules ?? []).at(-1);
       if (saved) persist("save the food rule", () => upsertFoodRule(saved));
+      showToast(id ? "Food rule saved" : `${patch.name} created`);
     },
     [mutate],
   );
 
   const archiveAllowanceRule = useCallback(
     (kind: "petrol" | "food", id: string) => {
-      mutate((s) => ({
-        ...s,
-        petrolRules:
-          kind === "petrol"
-            ? (s.petrolRules ?? []).map((r) =>
-                r.id === id ? { ...r, status: "archived" } : r,
-              )
-            : s.petrolRules,
-        foodRules:
-          kind === "food"
-            ? (s.foodRules ?? []).map((r) =>
-                r.id === id ? { ...r, status: "archived" } : r,
-              )
-            : s.foodRules,
-        audit: [
-          auditLine(s, `allowance.${kind}.archive`, id, ""),
-          ...s.audit,
-        ].slice(0, 200),
-      }));
-      const st = stateRef.current;
-      if (kind === "petrol") {
-        const r = st?.petrolRules.find((x) => x.id === id);
-        if (r) persist("archive the petrol rule", () => upsertPetrolRule(r));
-      } else {
-        const r = st?.foodRules.find((x) => x.id === id);
-        if (r) persist("archive the food rule", () => upsertFoodRule(r));
+      const today = todayISO();
+      let saved: Array<PetrolRule | FoodRule> = [];
+      mutate((s) => {
+        let petrolRules = s.petrolRules ?? [];
+        let foodRules = s.foodRules ?? [];
+        if (kind === "petrol") {
+          const prev = petrolRules.find((r) => r.id === id);
+          if (!prev) return s;
+          if (prev.effectiveFrom < today) {
+            // Archiving ends the rule from today rather than erasing it, so
+            // trips it already priced keep their amounts: an archived
+            // version dated today closes the line (see petrolRuleFor).
+            const end: PetrolRule = {
+              ...prev,
+              id: uid(),
+              effectiveFrom: today,
+              status: "archived",
+              createdAt: Date.now(),
+            };
+            petrolRules = [...petrolRules, end];
+            saved = [end];
+          } else {
+            petrolRules = petrolRules.map((r) =>
+              r.id === id ? { ...r, status: "archived" as const } : r,
+            );
+            saved = petrolRules.filter((r) => r.id === id);
+          }
+        } else {
+          foodRules = foodRules.map((r) =>
+            r.id === id ? { ...r, status: "archived" as const } : r,
+          );
+          saved = foodRules.filter((r) => r.id === id);
+        }
+        return {
+          ...s,
+          petrolRules,
+          foodRules,
+          audit: [
+            auditLine(s, `allowance.${kind}.archive`, id, ""),
+            ...s.audit,
+          ].slice(0, 200),
+        };
+      });
+      for (const r of saved) {
+        if (kind === "petrol") {
+          persist("archive the petrol rule", () => upsertPetrolRule(r as PetrolRule));
+        } else {
+          persist("archive the food rule", () => upsertFoodRule(r as FoodRule));
+        }
       }
+      if (saved.length) showToast("Rule archived");
     },
     [mutate],
   );

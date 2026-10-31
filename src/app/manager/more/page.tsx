@@ -21,6 +21,7 @@ import { ScreenHeader } from "@/components/shell";
 
 import { MyCompaniesPanel } from "@/components/MyCompaniesPanel";
 
+import { canSeePay } from "@/lib/payroll";
 import { useWorkforce } from "@/lib/store";
 import { isForMe } from "@/lib/notify";
 import { useNotificationPrefs, wants } from "@/lib/notification-prefs";
@@ -28,7 +29,10 @@ import { useNotificationPrefs, wants } from "@/lib/notification-prefs";
 import { IBell, ICamera, IChart, IChevronR, IClipboard, IClock, IFile, IMapPin, INav, ISettings, IUsers, IWallet } from "@/components/WfIcons";
 
 export default function MorePage() {
-  const { state } = useWorkforce();
+  const { state, currentUser } = useWorkforce();
+  // Managers see pay only when the org's pay policy says so; otherwise the
+  // same screen is where they settle overtime, and is named for that.
+  const seePay = canSeePay(currentUser?.role, state.payPolicy);
   const prefs = useNotificationPrefs();
 
   const alerts = state.notifications.filter(
@@ -65,9 +69,11 @@ export default function MorePage() {
                 <IWallet size={18} />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[0.92rem] font-semibold">Payroll</span>
+                <span className="block text-[0.92rem] font-semibold">
+                  {seePay ? "Payroll" : "Overtime approvals"}
+                </span>
                 <span className="block truncate text-[0.72rem] text-[var(--wf-muted)]">
-                  Monthly runs, OT approvals, exports
+                  {seePay ? "Monthly runs, OT approvals, exports" : "Settle your crew's overtime"}
                 </span>
               </span>
               <IChevronR size={16} className="shrink-0 text-[var(--wf-faint)]" />

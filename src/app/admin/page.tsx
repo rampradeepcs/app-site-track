@@ -223,7 +223,10 @@ export default function AdminOverview() {
         </div>
 
         <p className="flex items-center justify-center gap-1.5 pb-2 text-center text-[0.68rem] text-[var(--wf-faint)]">
-          <IShield size={12} /> Super-admin session — you can also open any manager surface
+          <IShield size={12} />{" "}
+          {/* Named for whoever is signed in — a client admin is not a super admin. */}
+          {roleLabel(state.session?.role ?? currentUser?.role ?? "admin")} session — you
+          can also open any manager surface
         </p>
       </div>
     </div>

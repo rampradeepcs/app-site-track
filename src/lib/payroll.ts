@@ -248,7 +248,13 @@ export interface DayMetrics {
   regularMinutes: number;
   /** Whether the shift is still open (metrics are live, not final). */
   open: boolean;
+  /** No checkout, and too long ago to still be running — credited to the
+      shift end with no overtime, so a missed tap cannot inflate pay. */
+  missingCheckout: boolean;
 }
+
+/** An open shift older than this (or its shift length + 4h) is a missed checkout. */
+const STALE_OPEN_MINUTES = 16 * 60;
 
 /** Epoch ms of a minutes-from-midnight time on an ISO date. */
 function timeOn(date: string, minutes: number): number {
@@ -261,19 +267,42 @@ export function dayMetrics(
   now = Date.now(),
 ): DayMetrics {
   const inAt = att.checkIn?.at ?? now;
-  const outAt = att.checkOut?.at ?? now;
-  const open = !!att.checkIn && !att.checkOut && !att.autoClosed;
-
-  const grossMinutes = Math.max(0, (outAt - inAt) / 60000);
-  const breaks = breakTotals(att.breaks, shift, now);
-  const netMinutes = Math.max(0, grossMinutes - breaks.totalMinutes);
-
   const flexible = shift.kind === "flexible";
   const scheduledMinutes = flexible
     ? shift.requiredMinutes
     : shift.endMinute > shift.startMinute
       ? shift.endMinute - shift.startMinute
       : 24 * 60 - shift.startMinute + shift.endMinute; // overnight
+  const shiftEndAt = timeOn(
+    att.date,
+    shift.endMinute > shift.startMinute ? shift.endMinute : shift.endMinute + 24 * 60,
+  );
+
+  /*
+   * A shift nobody checked out of is a missed checkout, not a 400-hour day.
+   * Left to run against the clock, one forgotten tap in the first week
+   * inflated the whole month's hours and overtime — and kept growing after
+   * the month was locked. Past a plausible length (or once the system has
+   * closed it), the day is credited to the end of the shift, earns no
+   * overtime, and says so; a real checkout time still wins.
+   */
+  const unclosed = !!att.checkIn && !att.checkOut;
+  const maxOpenMinutes = Math.max(STALE_OPEN_MINUTES, scheduledMinutes + 4 * 60);
+  const missingCheckout =
+    unclosed && (!!att.autoClosed || now - inAt > maxOpenMinutes * 60000);
+  const credited = flexible
+    ? inAt +
+      (shift.requiredMinutes +
+        shift.breakRules.reduce((t, r) => t + r.durationMinutes, 0)) *
+        60000
+    : Math.max(shiftEndAt, inAt);
+  const ref = missingCheckout ? Math.min(now, credited) : now;
+  const outAt = att.checkOut?.at ?? ref;
+  const open = unclosed && !missingCheckout;
+
+  const grossMinutes = Math.max(0, (outAt - inAt) / 60000);
+  const breaks = breakTotals(att.breaks, shift, ref);
+  const netMinutes = Math.max(0, grossMinutes - breaks.totalMinutes);
 
   let lateMinutes = 0;
   let earlyOutMinutes = 0;
@@ -289,12 +318,7 @@ export function dayMetrics(
     const start = timeOn(att.date, shift.startMinute);
     // An overnight shift ends on the next calendar day; the attendance row
     // stays filed under the check-in date (spec §5).
-    const end = timeOn(
-      att.date,
-      shift.endMinute > shift.startMinute
-        ? shift.endMinute
-        : shift.endMinute + 24 * 60,
-    );
+    const end = shiftEndAt;
     lateMinutes = Math.max(0, (inAt - start) / 60000);
     // Overtime runs from the shift end — or from check-in, for someone who
     // arrived after it — and can never exceed the time actually worked.
@@ -322,6 +346,7 @@ export function dayMetrics(
     overtimeMinutes,
     regularMinutes: Math.max(0, netMinutes - overtimeMinutes),
     open,
+    missingCheckout,
   };
 }
 
@@ -435,7 +460,9 @@ export function dayPay(
       why:
         comp.type === "daily"
           ? `Daily wage ₹${comp.amount}`
-          : `₹${comp.amount}/month ÷ ${comp.workingDaysPerMonth} working days`,
+          : // The salary's own divisor, which is a term of the contract and
+            // need not match this month's calendar — say which it is.
+            `₹${comp.amount}/month ÷ ${comp.workingDaysPerMonth} paid days a month (salary basis)`,
     });
     /* unpaid break beyond allowance, for salaried staff */
     if (policy.excessBreakUnpaid && metrics.breaks.unpaidMinutes > 0.5) {
@@ -798,9 +825,34 @@ export function fmtHM(minutes: number): string {
 /** ₹ formatting, Indian grouping, no paise unless present. */
 export function fmtINR(amount: number): string {
   const rounded = Math.round(amount * 100) / 100;
+  // Whole rupees stay whole; anything with paise always shows both digits,
+  // so ₹173.70 never sits beside ₹203.15 as "₹173.7".
+  const digits = Number.isInteger(rounded) ? 0 : 2;
   return `₹${rounded.toLocaleString("en-IN", {
-    maximumFractionDigits: Number.isInteger(rounded) ? 0 : 2,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
   })}`;
+}
+
+/**
+ * Who may see pay figures: admins and the platform owner always, managers
+ * only when the org's pay policy grants it — the same rule the salary card
+ * on a profile follows, so the payroll screen cannot be the way round it.
+ */
+export function canSeePay(
+  role: string | undefined,
+  policy: Pick<PayPolicy, "managerSeesSalary"> | undefined,
+): boolean {
+  return (
+    role === "admin" ||
+    role === "superadmin" ||
+    (role === "manager" && !!policy?.managerSeesSalary)
+  );
+}
+
+/** Who may move a payroll run along or record an adjustment on it. */
+export function canRunPayroll(role: string | undefined): boolean {
+  return role === "admin" || role === "superadmin";
 }
 
 /* -------------------------------------------------------- live dashboard */

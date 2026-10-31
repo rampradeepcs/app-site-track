@@ -64,7 +64,9 @@ interface View {
   zoom: number; // fractional web-mercator zoom
 }
 
-const MIN_ZOOM = 14;
+/** Low enough to frame a cross-town work run (~10 km) on a phone; a site
+    fence still fits far tighter than this. */
+const MIN_ZOOM = 10;
 const MAX_ZOOM = 20.5;
 /** OSM raster tiles top out at z19; beyond that we upscale the z19 tiles. */
 const MAX_TILE_ZOOM = 19;
