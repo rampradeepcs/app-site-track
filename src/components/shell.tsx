@@ -18,6 +18,7 @@ import { PlanExpired } from "./PlanExpired";
 import { EntryRequired } from "./EntryRequired";
 import { confirmDestructive } from "@/lib/confirm";
 import { homeFor } from "@/lib/routes";
+import { goBack } from "@/lib/nav-history";
 import type { Role } from "@/lib/types";
 import { roleLabel } from "@/lib/format";
 import { canEnter, rememberDestination } from "@/lib/routes";
@@ -536,10 +537,12 @@ export function ScreenHeader({
    */
   onBack?: () => void;
   /**
-   * Where the back button goes. A path pushes it; `true` steps back through
-   * history instead — which is what a page reachable from more than one
-   * place needs, since Shifts opens from the manager's More menu and the
-   * admin's, and hard-coding either one strands the other.
+   * Shows the back button. Back always steps back through the history the
+   * person walked (lib/nav-history.ts) — Shifts opens from the manager's More
+   * and the admin's, and naming either as "the" parent stranded the other.
+   * The value is only where to go when there is nothing in this app behind
+   * the screen, as on a link opened cold: a path, or `true` for the role's
+   * home.
    */
   back?: string | true;
   /**
@@ -608,12 +611,10 @@ export function ScreenHeader({
           onClick={() => {
             const go = () => {
               if (onBack) return onBack();
-              if (backHere !== true) return router.push(backHere);
-              // A cold deep link has nothing behind it, and router.back()
-              // on an empty history does nothing at all — which is the
-              // dead end this button exists to prevent.
-              if (window.history.length > 1) router.back();
-              else router.push(homeFor(state.session?.role ?? "employee"));
+              goBack(
+                router,
+                backHere === true ? homeFor(state.session?.role ?? "employee") : backHere,
+              );
             };
             if (confirmBack) confirmDestructive(confirmBack, go);
             else go();
@@ -641,6 +642,31 @@ export function ScreenHeader({
       </div>
     </header>
     </>
+  );
+}
+
+/**
+ * An in-page "Back to …" link that steps back like the header's arrow does,
+ * and goes to `fallback` only when nothing in this app is behind the screen.
+ */
+export function BackLink({
+  fallback,
+  className,
+  children,
+}: {
+  fallback: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const router = useRouter();
+  return (
+    <button
+      type="button"
+      className={`cursor-pointer ${className ?? ""}`}
+      onClick={() => goBack(router, fallback)}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -723,11 +749,7 @@ function FloatingActions({
           onClick={() => {
             const go = () => {
               if (onBack) return onBack();
-              if (back !== true) return router.push(back);
-              // A cold deep link has nothing behind it, and router.back() on
-              // an empty history does nothing at all.
-              if (window.history.length > 1) router.back();
-              else router.push(homeFor(state.session?.role ?? "employee"));
+              goBack(router, back === true ? homeFor(state.session?.role ?? "employee") : back);
             };
             if (confirmBack) confirmDestructive(confirmBack, go);
             else go();

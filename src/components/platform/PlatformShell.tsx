@@ -15,7 +15,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { usePlatform } from "@/lib/platform-store";
 import { useWorkforce } from "@/lib/store";
 import { Avatar } from "@/components/ui";
-import { ImpersonationBanner, RoleGuard, TabBar } from "@/components/shell";
+import { BackLink, ImpersonationBanner, RoleGuard, TabBar } from "@/components/shell";
 import {
   IAlert,
   IBell,
@@ -167,13 +167,15 @@ export function PageHead({
   return (
     <header className="flex flex-wrap items-end justify-between gap-3 px-5 pb-4 pt-6">
       <div className="min-w-0">
+        {/* Steps back through history like every back control; the href is
+            only where to go when nothing in the app is behind this page. */}
         {back && (
-          <Link
-            href={back.href}
+          <BackLink
+            fallback={back.href}
             className="mb-1 inline-flex items-center gap-1 text-[0.74rem] font-semibold text-[var(--wf-muted)] hover:text-[var(--wf-fg)]"
           >
             ← {back.label}
-          </Link>
+          </BackLink>
         )}
         <h1 className="wf-display truncate text-[1.5rem] leading-tight">{title}</h1>
         {sub ? <p className="text-[0.82rem] text-[var(--wf-muted)]">{sub}</p> : null}

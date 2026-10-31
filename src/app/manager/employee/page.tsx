@@ -8,7 +8,7 @@
 import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ScreenHeader } from "@/components/shell";
+import { BackLink, ScreenHeader } from "@/components/shell";
 import { StatusPills, countByStatus } from "@/components/StatusPills";
 import { ProgressRing, ScoreBars, Sparkline } from "@/components/charts";
 import { Avatar, CallLink, Chip, KpiCard, SectionTitle, StatusChip, useNowTick } from "@/components/ui";
@@ -59,9 +59,9 @@ function EmployeeInner() {
         <ScreenHeader back title="Employee not found" />
         <p className="px-4 pt-6 text-center text-sm text-[var(--wf-muted)]">
           They may have been removed.{" "}
-          <Link href="/manager/workforce" className="font-semibold text-[var(--wf-amber)]">
+          <BackLink fallback="/manager/workforce" className="font-semibold text-[var(--wf-amber)]">
             Back to workforce
-          </Link>
+          </BackLink>
         </p>
       </div>
     );

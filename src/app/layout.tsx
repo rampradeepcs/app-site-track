@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { PlatformProvider } from "@/lib/platform-store";
 import { WorkforceProvider } from "@/lib/store";
+import { HistoryDepth } from "@/components/HistoryDepth";
 import { PREPAINT_SCRIPT } from "@/lib/theme";
 import { DemoBar } from "@/components/demo/DemoBar";
 import { NativeChrome } from "@/components/NativeChrome";
@@ -61,6 +62,7 @@ export default function RootLayout({
         <div className="wf min-h-dvh">
           <PlatformProvider>
             <WorkforceProvider>
+              <HistoryDepth />
               {children}
               <NativeChrome />
               <TileCache />

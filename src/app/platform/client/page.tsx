@@ -10,6 +10,7 @@ import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageHead } from "@/components/platform/PlatformShell";
+import { BackLink } from "@/components/shell";
 import {
   HealthPill,
   InvoicePill,
@@ -151,9 +152,9 @@ function ClientInner() {
     return (
       <div className="px-5 pt-10 text-center text-sm text-[var(--wf-muted)]">
         Client not found.{" "}
-        <Link href="/platform/clients" className="font-semibold text-[var(--wf-violet)]">
+        <BackLink fallback="/platform/clients" className="font-semibold text-[var(--wf-violet)]">
           Back to clients
-        </Link>
+        </BackLink>
       </div>
     );
   }

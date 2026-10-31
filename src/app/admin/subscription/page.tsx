@@ -16,9 +16,8 @@
  * is for, so the platform owner does not have to guess.
  */
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ScreenHeader } from "@/components/shell";
+import { BackLink, ScreenHeader } from "@/components/shell";
 import { Chip, Field } from "@/components/ui";
 import { useEntitlements, useViewingOrgId } from "@/components/FeatureGate";
 import { usePlatform } from "@/lib/platform-store";
@@ -407,9 +406,9 @@ export default function SubscriptionPage() {
           )}
         </div>
 
-        <Link href="/admin/more" className="wf-btn wf-btn-ghost">
+        <BackLink fallback="/admin/more" className="wf-btn wf-btn-ghost">
           Back to More
-        </Link>
+        </BackLink>
       </div>
     </div>
   );

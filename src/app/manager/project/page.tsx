@@ -10,7 +10,7 @@ import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { GeofenceEditor } from "@/components/GeofenceEditor";
 import { DISCARD_FENCE, confirmDestructive } from "@/lib/confirm";
-import { ScreenHeader } from "@/components/shell";
+import { BackLink, ScreenHeader } from "@/components/shell";
 import { useFeature, useLimitGuard } from "@/components/FeatureGate";
 import { SiteMap, type MapMarker } from "@/components/SiteMap";
 import { BarTrend } from "@/components/charts";
@@ -123,9 +123,9 @@ function ProjectInner() {
         <ScreenHeader back title="Project not found" />
         <p className="px-4 pt-6 text-center text-sm text-[var(--wf-muted)]">
           It may have been removed.{" "}
-          <Link href="/manager/projects" className="font-semibold text-[var(--wf-amber)]">
+          <BackLink fallback="/manager/projects" className="font-semibold text-[var(--wf-amber)]">
             Back to projects
-          </Link>
+          </BackLink>
         </p>
       </div>
     );
