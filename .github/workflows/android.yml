@@ -83,29 +83,101 @@ jobs:
             --prerelease \
             "workfence-debug-${GITHUB_SHA::7}.apk"
 
-      # A release build needs a keystore. Add these repository secrets and the
-      # step below produces a signed, installable release APK:
-      #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
-      #   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
-      - name: Assemble signed release APK
+      # ------------------------------------------------------------ for Play
+      # The signed app bundle Play takes, and a signed APK from the same build.
+      # The debug APK above is no use there: Play refuses anything debuggable,
+      # and wants a bundle signed with the upload key it has on file. Six
+      # repository secrets turn this half on:
+      #   ANDROID_KEYSTORE_BASE64     the upload keystore, `base64 -i upload.jks`
+      #   ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+      #   SUPABASE_URL, SUPABASE_ANON_KEY   the same pair pages.yml reads
+      # Without the keystore every step below is skipped and the run stays
+      # green, with the debug APK still delivered.
+      #
+      # Phone only. The watch module is left out of the Play build for now.
+
+      # The web layer is built again, against the live backend. The copy the
+      # debug APK carries was built with no credentials, which is demo mode:
+      # fine to sideload and look around, wrong to hand to testers who will
+      # try to check in at a real site. An upload key with no backend
+      # credentials fails the run rather than shipping demo mode by accident.
+      - name: Rebuild the web bundle against the live backend
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then
+            echo "::error title=No backend credentials::The upload key is set but SUPABASE_URL or SUPABASE_ANON_KEY is not, so the Play bundle would run in demo mode. Add both repository secrets."
+            exit 1
+          fi
+          rm -rf .next out
+          STATIC_EXPORT=true npm run build
+          # A misnamed secret is silent otherwise: the build succeeds and demo
+          # mode ships. Prove the URL reached the bundle.
+          if ! grep -rqF "$NEXT_PUBLIC_SUPABASE_URL" out/_next/static; then
+            echo "::error::The rebuilt web bundle contains no Supabase URL; it would run in demo mode."
+            exit 1
+          fi
+          npx cap copy android
+
+      - name: Assemble the signed app bundle and release APK
         if: env.HAS_KEYSTORE == 'true'
         working-directory: android
         env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
-          ./gradlew assembleRelease --no-daemon \
+          # The key never outlives the step, whether gradle succeeds or not.
+          trap 'rm -f release.keystore' EXIT
+          echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
+          ./gradlew :app:bundleRelease :app:assembleRelease --no-daemon \
             -Pandroid.injected.signing.store.file="$PWD/release.keystore" \
             -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
             -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
             -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
-          rm -f release.keystore
 
-      - uses: actions/upload-artifact@v4
+      # Published as a rolling prerelease beside android-latest, for the same
+      # reason: release assets are not subject to the Actions artifact quota.
+      # Play turns a bundle away for two reasons worth catching here rather
+      # than in the console: no signature, and a version code it has already
+      # seen. The first is checked; the second is stated on the release.
+      - name: Publish the Play bundle
         if: env.HAS_KEYSTORE == 'true'
-        continue-on-error: true
-        with:
-          name: workfence-release-apk
-          path: android/app/build/outputs/apk/release/*.apk
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          aab=android/app/build/outputs/bundle/release/app-release.aab
+          apk=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          map=android/app/build/outputs/mapping/release/mapping.txt
+          verified=$(jarsigner -verify "$aab" 2>&1 || true)
+          if ! grep -q "jar verified" <<<"$verified"; then
+            echo "::error::$aab is not signed: $verified"
+            exit 1
+          fi
+          code=$(grep -m1 -oE 'versionCode [0-9]+' android/app/build.gradle | awk '{print $2}')
+          name=$(grep -m1 -oE 'versionName "[^"]+"' android/app/build.gradle | cut -d'"' -f2)
+          stem="workfence-${name}-${code}"
+          cp "$aab" "$stem.aab"
+          cp "$apk" "$stem-release.apk"
+          files=("$stem.aab" "$stem-release.apk")
+          if [ -f "$map" ]; then cp "$map" "$stem-mapping.txt"; files+=("$stem-mapping.txt"); fi
+          {
+            echo "Signed with the upload key, built from \`${GITHUB_SHA::7}\` against the live backend. Phone only."
+            echo
+            echo "- \`$stem.aab\`: upload this in Play Console, under Test and release, to the track's new release."
+            echo "- \`$stem-mapping.txt\`: the R8 mapping. In Play, open the bundle in App bundle explorer, then Downloads, then upload it as the ReTrace mapping file, so crash reports read as source."
+            echo "- \`$stem-release.apk\`: the same build as an installable APK."
+            echo
+            echo "Version code **${code}**. Play refuses a version code it has seen before, so bump \`versionCode\` in \`android/app/build.gradle\` before the next upload."
+          } > notes.md
+          gh release delete android-play --yes --cleanup-tag 2>/dev/null || true
+          gh release create android-play \
+            --target "$GITHUB_SHA" \
+            --title "Workfence Android ${name} (${code}) for Google Play" \
+            --notes-file notes.md \
+            --prerelease \
+            "${files[@]}"
+          echo "Play bundle: $stem.aab, version code $code" >> "$GITHUB_STEP_SUMMARY"

@@ -281,10 +281,18 @@ Needs JDK 21 and the Android SDK (via Android Studio, or
 `sdkmanager "platforms;android-35" "build-tools;35.0.0"`).
 
 **No local Android setup?** Push to `main` and the
-`.github/workflows/android.yml` workflow builds the APK and uploads it as a
-run artifact. Add `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
-`ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD` as repository secrets and it
-also produces a signed release APK.
+`.github/workflows/android.yml` workflow builds a debug APK and publishes it to
+the `android-latest` prerelease. That build carries no backend credentials, so
+it runs in demo mode, and Play will not take it.
+
+For Google Play, add six repository secrets: `ANDROID_KEYSTORE_BASE64` (the
+upload keystore, `base64 -i upload.jks`), `ANDROID_KEYSTORE_PASSWORD`,
+`ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`, and the `SUPABASE_URL` /
+`SUPABASE_ANON_KEY` pair the Pages deploy reads. The workflow then rebuilds the
+web layer against the live backend and publishes a signed app bundle, its R8
+mapping file and a signed release APK to the `android-play` prerelease. That
+covers the phone app only. Play refuses a version code it has seen before, so
+bump `versionCode` in `android/app/build.gradle` before each upload.
 
 ### Permissions
 
